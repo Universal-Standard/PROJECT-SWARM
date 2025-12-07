@@ -82,8 +82,14 @@ jobs:
             // Check if any teams are configured
             const hasConfiguredTeams = Object.values(team).some(t => t.members.length > 0);
             if (!hasConfiguredTeams) {
-              console.log('⚠️ No team members configured - skipping assignment');
-              console.log('Configure team members in .github/workflows/orchestrator-assignment.yml');
+              console.log('⚠️ No team members configured in orchestrator workflow');
+              console.log('');
+              console.log('To enable automatic task assignment:');
+              console.log('1. Edit .github/workflows/orchestrator-assignment.yml');
+              console.log('2. Add GitHub usernames to the team.members arrays');
+              console.log('3. Example: members: ["octocat", "github-user"]');
+              console.log('');
+              console.log('Tasks will be labeled as "needs-manual-assignment" until configured.');
               return;
             }
             

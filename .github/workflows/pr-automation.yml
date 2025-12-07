@@ -27,7 +27,6 @@ jobs:
             
             // Type detection - more robust pattern matching
             // Matches both [x] and [X] with optional spaces
-            const checkedPattern = /\[x\]\s*(?:🐛|✨|💥|📝|⚡|🎨)/i;
             
             if (body.match(/\[x\]\s*🐛/i) || title.includes('fix') || title.includes('bug')) {
               labels.push('bug', 'fix');
@@ -105,7 +104,7 @@ jobs:
                   }).catch((error) => {
                     // Ignore 404 errors (label doesn't exist), log others
                     if (error.status !== 404) {
-                      console.log(`Warning: Could not remove label from #${issueNum}: ${error.message}`);
+                      console.error(`Warning: Could not remove label from #${issueNum}: ${error.message}`);
                     }
                   });
                 } catch (error) {
