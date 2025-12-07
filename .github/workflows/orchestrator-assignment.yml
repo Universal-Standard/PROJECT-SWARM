@@ -50,33 +50,42 @@ jobs:
             const tasks = ${{ steps.find-tasks.outputs.result }};
             
             // Define team members and their specializations
-            // In a real scenario, this would come from a config file or API
+            // Configure this by adding GitHub usernames to each team's members array
+            // Example: members: ['octocat', 'github-user']
             const team = {
               'core-engine': {
                 labels: ['group-a-core', 'execution-engine'],
-                members: [] // Add GitHub usernames
+                members: [] // TODO: Add GitHub usernames here
               },
               'auth-security': {
                 labels: ['group-b-auth', 'github-integration', 'security'],
-                members: [] // Add GitHub usernames
+                members: [] // TODO: Add GitHub usernames here
               },
               'monitoring': {
                 labels: ['group-c-monitoring', 'execution-monitoring'],
-                members: [] // Add GitHub usernames
+                members: [] // TODO: Add GitHub usernames here
               },
               'knowledge': {
                 labels: ['group-d-knowledge', 'knowledge-base', 'templates'],
-                members: [] // Add GitHub usernames
+                members: [] // TODO: Add GitHub usernames here
               },
               'ux': {
                 labels: ['group-e-ux', 'workflow-builder', 'ux'],
-                members: [] // Add GitHub usernames
+                members: [] // TODO: Add GitHub usernames here
               },
               'advanced': {
                 labels: ['group-f-advanced', 'ai-providers'],
-                members: [] // Add GitHub usernames
+                members: [] // TODO: Add GitHub usernames here
               }
             };
+            
+            // Check if any teams are configured
+            const hasConfiguredTeams = Object.values(team).some(t => t.members.length > 0);
+            if (!hasConfiguredTeams) {
+              console.log('⚠️ No team members configured - skipping assignment');
+              console.log('Configure team members in .github/workflows/orchestrator-assignment.yml');
+              return;
+            }
             
             for (const task of tasks) {
               const labels = task.labels.map(l => l.name);

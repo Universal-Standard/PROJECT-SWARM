@@ -147,10 +147,20 @@ jobs:
             }
 
       - name: Add to project board
+        if: vars.PROJECT_BOARD_URL != ''
         uses: actions/add-to-project@v0.5.0
         with:
-          project-url: ${{ vars.PROJECT_BOARD_URL || 'https://github.com/orgs/Universal-Standard/projects/1' }}
+          project-url: ${{ vars.PROJECT_BOARD_URL }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Log missing project board URL
+        if: vars.PROJECT_BOARD_URL == ''
+        run: |
+          echo "⚠️ PROJECT_BOARD_URL variable not set"
+          echo "To enable automatic project board integration:"
+          echo "1. Create a GitHub Project board"
+          echo "2. Set PROJECT_BOARD_URL variable in repository settings"
+          echo "3. Value should be: https://github.com/orgs/Universal-Standard/projects/YOUR_NUMBER"
 
       - name: Post triage comment
         uses: actions/github-script@v7

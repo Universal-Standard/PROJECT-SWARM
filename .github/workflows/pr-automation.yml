@@ -25,23 +25,26 @@ jobs:
             const body = (pr.body || '').toLowerCase();
             const labels = [];
             
-            // Type detection
-            if (body.includes('[x] 🐛 bug fix') || title.includes('fix') || title.includes('bug')) {
+            // Type detection - more robust pattern matching
+            // Matches both [x] and [X] with optional spaces
+            const checkedPattern = /\[x\]\s*(?:🐛|✨|💥|📝|⚡|🎨)/i;
+            
+            if (body.match(/\[x\]\s*🐛/i) || title.includes('fix') || title.includes('bug')) {
               labels.push('bug', 'fix');
             }
-            if (body.includes('[x] ✨ new feature') || title.includes('feat') || title.includes('feature')) {
+            if (body.match(/\[x\]\s*✨/i) || title.includes('feat') || title.includes('feature')) {
               labels.push('enhancement', 'feature');
             }
-            if (body.includes('[x] 💥 breaking change')) {
+            if (body.match(/\[x\]\s*💥/i)) {
               labels.push('breaking-change', 'critical');
             }
-            if (body.includes('[x] 📝 documentation')) {
+            if (body.match(/\[x\]\s*📝/i)) {
               labels.push('documentation');
             }
-            if (body.includes('[x] ⚡ performance')) {
+            if (body.match(/\[x\]\s*⚡/i)) {
               labels.push('performance');
             }
-            if (body.includes('[x] 🎨 ui/ux')) {
+            if (body.match(/\[x\]\s*🎨/i)) {
               labels.push('ux', 'ui');
             }
             
@@ -93,13 +96,18 @@ jobs:
                     labels: ['in-review']
                   });
                   
-                  // Remove in-progress label
+                  // Remove in-progress label if it exists
                   await github.rest.issues.removeLabel({
                     owner: context.repo.owner,
                     repo: context.repo.repo,
                     issue_number: parseInt(issueNum),
                     name: 'in-progress'
-                  }).catch(() => {}); // Ignore if label doesn't exist
+                  }).catch((error) => {
+                    // Ignore 404 errors (label doesn't exist), log others
+                    if (error.status !== 404) {
+                      console.log(`Warning: Could not remove label from #${issueNum}: ${error.message}`);
+                    }
+                  });
                 } catch (error) {
                   console.log(`Could not update issue #${issueNum}: ${error.message}`);
                 }
