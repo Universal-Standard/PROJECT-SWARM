@@ -1,0 +1,152 @@
+name: 🔧 Fix
+description: Report something that needs fixing (not a critical bug)
+title: "[FIX] "
+labels: ["fix", "needs-triage"]
+assignees: []
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## Fix Needed
+        Use this for non-critical issues that need fixing (improvements, tech debt, minor issues).
+        For critical bugs, use the Bug Report template instead.
+
+  - type: textarea
+    id: description
+    attributes:
+      label: What Needs Fixing?
+      description: Describe what's not working correctly
+      placeholder: Clear description of the issue
+    validations:
+      required: true
+
+  - type: dropdown
+    id: category
+    attributes:
+      label: Fix Category
+      description: What type of fix is this?
+      options:
+        - Code Quality
+        - Technical Debt
+        - Performance Issue
+        - Inconsistency
+        - Minor Bug
+        - UI/UX Issue
+        - Documentation Error
+        - Configuration Issue
+        - Deprecation Warning
+        - Test Failure
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: current
+    attributes:
+      label: Current Behavior
+      description: What's happening now?
+      placeholder: Describe the current state
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected Behavior
+      description: What should happen instead?
+      placeholder: Describe the desired state
+    validations:
+      required: true
+
+  - type: dropdown
+    id: component
+    attributes:
+      label: Component
+      description: Which part of the system needs fixing?
+      options:
+        - Workflow Builder
+        - Workflow Execution
+        - AI Integration
+        - GitHub Integration
+        - UI/UX
+        - Backend API
+        - Database
+        - Authentication
+        - Templates
+        - Knowledge Base
+        - Scheduling
+        - Webhooks
+        - Documentation
+        - Tests
+        - Configuration
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed Solution
+      description: How would you fix this?
+      placeholder: Describe your proposed fix (if you have one)
+    validations:
+      required: false
+
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Priority
+      description: How important is this fix?
+      options:
+        - High - Should fix soon
+        - Medium - Fix when possible
+        - Low - Nice to have
+    validations:
+      required: true
+
+  - type: dropdown
+    id: effort
+    attributes:
+      label: Estimated Effort
+      description: How complex is this fix?
+      options:
+        - Quick (< 1 hour)
+        - Small (1-2 hours)
+        - Medium (3-5 hours)
+        - Large (1+ days)
+        - Unknown
+    validations:
+      required: false
+
+  - type: textarea
+    id: impact
+    attributes:
+      label: Impact
+      description: Who or what is affected by this issue?
+      placeholder: |
+        - End users
+        - Developers
+        - System performance
+        - Code maintainability
+    validations:
+      required: false
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional Context
+      description: Screenshots, code snippets, or other helpful information
+      placeholder: Add any other context about the fix here
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Pre-submission Checklist
+      options:
+        - label: I have searched existing issues to ensure this is not a duplicate
+          required: true
+        - label: This is not a critical security or stability bug (use Bug Report for those)
+          required: true

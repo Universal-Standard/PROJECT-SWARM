@@ -1,0 +1,14 @@
+blank_issues_enabled: true
+contact_links:
+  - name: 📖 Documentation
+    url: https://github.com/Universal-Standard/PROJECT-SWARM#readme
+    about: Read the project documentation
+  - name: 💬 Discussions
+    url: https://github.com/Universal-Standard/PROJECT-SWARM/discussions
+    about: Ask questions and discuss ideas with the community
+  - name: 🆘 Support
+    url: https://github.com/Universal-Standard/PROJECT-SWARM/discussions/categories/q-a
+    about: Get help with using PROJECT-SWARM
+  - name: 📊 Project Board
+    url: https://github.com/Universal-Standard/PROJECT-SWARM/projects
+    about: View the project roadmap and progress

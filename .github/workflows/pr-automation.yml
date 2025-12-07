@@ -1,0 +1,237 @@
+name: Pull Request Automation
+
+on:
+  pull_request:
+    types: [opened, edited, labeled, synchronize, ready_for_review]
+  pull_request_review:
+    types: [submitted]
+
+permissions:
+  pull-requests: write
+  issues: write
+  contents: read
+
+jobs:
+  pr-labeler:
+    runs-on: ubuntu-latest
+    if: github.event.action == 'opened' || github.event.action == 'edited'
+    steps:
+      - name: Label PR based on content
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const pr = context.payload.pull_request;
+            const title = pr.title.toLowerCase();
+            const body = (pr.body || '').toLowerCase();
+            const labels = [];
+            
+            // Type detection
+            if (body.includes('[x] 🐛 bug fix') || title.includes('fix') || title.includes('bug')) {
+              labels.push('bug', 'fix');
+            }
+            if (body.includes('[x] ✨ new feature') || title.includes('feat') || title.includes('feature')) {
+              labels.push('enhancement', 'feature');
+            }
+            if (body.includes('[x] 💥 breaking change')) {
+              labels.push('breaking-change', 'critical');
+            }
+            if (body.includes('[x] 📝 documentation')) {
+              labels.push('documentation');
+            }
+            if (body.includes('[x] ⚡ performance')) {
+              labels.push('performance');
+            }
+            if (body.includes('[x] 🎨 ui/ux')) {
+              labels.push('ux', 'ui');
+            }
+            
+            // Size estimation based on files changed
+            const files = pr.changed_files;
+            if (files <= 5) {
+              labels.push('size/xs');
+            } else if (files <= 15) {
+              labels.push('size/s');
+            } else if (files <= 30) {
+              labels.push('size/m');
+            } else if (files <= 60) {
+              labels.push('size/l');
+            } else {
+              labels.push('size/xl');
+            }
+            
+            // Apply labels
+            if (labels.length > 0) {
+              await github.rest.issues.addLabels({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: pr.number,
+                labels: [...new Set(labels)]
+              });
+            }
+
+      - name: Link to issues
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const pr = context.payload.pull_request;
+            const body = pr.body || '';
+            
+            // Extract issue numbers from "Closes #123" pattern
+            const issuePattern = /(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?)\s+#(\d+)/gi;
+            const matches = [...body.matchAll(issuePattern)];
+            
+            if (matches.length > 0) {
+              const issueNumbers = matches.map(m => m[1]);
+              
+              // Update linked issues to "in-review" status
+              for (const issueNum of issueNumbers) {
+                try {
+                  await github.rest.issues.addLabels({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    issue_number: parseInt(issueNum),
+                    labels: ['in-review']
+                  });
+                  
+                  // Remove in-progress label
+                  await github.rest.issues.removeLabel({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    issue_number: parseInt(issueNum),
+                    name: 'in-progress'
+                  }).catch(() => {}); // Ignore if label doesn't exist
+                } catch (error) {
+                  console.log(`Could not update issue #${issueNum}: ${error.message}`);
+                }
+              }
+            }
+
+  pr-size-warning:
+    runs-on: ubuntu-latest
+    if: github.event.action == 'opened' || github.event.action == 'synchronize'
+    steps:
+      - name: Warn on large PRs
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const pr = context.payload.pull_request;
+            
+            if (pr.changed_files > 60 || pr.additions + pr.deletions > 1000) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: pr.number,
+                body: '⚠️ **Large Pull Request Detected**\n\nThis PR is quite large. Consider:\n- Breaking it into smaller PRs\n- Adding more detailed description\n- Highlighting key changes for reviewers\n\nLarge PRs are harder to review and more likely to introduce bugs.'
+              });
+            }
+
+  ready-for-review:
+    runs-on: ubuntu-latest
+    if: github.event.action == 'ready_for_review'
+    steps:
+      - name: Request reviews
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const pr = context.payload.pull_request;
+            
+            // Determine reviewers based on files changed
+            // This is a simple example - customize based on your team structure
+            const reviewers = [];
+            
+            // Add reviewers based on label groups
+            const labels = pr.labels.map(l => l.name);
+            
+            // In a real scenario, you'd have a CODEOWNERS file or team assignments
+            // For now, just add a comment
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: pr.number,
+              body: '✅ **PR Ready for Review**\n\nThis PR is now ready for review. Reviewers will be automatically notified.\n\n**Review Checklist:**\n- [ ] Code quality and style\n- [ ] Test coverage\n- [ ] Documentation\n- [ ] Security considerations\n- [ ] Performance impact'
+            });
+
+  approved-checks:
+    runs-on: ubuntu-latest
+    if: github.event.review.state == 'approved'
+    steps:
+      - name: Check if ready to merge
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const pr = context.payload.pull_request;
+            
+            // Check if all checks passed
+            const { data: checks } = await github.rest.checks.listForRef({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              ref: pr.head.sha
+            });
+            
+            const allPassed = checks.check_runs.every(check => 
+              check.status === 'completed' && check.conclusion === 'success'
+            );
+            
+            if (allPassed && pr.mergeable_state === 'clean') {
+              await github.rest.issues.addLabels({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: pr.number,
+                labels: ['ready-to-merge']
+              });
+              
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: pr.number,
+                body: '✅ **Ready to Merge**\n\nThis PR has been approved and all checks have passed. It can be merged when ready.'
+              });
+            }
+
+  post-merge:
+    runs-on: ubuntu-latest
+    if: github.event.pull_request.merged == true
+    steps:
+      - name: Update linked issues
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const pr = context.payload.pull_request;
+            const body = pr.body || '';
+            
+            // Extract issue numbers
+            const issuePattern = /(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?)\s+#(\d+)/gi;
+            const matches = [...body.matchAll(issuePattern)];
+            
+            if (matches.length > 0) {
+              for (const match of matches) {
+                const issueNum = parseInt(match[1]);
+                
+                try {
+                  // Add deployed label and remove in-review
+                  await github.rest.issues.addLabels({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    issue_number: issueNum,
+                    labels: ['deployed']
+                  });
+                  
+                  await github.rest.issues.removeLabel({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    issue_number: issueNum,
+                    name: 'in-review'
+                  }).catch(() => {});
+                  
+                  // Comment on issue
+                  await github.rest.issues.createComment({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    issue_number: issueNum,
+                    body: `✅ This issue has been resolved by PR #${pr.number} and merged to main.`
+                  });
+                } catch (error) {
+                  console.log(`Could not update issue #${issueNum}: ${error.message}`);
+                }
+              }
+            }

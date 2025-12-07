@@ -1,0 +1,196 @@
+name: 🚀 Planned Upgrade
+description: Plan a system upgrade or major enhancement
+title: "[UPGRADE] "
+labels: ["enhancement", "planned-upgrade"]
+assignees: []
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## Planned Upgrade
+        Use this template for planning major upgrades, refactors, or system-wide improvements.
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Upgrade Description
+      description: What is being upgraded?
+      placeholder: Describe the upgrade and its scope
+    validations:
+      required: true
+
+  - type: dropdown
+    id: category
+    attributes:
+      label: Upgrade Category
+      description: What type of upgrade is this?
+      options:
+        - Dependency Update
+        - Framework Upgrade
+        - Architecture Refactor
+        - Performance Improvement
+        - Security Update
+        - Database Migration
+        - API Version Upgrade
+        - Infrastructure Change
+        - Breaking Change
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: motivation
+    attributes:
+      label: Motivation
+      description: Why is this upgrade needed?
+      placeholder: |
+        - Current issues or limitations
+        - Benefits of upgrading
+        - Risks of not upgrading
+    validations:
+      required: true
+
+  - type: textarea
+    id: scope
+    attributes:
+      label: Scope of Changes
+      description: What will be affected by this upgrade?
+      placeholder: |
+        - Components affected
+        - Files/modules to change
+        - Dependencies to update
+    validations:
+      required: true
+
+  - type: textarea
+    id: plan
+    attributes:
+      label: Implementation Plan
+      description: Step-by-step plan for the upgrade
+      placeholder: |
+        ## Phase 1: Preparation
+        - [ ] Research and planning
+        - [ ] Backup current state
+        
+        ## Phase 2: Implementation
+        - [ ] Update dependencies
+        - [ ] Make code changes
+        
+        ## Phase 3: Testing
+        - [ ] Run test suite
+        - [ ] Manual testing
+        
+        ## Phase 4: Deployment
+        - [ ] Deploy to staging
+        - [ ] Deploy to production
+    validations:
+      required: true
+
+  - type: dropdown
+    id: breaking
+    attributes:
+      label: Breaking Changes
+      description: Will this introduce breaking changes?
+      options:
+        - Yes - Breaking changes expected
+        - No - Backward compatible
+        - Partial - Some breaking changes
+        - Unknown
+    validations:
+      required: true
+
+  - type: textarea
+    id: migration
+    attributes:
+      label: Migration Strategy
+      description: How will existing systems/data be migrated?
+      placeholder: |
+        - Migration scripts needed
+        - Data transformation required
+        - Rollback plan
+    validations:
+      required: false
+
+  - type: textarea
+    id: testing
+    attributes:
+      label: Testing Strategy
+      description: How will this be tested?
+      placeholder: |
+        - Unit tests
+        - Integration tests
+        - Manual testing checklist
+        - Performance benchmarks
+    validations:
+      required: true
+
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Priority
+      description: How urgent is this upgrade?
+      options:
+        - Critical - Security or stability issue
+        - High - Important for upcoming features
+        - Medium - Nice to have soon
+        - Low - Future consideration
+    validations:
+      required: true
+
+  - type: textarea
+    id: risks
+    attributes:
+      label: Risks and Mitigation
+      description: What could go wrong and how will we handle it?
+      placeholder: |
+        - Risk 1: Description → Mitigation: Solution
+        - Risk 2: Description → Mitigation: Solution
+    validations:
+      required: false
+
+  - type: textarea
+    id: rollback
+    attributes:
+      label: Rollback Plan
+      description: How can we revert if something goes wrong?
+      placeholder: Steps to roll back the upgrade
+    validations:
+      required: true
+
+  - type: dropdown
+    id: effort
+    attributes:
+      label: Estimated Effort
+      description: How long will this take?
+      options:
+        - Small (1-2 days)
+        - Medium (3-5 days)
+        - Large (1-2 weeks)
+        - Very Large (2+ weeks)
+    validations:
+      required: true
+
+  - type: textarea
+    id: dependencies
+    attributes:
+      label: Dependencies
+      description: What needs to happen first?
+      placeholder: |
+        - Depends on #123
+        - Requires approval from team
+    validations:
+      required: false
+
+  - type: textarea
+    id: documentation
+    attributes:
+      label: Documentation Updates
+      description: What documentation needs to be updated?
+      placeholder: |
+        - README
+        - API docs
+        - Deployment guides
+        - Changelog
+    validations:
+      required: false
