@@ -1,0 +1,195 @@
+name: Advanced Issue Triage and Auto-Assignment
+
+on:
+  issues:
+    types: [opened, edited, labeled]
+
+permissions:
+  issues: write
+  contents: read
+
+jobs:
+  triage:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Auto-label based on content
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const issue = context.payload.issue;
+            const title = issue.title.toLowerCase();
+            const body = (issue.body || '').toLowerCase();
+            const labels = [];
+            
+            // Priority detection from severity/priority fields
+            if (body.includes('critical') || title.includes('critical')) {
+              labels.push('critical');
+            } else if (body.includes('high priority') || body.includes('severity: high')) {
+              labels.push('high');
+            } else if (body.includes('medium priority') || body.includes('severity: medium')) {
+              labels.push('medium');
+            } else if (body.includes('low priority') || body.includes('severity: low')) {
+              labels.push('low');
+            }
+            
+            // Component detection
+            const components = {
+              'workflow-builder': ['workflow builder', 'workflow editor', 'canvas', 'node editor'],
+              'execution-engine': ['execution', 'orchestrator', 'workflow execution', 'executor'],
+              'github-integration': ['github', 'repository', 'pull request', 'git integration'],
+              'ai-providers': ['openai', 'anthropic', 'claude', 'gemini', 'ai provider'],
+              'websockets': ['websocket', 'real-time', 'live updates'],
+              'templates': ['template', 'marketplace'],
+              'knowledge-base': ['knowledge base', 'knowledge management'],
+              'scheduling': ['schedule', 'cron', 'scheduled execution'],
+              'webhooks': ['webhook', 'trigger'],
+              'analytics': ['analytics', 'reporting', 'dashboard'],
+              'ux': ['ui', 'ux', 'user interface', 'design'],
+              'backend': ['backend', 'api', 'server'],
+              'frontend': ['frontend', 'client', 'react'],
+              'database': ['database', 'postgresql', 'sql', 'schema'],
+              'authentication': ['auth', 'login', 'user management'],
+              'security': ['security', 'vulnerability', 'xss', 'sql injection'],
+              'performance': ['performance', 'slow', 'optimization', 'speed'],
+              'documentation': ['documentation', 'docs', 'readme']
+            };
+            
+            for (const [label, keywords] of Object.entries(components)) {
+              if (keywords.some(keyword => body.includes(keyword) || title.includes(keyword))) {
+                labels.push(label);
+              }
+            }
+            
+            // Group assignment based on component
+            const groupMapping = {
+              'execution-engine': 'group-a-core',
+              'validation': 'group-a-core',
+              'error-handling': 'group-a-core',
+              'github-integration': 'group-b-auth',
+              'authentication': 'group-b-auth',
+              'security': 'group-b-auth',
+              'execution-monitoring': 'group-c-monitoring',
+              'websockets': 'group-c-monitoring',
+              'knowledge-base': 'group-d-knowledge',
+              'templates': 'group-d-knowledge',
+              'ux': 'group-e-ux',
+              'workflow-builder': 'group-e-ux',
+              'onboarding': 'group-e-ux',
+              'versioning': 'group-f-advanced',
+              'ai-providers': 'group-f-advanced',
+              'webhooks': 'group-g-future',
+              'scheduling': 'group-g-future',
+              'analytics': 'group-g-future'
+            };
+            
+            for (const [component, group] of Object.entries(groupMapping)) {
+              if (labels.includes(component)) {
+                labels.push(group);
+                break; // Only add one group
+              }
+            }
+            
+            // Apply labels if any were detected
+            if (labels.length > 0) {
+              await github.rest.issues.addLabels({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issue.number,
+                labels: [...new Set(labels)] // Remove duplicates
+              });
+            }
+
+      - name: Auto-assign based on assignment type
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const issue = context.payload.issue;
+            const body = issue.body || '';
+            
+            // Check assignment type from task template
+            if (body.includes('Self-assigned (I will work on this)')) {
+              // Assign to issue creator
+              await github.rest.issues.addAssignees({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issue.number,
+                assignees: [issue.user.login]
+              });
+              
+              await github.rest.issues.addLabels({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issue.number,
+                labels: ['self-assigned', 'in-progress']
+              });
+            } else if (body.includes('Auto-assign (Let orchestrator assign)')) {
+              // Add label for orchestrator to pick up
+              await github.rest.issues.addLabels({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issue.number,
+                labels: ['auto-assign', 'awaiting-assignment']
+              });
+            } else if (body.includes('Team assignment needed')) {
+              await github.rest.issues.addLabels({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issue.number,
+                labels: ['needs-team-assignment']
+              });
+            } else if (body.includes('Open for volunteers')) {
+              await github.rest.issues.addLabels({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issue.number,
+                labels: ['help-wanted', 'good-first-issue']
+              });
+            }
+
+      - name: Add to project board
+        if: vars.PROJECT_BOARD_URL != null && vars.PROJECT_BOARD_URL != ''
+        uses: actions/add-to-project@v0.5.0
+        with:
+          project-url: ${{ vars.PROJECT_BOARD_URL }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Log missing project board URL
+        if: vars.PROJECT_BOARD_URL == null || vars.PROJECT_BOARD_URL == ''
+        run: |
+          echo "⚠️ PROJECT_BOARD_URL variable not set"
+          echo "To enable automatic project board integration:"
+          echo "1. Create a GitHub Project board"
+          echo "2. Set PROJECT_BOARD_URL variable in repository settings"
+          echo "3. Value should be: https://github.com/orgs/Universal-Standard/projects/YOUR_NUMBER"
+
+      - name: Post triage comment
+        uses: actions/github-script@v7
+        if: github.event.action == 'opened'
+        with:
+          script: |
+            const issue = context.payload.issue;
+            let comment = '👋 Thank you for opening this issue!\n\n';
+            comment += '🤖 This issue has been automatically triaged and added to the project board.\n\n';
+            
+            const labels = issue.labels.map(l => l.name);
+            
+            if (labels.includes('critical')) {
+              comment += '⚠️ **This issue has been marked as CRITICAL and will be prioritized.**\n\n';
+            }
+            
+            if (labels.includes('auto-assign')) {
+              comment += '🎯 This task will be automatically assigned by the orchestrator.\n\n';
+            } else if (labels.includes('self-assigned')) {
+              comment += '✅ You have been assigned to this issue. Good luck! 🚀\n\n';
+            } else if (labels.includes('help-wanted')) {
+              comment += '🙋 This issue is open for volunteers! Comment if you\'d like to work on it.\n\n';
+            }
+            
+            comment += 'Please check the [project board](https://github.com/Universal-Standard/PROJECT-SWARM/projects) for status updates.';
+            
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issue.number,
+              body: comment
+            });

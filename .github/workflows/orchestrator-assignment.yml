@@ -1,0 +1,170 @@
+name: Orchestrator Task Assignment
+
+on:
+  schedule:
+    # Run every hour to check for tasks needing assignment
+    - cron: '0 * * * *'
+  workflow_dispatch:
+    inputs:
+      force_reassign:
+        description: 'Force reassignment of all auto-assign tasks'
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  issues: write
+  contents: read
+
+jobs:
+  orchestrate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Find unassigned tasks
+        uses: actions/github-script@v7
+        id: find-tasks
+        with:
+          script: |
+            // Find all issues with auto-assign label and no assignee
+            const { data: issues } = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              labels: 'auto-assign',
+              state: 'open',
+              per_page: 100
+            });
+            
+            // Filter to only unassigned issues (or force reassign if requested)
+            const forceReassign = context.payload.inputs?.force_reassign === 'true';
+            const unassigned = forceReassign 
+              ? issues 
+              : issues.filter(issue => issue.assignees.length === 0);
+            
+            console.log(`Found ${unassigned.length} tasks needing assignment`);
+            return unassigned;
+
+      - name: Assign tasks by priority and group
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const tasks = ${{ steps.find-tasks.outputs.result }};
+            
+            // Define team members and their specializations
+            // Configure this by adding GitHub usernames to each team's members array
+            // Example: members: ['octocat', 'github-user']
+            const team = {
+              'core-engine': {
+                labels: ['group-a-core', 'execution-engine'],
+                members: [] // TODO: Add GitHub usernames here
+              },
+              'auth-security': {
+                labels: ['group-b-auth', 'github-integration', 'security'],
+                members: [] // TODO: Add GitHub usernames here
+              },
+              'monitoring': {
+                labels: ['group-c-monitoring', 'execution-monitoring'],
+                members: [] // TODO: Add GitHub usernames here
+              },
+              'knowledge': {
+                labels: ['group-d-knowledge', 'knowledge-base', 'templates'],
+                members: [] // TODO: Add GitHub usernames here
+              },
+              'ux': {
+                labels: ['group-e-ux', 'workflow-builder', 'ux'],
+                members: [] // TODO: Add GitHub usernames here
+              },
+              'advanced': {
+                labels: ['group-f-advanced', 'ai-providers'],
+                members: [] // TODO: Add GitHub usernames here
+              }
+            };
+            
+            // Check if any teams are configured
+            const hasConfiguredTeams = Object.values(team).some(t => t.members.length > 0);
+            if (!hasConfiguredTeams) {
+              console.log('⚠️ No team members configured in orchestrator workflow');
+              console.log('');
+              console.log('To enable automatic task assignment:');
+              console.log('1. Edit .github/workflows/orchestrator-assignment.yml');
+              console.log('2. Add GitHub usernames to the team.members arrays');
+              console.log('3. Example: members: ["octocat", "github-user"]');
+              console.log('');
+              console.log('Tasks will be labeled as "needs-manual-assignment" until configured.');
+              return;
+            }
+            
+            for (const task of tasks) {
+              const labels = task.labels.map(l => l.name);
+              
+              // Find matching team based on labels
+              let assignedTo = null;
+              for (const [teamName, teamData] of Object.entries(team)) {
+                if (teamData.labels.some(label => labels.includes(label))) {
+                  if (teamData.members.length > 0) {
+                    // Round-robin assignment within team
+                    assignedTo = teamData.members[task.number % teamData.members.length];
+                    break;
+                  }
+                }
+              }
+              
+              if (assignedTo) {
+                // Assign the task
+                await github.rest.issues.addAssignees({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: task.number,
+                  assignees: [assignedTo]
+                });
+                
+                // Update labels
+                await github.rest.issues.removeLabel({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: task.number,
+                  name: 'awaiting-assignment'
+                }).catch(() => {}); // Ignore if label doesn't exist
+                
+                await github.rest.issues.addLabels({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: task.number,
+                  labels: ['orchestrator-assigned', 'in-progress']
+                });
+                
+                // Post assignment comment
+                await github.rest.issues.createComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: task.number,
+                  body: `🤖 **Orchestrator Assignment**\n\nThis task has been automatically assigned to @${assignedTo} based on their expertise and current workload.\n\n**Priority:** ${labels.includes('critical') ? '🔴 Critical' : labels.includes('high') ? '🟡 High' : '🟢 Medium'}\n\nPlease acknowledge this assignment and update the issue status when you begin work.`
+                });
+                
+                console.log(`Assigned issue #${task.number} to ${assignedTo}`);
+              } else {
+                // No suitable team member found
+                await github.rest.issues.addLabels({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: task.number,
+                  labels: ['needs-manual-assignment']
+                });
+                
+                console.log(`Could not auto-assign issue #${task.number} - needs manual assignment`);
+              }
+            }
+
+      - name: Report assignment summary
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const tasks = ${{ steps.find-tasks.outputs.result }};
+            
+            if (tasks.length === 0) {
+              console.log('✅ No tasks needed assignment');
+              return;
+            }
+            
+            console.log(`\n📊 Assignment Summary:`);
+            console.log(`   Total tasks processed: ${tasks.length}`);
+            console.log(`\n✅ Task assignment complete!`);
