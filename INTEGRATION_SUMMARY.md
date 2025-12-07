@@ -179,10 +179,18 @@
 
 **Total:** 3-4 days × 2 human engineers = 6-8 person-days
 
+**Detailed Cost Breakdown:**
+- AI Agent API costs: 128 agent-hours @ $2-4/hr = **$200-500**
+- Technical Lead: 4 days @ $500-800/day = **$2,000-3,200**
+- DevOps Engineer: 4 days @ $500-800/day = **$2,000-3,200**
+- Infrastructure (first month): **$500-2,000**
+- Third-party services (first month): **$200-500**
+- **Total First Month: $4,900-10,200**
+
 **Cost Comparison:**
-- Traditional: 7 FTE × 16 weeks = 112 person-weeks (~$100k+)
-- AI-Powered: 4 agents × 4 days + 2 humans × 4 days = ~$5-10k
-- **Savings: 90-95%**
+- Traditional: 7 FTE × 16 weeks = 112 person-weeks (~$112k)
+- AI-Powered: **$5-10k** (first month all-in)
+- **Savings: 91-96%**
 
 ### Infrastructure
 - Kubernetes cluster (staging + prod)

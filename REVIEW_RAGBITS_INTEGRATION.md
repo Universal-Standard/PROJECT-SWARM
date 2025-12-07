@@ -954,11 +954,33 @@ Following SWARM's proven methodology, integration will use **GitHub Issues for p
 - Monitoring stack (Prometheus, Grafana, OpenTelemetry)
 
 **Budget Estimate:**
-- Development: 4 AI Agents × 3-4 days = ~$200-500 (AI API costs)
-- Human oversight: 2 FTE × 4 days = 8 person-days
-- Infrastructure: $500-2000/month (scales with usage)
-- Third-party services: $200-500/month (LLM APIs, monitoring)
-- **Total Development Cost: ~$5-10k (vs $100k+ traditional)**
+
+**Development Costs:**
+- AI Agent API costs: 4 agents × 4 days × 8 hrs = 128 agent-hours @ $2-4/hr = **$200-500**
+- Human Technical Lead: 4 days @ $500-800/day = **$2,000-3,200**
+- Human DevOps Engineer: 4 days @ $500-800/day = **$2,000-3,200**
+- **Subtotal Development: $4,200-7,700**
+
+**Infrastructure (First Month):**
+- K8s cluster (staging + prod): $300-1,000
+- Managed PostgreSQL: $50-300
+- Vector DB (Qdrant Cloud): $50-300
+- Object storage (S3): $50-200
+- Monitoring stack: $50-200
+- **Subtotal Infrastructure: $500-2,000/month**
+
+**Third-Party Services (First Month):**
+- LLM API usage (testing/development): $100-300
+- Monitoring tools (if not self-hosted): $100-200
+- **Subtotal Services: $200-500/month**
+
+**Total First-Month Cost: $4,900-10,200 (~$5-10k)**
+**Ongoing Monthly Cost: $700-2,500**
+
+**Cost Comparison:**
+- Traditional approach: 7 FTE × 16 weeks × $1,000/week avg = **~$112,000**
+- AI-powered approach: **$5-10k** (first month all-in)
+- **Savings: 91-96%**
 
 ### 6.4 Risk Assessment
 
