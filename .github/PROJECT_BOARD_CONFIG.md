@@ -59,9 +59,11 @@ gh project create \
 # You can change the view later in the web interface
 
 # Save the project number from the output (e.g., 123)
-PROJECT_NUMBER=<YOUR_PROJECT_NUMBER>
+# Replace with your actual project number after creation
+PROJECT_NUMBER=123  # Example: change this to your project number
 
-# Example: gh project view 123 --owner Universal-Standard
+# View your project to verify
+# gh project view 123 --owner Universal-Standard
 ```
 
 ### Step 2: Configure Custom Fields
@@ -231,7 +233,22 @@ The board uses these columns for workflow management:
 
 ```bash
 # Label Phase 1 issues
+# Note: Update issue numbers based on your actual repository issues
+# These are example issue numbers from PROJECT_BOARD.md
 for issue in 1 2 4 5 9; do
+  gh issue edit $issue \
+    --repo "$ORG_NAME/$REPO_NAME" \
+    --add-label "phase-1,critical" \
+    --milestone "Phase 1: Foundation"
+done
+
+# Or use label-based selection (more maintainable):
+gh issue list \
+  --repo "$ORG_NAME/$REPO_NAME" \
+  --label "group-a-core,group-b-auth" \
+  --state open \
+  --json number --jq '.[].number' | \
+while read issue; do
   gh issue edit $issue \
     --repo "$ORG_NAME/$REPO_NAME" \
     --add-label "phase-1,critical" \
@@ -245,8 +262,21 @@ done
 **Groups**: Group C (Monitoring), Group D (Knowledge)
 
 ```bash
-# Label Phase 2 issues
+# Label Phase 2 issues (update numbers as needed)
 for issue in 3 6 7 8; do
+  gh issue edit $issue \
+    --repo "$ORG_NAME/$REPO_NAME" \
+    --add-label "phase-2,high" \
+    --milestone "Phase 2: Monitoring"
+done
+
+# Or use group labels:
+gh issue list \
+  --repo "$ORG_NAME/$REPO_NAME" \
+  --label "group-c-monitoring,group-d-knowledge" \
+  --state open \
+  --json number --jq '.[].number' | \
+while read issue; do
   gh issue edit $issue \
     --repo "$ORG_NAME/$REPO_NAME" \
     --add-label "phase-2,high" \
@@ -260,8 +290,21 @@ done
 **Groups**: Group E (UX)
 
 ```bash
-# Label Phase 3 issues
+# Label Phase 3 issues (update range as needed)
 for issue in {11..17}; do
+  gh issue edit $issue \
+    --repo "$ORG_NAME/$REPO_NAME" \
+    --add-label "phase-3,medium" \
+    --milestone "Phase 3: UX"
+done
+
+# Or use group label:
+gh issue list \
+  --repo "$ORG_NAME/$REPO_NAME" \
+  --label "group-e-ux" \
+  --state open \
+  --json number --jq '.[].number' | \
+while read issue; do
   gh issue edit $issue \
     --repo "$ORG_NAME/$REPO_NAME" \
     --add-label "phase-3,medium" \
@@ -275,8 +318,21 @@ done
 **Groups**: Group F (Advanced)
 
 ```bash
-# Label Phase 4 issues
+# Label Phase 4 issues (update as needed)
 for issue in 10 18 19 20; do
+  gh issue edit $issue \
+    --repo "$ORG_NAME/$REPO_NAME" \
+    --add-label "phase-4,medium" \
+    --milestone "Phase 4: Advanced"
+done
+
+# Or use group label:
+gh issue list \
+  --repo "$ORG_NAME/$REPO_NAME" \
+  --label "group-f-advanced" \
+  --state open \
+  --json number --jq '.[].number' | \
+while read issue; do
   gh issue edit $issue \
     --repo "$ORG_NAME/$REPO_NAME" \
     --add-label "phase-4,medium" \
@@ -290,8 +346,21 @@ done
 **Groups**: Group G (Future)
 
 ```bash
-# Label Phase 5+ issues
+# Label Phase 5+ issues (update range as needed)
 for issue in {21..32}; do
+  gh issue edit $issue \
+    --repo "$ORG_NAME/$REPO_NAME" \
+    --add-label "phase-5,low,future" \
+    --milestone "Phase 5: Future"
+done
+
+# Or use group label:
+gh issue list \
+  --repo "$ORG_NAME/$REPO_NAME" \
+  --label "group-g-future" \
+  --state open \
+  --json number --jq '.[].number' | \
+while read issue; do
   gh issue edit $issue \
     --repo "$ORG_NAME/$REPO_NAME" \
     --add-label "phase-5,low,future" \
@@ -638,6 +707,12 @@ Configure these rules in the Project Settings → Workflows:
 
 **Via GraphQL API:**
 ```bash
+# Note: Get these IDs from the earlier field query in "Step 5: Configure Saved Views"
+# - PROJECT_ID: From the project GraphQL query
+# - ITEM_ID: From listing project items
+# - STATUS_FIELD_ID: The ID of the "Status" field
+# - NEW_STATUS_OPTION_ID: The ID of the "New" status option
+
 gh api graphql -f query='
   mutation {
     updateProjectV2ItemFieldValue(
@@ -1578,6 +1653,8 @@ After completing the automated setup, verify:
 
 ### Verification Commands
 ```bash
+# Run these from any directory (not path-specific)
+
 # 1. Verify project exists
 gh project view $PROJECT_NUMBER --owner $ORG_NAME
 
@@ -1601,6 +1678,18 @@ gh issue create --repo $ORG_NAME/$REPO_NAME \
 
 # 7. Verify test issue appears in project
 gh project item-list $PROJECT_NUMBER --owner $ORG_NAME --limit 5
+```
+
+### Label Creation Script
+```bash
+# Run label creation script
+# Note: Adjust path based on your current directory
+cd /path/to/PROJECT-SWARM  # Or navigate to your repo root
+./scripts/create-labels.sh
+
+# For GitHub Actions environment specifically:
+# cd /home/runner/work/PROJECT-SWARM/PROJECT-SWARM
+# ./scripts/create-labels.sh
 ```
 
 ## 🚀 Next Steps
