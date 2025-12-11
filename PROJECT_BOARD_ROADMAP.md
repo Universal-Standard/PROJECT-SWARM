@@ -20,21 +20,19 @@ This roadmap creates a single GitHub Project board that operationalizes the prev
 
 ### Minimal automation with GitHub CLI (optional but recommended)
 - Log in with `gh auth login` (GitHub.com, HTTPS, “GitHub CLI”).
-- Create the project: `gh project create --owner UniversalStandards --title "PROJECT-SWARM Delivery Board" --format board`.
+- Create the project: `gh project create --owner Universal-Standard --title "PROJECT-SWARM Delivery Board"`.
+- Obtain the project number: `gh project list --owner Universal-Standard` (note the number from the output).
 - Add fields (Priority, Effort, Component, Group, Sprint):
+  > **Note:** Replace `$PROJECT_NUMBER` below with the project number from the previous step.
   ```bash
-  gh project field-create --owner UniversalStandards --project "PROJECT-SWARM Delivery Board" --name Priority --data-type SINGLE_SELECT --options "Critical,High,Medium,Low"
-  gh project field-create --owner UniversalStandards --project "PROJECT-SWARM Delivery Board" --name Effort --data-type SINGLE_SELECT --options "XS (<1h),S (1-2h),M (3-5h),L (1-2d),XL (2+d)"
-  gh project field-create --owner UniversalStandards --project "PROJECT-SWARM Delivery Board" --name Component --data-type SINGLE_SELECT --options "Workflow Builder,Execution Engine,AI Providers,GitHub Integration,Templates,UI/UX,Backend API,Database,Observability,Security,Infrastructure,Other"
-  gh project field-create --owner UniversalStandards --project "PROJECT-SWARM Delivery Board" --name Group --data-type SINGLE_SELECT --options "Core,Auth,Monitoring,Knowledge,UX,Advanced,Future"
-  gh project field-create --owner UniversalStandards --project "PROJECT-SWARM Delivery Board" --name Sprint --data-type ITERATION --iteration-duration 14
+  gh project field-create --owner Universal-Standard --project $PROJECT_NUMBER --name Priority --data-type SINGLE_SELECT --single-select-options "Critical,High,Medium,Low"
+  gh project field-create --owner Universal-Standard --project $PROJECT_NUMBER --name Effort --data-type SINGLE_SELECT --single-select-options "XS (<1h),S (1-2h),M (3-5h),L (1-2d),XL (2+d)"
+  gh project field-create --owner Universal-Standard --project $PROJECT_NUMBER --name Component --data-type SINGLE_SELECT --single-select-options "Workflow Builder,Execution Engine,AI Providers,GitHub Integration,Templates,UI/UX,Backend API,Database,Observability,Security,Infrastructure,Other"
+  gh project field-create --owner Universal-Standard --project $PROJECT_NUMBER --name Group --data-type SINGLE_SELECT --single-select-options "Core,Auth,Monitoring,Knowledge,UX,Advanced,Future"
+  gh project field-create --owner Universal-Standard --project $PROJECT_NUMBER --name Sprint --data-type ITERATION --duration 14
   ```
 - Add saved views:
-  ```bash
-  gh project view --owner UniversalStandards --project "PROJECT-SWARM Delivery Board" --format yaml > /tmp/project.yaml
-  # Manually add views named "Critical Bugs" (filter: label:bug label:critical) and "Feature Requests" (filter: label:feature-request sort:reactions)
-  gh project edit --owner UniversalStandards --project "PROJECT-SWARM Delivery Board" --template /tmp/project.yaml
-  ```
+  > **Note:** The GitHub CLI does not currently support creating or editing saved views (filtered views) programmatically. To add views such as "Critical Bugs" (filter: `label:bug label:critical`) and "Feature Requests" (filter: `label:feature-request sort:reactions`), open the project board in the GitHub web UI, click "Views", and create the desired saved views manually. See [GitHub documentation on project views](https://docs.github.com/en/issues/organizing-your-work-with-project-boards/customizing-views-in-projects) for details.
 - In the project's settings UI, enable the "Auto-add" workflow to automatically add all new issues and pull requests from the repository to the project.
 
 ## Custom Fields
