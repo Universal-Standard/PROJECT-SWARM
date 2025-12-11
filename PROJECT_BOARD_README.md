@@ -10,10 +10,11 @@ This comprehensive project board system provides:
 ✅ **3 Automated Workflows** - Auto-triage, orchestrator assignment, PR automation  
 ✅ **70+ Labels** - Comprehensive categorization system  
 ✅ **PR Template** - Detailed pull request checklist  
-✅ **Project Board Config** - Complete board setup guide  
+✅ **Project Board Config** - Complete board setup guide with **GitHub CLI automation**  
 ✅ **Wiki Structure** - Ready-to-use documentation templates  
 ✅ **Copilot Instructions** - AI-powered coding assistance  
-✅ **4 Assignment Options** - Self, auto, team, and volunteer modes
+✅ **4 Assignment Options** - Self, auto, team, and volunteer modes  
+✅ **CLI Automation Scripts** - Bulk operations, reporting, and maintenance helpers
 
 ## 🚀 Quick Start (5 Minutes)
 
@@ -25,6 +26,15 @@ chmod +x scripts/create-labels.sh
 ```
 
 ### 2. Create Project Board
+
+**Automated with CLI (Recommended):**
+```bash
+# See .github/PROJECT_BOARD_CONFIG.md for full automation
+gh project create --owner "Universal-Standard" --title "PROJECT-SWARM Development Board" --format board
+# Then follow CLI commands in PROJECT_BOARD_CONFIG.md to configure fields, views, and automation
+```
+
+**Or Manual Setup:**
 1. Visit: https://github.com/orgs/Universal-Standard/projects
 2. Click "New project" → Select "Board"
 3. Name: "PROJECT-SWARM Development Board"
@@ -44,7 +54,7 @@ Create a test issue using one of the templates and verify it auto-labels and add
 |----------|---------|--------------|
 | **[PROJECT_BOARD_MASTER_GUIDE.md](PROJECT_BOARD_MASTER_GUIDE.md)** | Overview and navigation | Start here |
 | **[.github/PROJECT_BOARD_COMPLETE_SETUP.md](.github/PROJECT_BOARD_COMPLETE_SETUP.md)** | Step-by-step setup | First-time setup |
-| **[.github/PROJECT_BOARD_CONFIG.md](.github/PROJECT_BOARD_CONFIG.md)** | Board configuration | Creating the board |
+| **[.github/PROJECT_BOARD_CONFIG.md](.github/PROJECT_BOARD_CONFIG.md)** | Board configuration + CLI automation | Creating the board |
 | **[PROJECT_BOARD.md](PROJECT_BOARD.md)** | All 32 planned issues | Issue roadmap |
 | **[README_PROJECT_MANAGEMENT.md](README_PROJECT_MANAGEMENT.md)** | Quick reference | Daily development |
 | **[docs/WIKI_SETUP.md](docs/WIKI_SETUP.md)** | Wiki structure | Setting up wiki |

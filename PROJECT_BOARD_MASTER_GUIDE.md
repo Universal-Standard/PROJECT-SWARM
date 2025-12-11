@@ -16,10 +16,12 @@ This project board system consists of several interconnected documents:
    - **Best for**: First-time setup
 
 2. **[PROJECT_BOARD_CONFIG.md](.github/PROJECT_BOARD_CONFIG.md)**
-   - Detailed project board configuration
+   - Detailed project board configuration with **GitHub CLI automation**
+   - Automated custom field creation (Priority, Effort, Component, Group, Sprint)
    - Column setup and automation rules
+   - Bulk operations and maintenance scripts
    - Custom fields and views
-   - **Best for**: Board configuration
+   - **Best for**: Board configuration and automation
 
 3. **[PROJECT_BOARD.md](PROJECT_BOARD.md)**
    - Complete breakdown of all 32 planned issues
