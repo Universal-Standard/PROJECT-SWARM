@@ -30,7 +30,7 @@ chmod +x scripts/create-labels.sh
 **Automated with CLI (Recommended):**
 ```bash
 # See .github/PROJECT_BOARD_CONFIG.md for full automation
-gh project create --owner "Universal-Standard" --title "PROJECT-SWARM Development Board" --format board
+gh project create --owner "Universal-Standard" --title "PROJECT-SWARM Development Board"
 # Then follow CLI commands in PROJECT_BOARD_CONFIG.md to configure fields, views, and automation
 ```
 

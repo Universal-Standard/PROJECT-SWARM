@@ -53,15 +53,10 @@ REPO_NAME="PROJECT-SWARM"
 # Create the project board (organization-level)
 gh project create \
   --owner "$ORG_NAME" \
-  --title "PROJECT-SWARM Development Board" \
-  --format board
+  --title "PROJECT-SWARM Development Board"
 
-# OR create at repository level
-gh project create \
-  --owner "$ORG_NAME" \
-  --repo "$REPO_NAME" \
-  --title "PROJECT-SWARM Development Board" \
-  --format board
+# Note: Projects are created in "Board" view by default
+# You can change the view later in the web interface
 
 # Save the project number from the output (e.g., 123)
 PROJECT_NUMBER=<YOUR_PROJECT_NUMBER>
