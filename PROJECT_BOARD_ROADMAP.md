@@ -35,7 +35,7 @@ This roadmap creates a single GitHub Project board that operationalizes the prev
   # Manually add views named "Critical Bugs" (filter: label:bug label:critical) and "Feature Requests" (filter: label:feature-request sort:reactions)
   gh project edit --owner UniversalStandards --project "PROJECT-SWARM Delivery Board" --template /tmp/project.yaml
   ```
-- Turn on auto-add for issues and PRs so new intake lands in 📥 New Intake.
+- In the project's settings UI, enable the "Auto-add" workflow to automatically add all new issues and pull requests from the repository to the project.
 
 ## Custom Fields
 - **Priority**: 🔴 Critical | 🟡 High | 🟢 Medium | ⚪ Low
