@@ -69,7 +69,22 @@ This creates all 40+ labels for the project.
 5. Click "Create"
 
 ### Step 3: Configure Project Board
-Follow the detailed configuration in `.github/PROJECT_BOARD_CONFIG.md`:
+
+**Option A: Automated Setup with GitHub CLI (Recommended)**
+
+Follow the automated setup in `.github/PROJECT_BOARD_CONFIG.md`:
+```bash
+# See PROJECT_BOARD_CONFIG.md for complete CLI commands including:
+# - Automated project board creation
+# - Custom field creation (Priority, Effort, Component, Group, Sprint)
+# - Bulk issue operations
+# - Automation rules setup
+# - View configuration via GraphQL API
+```
+
+**Option B: Manual Setup via Web Interface**
+
+Follow the manual configuration steps in `.github/PROJECT_BOARD_CONFIG.md`:
 - Create columns (New, Backlog, To Do, In Progress, etc.)
 - Add custom fields (Priority, Effort, Component, Group)
 - Configure automation rules
