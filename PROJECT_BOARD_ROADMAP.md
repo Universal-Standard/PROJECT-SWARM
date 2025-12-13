@@ -2,6 +2,7 @@
 
 This roadmap creates a single GitHub Project board that operationalizes the previously recommended improvements and provides structured intake for bugs, features, and fixes.
 
+> **Note:** The board column structure below introduces the "🧭 Triage" column, which is not present in the current `.github/PROJECT_BOARD_CONFIG.md`. This is a recommended update; maintainers should update the config to match this structure for consistency.
 ## Board Columns (canonical order)
 1) **📥 New Intake** – default landing spot for every issue and PR via automation.
 2) **🧭 Triage** – grooming queue; add priority, component, and effort fields.
