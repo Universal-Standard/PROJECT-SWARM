@@ -20,7 +20,10 @@ This roadmap creates a single GitHub Project board that operationalizes the prev
 > Automation: reuse `.github/PROJECT_BOARD_CONFIG.md` column rules; add two filters (Critical Bugs, Feature Requests) as saved views.
 
 ### Minimal automation with GitHub CLI (optional but recommended)
-- Log in with `gh auth login` (GitHub.com, HTTPS, “GitHub CLI”).
+- Log in with `gh auth login` and select the following options when prompted:
+  1. **Account type**: `GitHub.com`
+  2. **Protocol**: `HTTPS`
+  3. **Authentication method**: `Login with a web browser` (recommended) or `Paste an authentication token`
 - Create the project: `gh project create --owner UniversalStandards --title "PROJECT-SWARM Delivery Board" --format board`.
 - Add fields (Priority, Effort, Component, Group, Sprint):
   ```bash
