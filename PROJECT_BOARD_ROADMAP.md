@@ -35,11 +35,9 @@ This roadmap creates a single GitHub Project board that operationalizes the prev
   gh project field-create --owner UniversalStandards --project $PROJECT_NUMBER --name Sprint --data-type ITERATION --iteration-duration 14
   ```
 - Add saved views:
-  ```bash
-  gh project view --owner UniversalStandards --project "PROJECT-SWARM Delivery Board" --format yaml > /tmp/project.yaml
-  # Manually add views named "Critical Bugs" (filter: label:bug label:critical) and "Feature Requests" (filter: label:feature-request sort:reactions)
-  gh project edit --owner UniversalStandards --project "PROJECT-SWARM Delivery Board" --template /tmp/project.yaml
-  ```
+  > **Note:** The GitHub CLI does not currently support creating or editing saved views (filtered views) programmatically.
+  > To add views such as "Critical Bugs" (filter: label:bug label:critical) and "Feature Requests" (filter: label:feature-request sort:reactions), open the project board in the GitHub web UI, click "Views", and create the desired saved views manually.
+  > See [GitHub documentation on project views](https://docs.github.com/en/issues/organizing-your-work-with-project-boards/customizing-views-in-projects) for details.
 - In the project's settings UI, enable the "Auto-add" workflow to automatically add all new issues and pull requests from the repository to the project.
 
 ## Custom Fields
