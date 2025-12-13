@@ -20,6 +20,20 @@ This roadmap creates a single GitHub Project board that operationalizes the prev
 > Automation: reuse `.github/PROJECT_BOARD_CONFIG.md` column rules; add two filters (Critical Bugs, Feature Requests) as saved views.
 
 ### Minimal automation with GitHub CLI (optional but recommended)
+- Log in with `gh auth login` (GitHub.com, HTTPS, “GitHub CLI”).
+- Create the project: `gh project create --owner Universal-Standard --title "PROJECT-SWARM Delivery Board"`.
+- Obtain the project number: `gh project list --owner Universal-Standard` (note the number from the output).
+- Add fields (Priority, Effort, Component, Group, Sprint):
+  > **Note:** Replace `$PROJECT_NUMBER` below with the project number from the previous step.
+  ```bash
+  gh project field-create --owner Universal-Standard --project $PROJECT_NUMBER --name Priority --data-type SINGLE_SELECT --single-select-options "Critical,High,Medium,Low"
+  gh project field-create --owner Universal-Standard --project $PROJECT_NUMBER --name Effort --data-type SINGLE_SELECT --single-select-options "XS (<1h),S (1-2h),M (3-5h),L (1-2d),XL (2+d)"
+  gh project field-create --owner Universal-Standard --project $PROJECT_NUMBER --name Component --data-type SINGLE_SELECT --single-select-options "Workflow Builder,Execution Engine,AI Providers,GitHub Integration,Templates,UI/UX,Backend API,Database,Observability,Security,Infrastructure,Other"
+  gh project field-create --owner Universal-Standard --project $PROJECT_NUMBER --name Group --data-type SINGLE_SELECT --single-select-options "Core,Auth,Monitoring,Knowledge,UX,Advanced,Future"
+  gh project field-create --owner Universal-Standard --project $PROJECT_NUMBER --name Sprint --data-type ITERATION --duration 14
+  ```
+- Add saved views:
+  > **Note:** The GitHub CLI does not currently support creating or editing saved views (filtered views) programmatically. To add views such as "Critical Bugs" (filter: `label:bug label:critical`) and "Feature Requests" (filter: `label:feature-request sort:reactions`), open the project board in the GitHub web UI, click "Views", and create the desired saved views manually. See [GitHub documentation on project views](https://docs.github.com/en/issues/organizing-your-work-with-project-boards/customizing-views-in-projects) for details.
 - Log in with `gh auth login` and select the following options when prompted:
   1. **Account type**: `GitHub.com`
   2. **Protocol**: `HTTPS`
