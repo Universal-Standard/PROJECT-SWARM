@@ -8,7 +8,7 @@ This roadmap creates a single GitHub Project board that operationalizes the prev
 2) **🧭 Triage** – grooming queue; add priority, component, and effort fields.
 3) **📋 Backlog** – accepted work; keep unprioritized items here.
 4) **📝 Ready** – prioritized and sized; blocked items should move to 🚧 Blocked instead of sitting here.
-5) **🚧 Blocked** – anything labeled `blocked` with a short blocker note.
+5) **🔴 Blocked** – anything labeled `blocked` with a short blocker note.
 6) **🚧 In Progress** – issues with `in-progress` or an open linked draft PR.
 7) **👀 In Review** – linked PR marked “ready for review” or label `needs-review`.
 8) **✅ Ready to Merge** – approved PRs with all checks green.
