@@ -48,10 +48,10 @@ This roadmap creates a single GitHub Project board that operationalizes the prev
 - **Sprint**: Iteration field (2-week cadence)
 
 ## Intake & Tracking
-- **Bugs:** use `ISSUE_TEMPLATE/01-bug-report.yml`; auto-label `bug`, `needs-triage`; route to 📥 New Intake.
-- **Feature requests:** use `ISSUE_TEMPLATE/02-feature-request.yml`; auto-label `feature-request`; appears in 💡 Feature Requests view.
-- **Tasks/maintenance:** use `03-task.yml` or `05-fix.yml`; label with component + priority.
-- **Upgrades:** use `04-planned-upgrade.yml` for major refactors or platform shifts.
+- **Bugs:** use `.github/ISSUE_TEMPLATE/01-bug-report.yml`; auto-label `bug`, `needs-triage`; route to 📥 New Intake.
+- **Feature requests:** use `.github/ISSUE_TEMPLATE/02-feature-request.yml`; auto-label `feature-request`; appears in 💡 Feature Requests view.
+- **Tasks/maintenance:** use `.github/ISSUE_TEMPLATE/03-task.yml` or `.github/ISSUE_TEMPLATE/05-fix.yml`; label with component + priority.
+- **Upgrades:** use `.github/ISSUE_TEMPLATE/04-planned-upgrade.yml` for major refactors or platform shifts.
 
 ## Recommended Roadmap Issues (create as draft issues and add to board)
 Each item lists recommended labels.
