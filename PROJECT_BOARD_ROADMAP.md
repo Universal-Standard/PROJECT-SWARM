@@ -26,12 +26,13 @@ This roadmap creates a single GitHub Project board that operationalizes the prev
   3. **Authentication method**: `Login with a web browser` (recommended) or `Paste an authentication token`
 - Create the project: `gh project create --owner UniversalStandards --title "PROJECT-SWARM Delivery Board"`.
 - Add fields (Priority, Effort, Component, Group, Sprint):
+  > **Note:** After creating the project, obtain the project number with `gh project list --owner UniversalStandards` and substitute it for `$PROJECT_NUMBER` below.
   ```bash
-  gh project field-create --owner UniversalStandards --project "PROJECT-SWARM Delivery Board" --name Priority --data-type SINGLE_SELECT --options "Critical,High,Medium,Low"
-  gh project field-create --owner UniversalStandards --project "PROJECT-SWARM Delivery Board" --name Effort --data-type SINGLE_SELECT --options "XS (<1h),S (1-2h),M (3-5h),L (1-2d),XL (2+d)"
-  gh project field-create --owner UniversalStandards --project "PROJECT-SWARM Delivery Board" --name Component --data-type SINGLE_SELECT --options "Workflow Builder,Execution Engine,AI Providers,GitHub Integration,Templates,UI/UX,Backend API,Database,Observability,Security,Infrastructure,Other"
-  gh project field-create --owner UniversalStandards --project "PROJECT-SWARM Delivery Board" --name Group --data-type SINGLE_SELECT --options "Core,Auth,Monitoring,Knowledge,UX,Advanced,Future"
-  gh project field-create --owner UniversalStandards --project "PROJECT-SWARM Delivery Board" --name Sprint --data-type ITERATION --iteration-duration 14
+  gh project field-create --owner UniversalStandards --project $PROJECT_NUMBER --name Priority --data-type SINGLE_SELECT --single-select-options "Critical,High,Medium,Low"
+  gh project field-create --owner UniversalStandards --project $PROJECT_NUMBER --name Effort --data-type SINGLE_SELECT --single-select-options "XS (<1h),S (1-2h),M (3-5h),L (1-2d),XL (2+d)"
+  gh project field-create --owner UniversalStandards --project $PROJECT_NUMBER --name Component --data-type SINGLE_SELECT --single-select-options "Workflow Builder,Execution Engine,AI Providers,GitHub Integration,Templates,UI/UX,Backend API,Database,Observability,Security,Infrastructure,Other"
+  gh project field-create --owner UniversalStandards --project $PROJECT_NUMBER --name Group --data-type SINGLE_SELECT --single-select-options "Core,Auth,Monitoring,Knowledge,UX,Advanced,Future"
+  gh project field-create --owner UniversalStandards --project $PROJECT_NUMBER --name Sprint --data-type ITERATION --iteration-duration 14
   ```
 - Add saved views:
   ```bash
