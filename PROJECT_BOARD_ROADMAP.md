@@ -24,7 +24,7 @@ This roadmap creates a single GitHub Project board that operationalizes the prev
   1. **Account type**: `GitHub.com`
   2. **Protocol**: `HTTPS`
   3. **Authentication method**: `Login with a web browser` (recommended) or `Paste an authentication token`
-- Create the project: `gh project create --owner UniversalStandards --title "PROJECT-SWARM Delivery Board" --format board`.
+- Create the project: `gh project create --owner UniversalStandards --title "PROJECT-SWARM Delivery Board"`.
 - Add fields (Priority, Effort, Component, Group, Sprint):
   ```bash
   gh project field-create --owner UniversalStandards --project "PROJECT-SWARM Delivery Board" --name Priority --data-type SINGLE_SELECT --options "Critical,High,Medium,Low"
