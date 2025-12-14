@@ -12,6 +12,13 @@ jobs:
     permissions:
       issues: write
       pull-requests: write
+      actions: write
+      security-events: write
+      repository-projects: write
+      id-token: write
+      statuses: write
+      checks: write
+      contents: write
     steps:
       - name: Add to project
         uses: actions/add-to-project@v0.5.0
