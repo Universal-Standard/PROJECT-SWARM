@@ -2,9 +2,9 @@
 
 **AI Workflow Orchestration Platform** - Build, execute, and monitor multi-agent AI workflows with visual drag-and-drop interface.
 
-[![Deploy to Cloudflare](https://img.shields.io/badge/Deploy-Cloudflare-orange)](./CLOUDFLARE_DEPLOYMENT.md)
-[![Deploy to GitHub Pages](https://img.shields.io/badge/Deploy-GitHub%20Pages-blue)](./GITHUB_PAGES_DEPLOYMENT.md)
-[![Self-Hosted](https://img.shields.io/badge/Deploy-Self%20Hosted-green)](./SELF_HOSTED_DEPLOYMENT.md)
+[![Deploy to Cloudflare](https://img.shields.io/badge/Deploy-Cloudflare-orange)](./docs/deployment/CLOUDFLARE_DEPLOYMENT.md)
+[![Deploy to GitHub Pages](https://img.shields.io/badge/Deploy-GitHub%20Pages-blue)](./docs/deployment/GITHUB_PAGES_DEPLOYMENT.md)
+[![Self-Hosted](https://img.shields.io/badge/Deploy-Self%20Hosted-green)](./docs/deployment/SELF_HOSTED_DEPLOYMENT.md)
 
 ---
 
@@ -55,30 +55,29 @@ PROJECT-SWARM provides a complete AI workflow orchestration platform with 40+ fe
 - 🗺️ **Minimap Navigation** - Bird's-eye view of large workflows
 - 🔍 **Search & Filter** - Find workflows quickly
 
-See [WORKFLOW_BUILDER_FEATURES.md](./WORKFLOW_BUILDER_FEATURES.md) for workflow builder details and [FEATURES_ROADMAP.md](./FEATURES_ROADMAP.md) for complete feature inventory.
+See [WORKFLOW_BUILDER_FEATURES.md](./docs/features/WORKFLOW_BUILDER_FEATURES.md) for workflow builder details and [FEATURES_ROADMAP.md](./docs/features/FEATURES_ROADMAP.md) for complete feature inventory.
 
 ---
 
 ## 📚 Documentation
 
-### Deployment Guides
+**Complete documentation is organized in [/docs](./docs/)** with the following structure:
 
-**Multi-Platform Deployment:**
-- 📖 [**MULTI_PLATFORM_DEPLOYMENT.md**](./MULTI_PLATFORM_DEPLOYMENT.md) - Master guide for all platforms
+### Quick Links
+- 📖 [**Documentation Index**](./docs/README.md) - Complete documentation navigation
+- 🚀 [**Getting Started**](./docs/guides/GETTING_STARTED.md) - Quick start guide
+- 🔒 [**Security**](./docs/guides/SECURITY.md) - Security best practices
+- 📦 [**Deployment**](./docs/deployment/) - All deployment guides
+- ✨ [**Features & Roadmap**](./docs/features/FEATURES_ROADMAP.md) - 90+ features
+- 🧪 [**Testing Guide**](./docs/features/TESTING.md) - Comprehensive testing
 
-**Platform-Specific:**
-- ☁️ [**CLOUDFLARE_DEPLOYMENT.md**](./CLOUDFLARE_DEPLOYMENT.md) - Cloudflare Pages frontend deployment
-- ⚡ [**CLOUDFLARE_WORKERS_GUIDE.md**](./CLOUDFLARE_WORKERS_GUIDE.md) - Cloudflare Workers backend (edge API)
-- 🐙 [**GITHUB_PAGES_DEPLOYMENT.md**](./GITHUB_PAGES_DEPLOYMENT.md) - GitHub Pages static hosting
-- 🖥️ [**SELF_HOSTED_DEPLOYMENT.md**](./SELF_HOSTED_DEPLOYMENT.md) - Windows Server & Amazon Linux
-
-### Features & Roadmap
-- 🗺️ [**FEATURES_ROADMAP.md**](./FEATURES_ROADMAP.md) - Current features & future roadmap (90+ total)
-- 🎨 [**WORKFLOW_BUILDER_FEATURES.md**](./WORKFLOW_BUILDER_FEATURES.md) - Workflow builder capabilities
-
-### Status & Testing
-- ✅ [**DEPLOYMENT_STATUS.md**](./DEPLOYMENT_STATUS.md) - Current deployment status
-- 🧪 [**TESTING.md**](./TESTING.md) - Testing guide
+### Documentation Categories
+- 📦 [**deployment/**](./docs/deployment/) - Platform deployment guides
+- 🛠️ [**development/**](./docs/development/) - Implementation docs & technical guides
+- 📋 [**project-management/**](./docs/project-management/) - Project board & workflow tracking
+- ✨ [**features/**](./docs/features/) - Features, roadmap, and testing
+- 📖 [**guides/**](./docs/guides/) - User guides and best practices
+- 🔍 [**reviews/**](./docs/reviews/) - Code reviews and improvement proposals
 
 ---
 
@@ -113,7 +112,7 @@ wrangler login
 wrangler deploy
 ```
 
-See [CLOUDFLARE_WORKERS_GUIDE.md](./CLOUDFLARE_WORKERS_GUIDE.md) for complete guide.
+See [CLOUDFLARE_WORKERS_GUIDE.md](./docs/deployment/CLOUDFLARE_WORKERS_GUIDE.md) for complete guide.
 
 ---
 
@@ -200,7 +199,7 @@ See [CLOUDFLARE_WORKERS_GUIDE.md](./CLOUDFLARE_WORKERS_GUIDE.md) for complete gu
 
 **Philosophy**: 2-4 hours per feature MVP, 4+ parallel tracks, 50+ core features in 3-4 days
 
-See [FEATURES_ROADMAP.md](./FEATURES_ROADMAP.md) for complete roadmap (90+ features).
+See [FEATURES_ROADMAP.md](./docs/features/FEATURES_ROADMAP.md) for complete roadmap (90+ features).
 
 ---
 
@@ -226,7 +225,7 @@ MIT License - see [LICENSE](./LICENSE) for details.
 ## 🔗 Links
 
 - **Repository**: https://github.com/UniversalStandards/PROJECT-SWARM
-- **Documentation**: See links above
+- **Documentation**: [Complete Docs](./docs/)
 - **Issues**: https://github.com/UniversalStandards/PROJECT-SWARM/issues
 - **Discussions**: https://github.com/UniversalStandards/PROJECT-SWARM/discussions
 
@@ -247,4 +246,4 @@ Built with:
 
 Start with: `npm install && npm run dev`
 
-Deploy to: [Cloudflare](./CLOUDFLARE_DEPLOYMENT.md) | [GitHub Pages](./GITHUB_PAGES_DEPLOYMENT.md) | [Self-Hosted](./SELF_HOSTED_DEPLOYMENT.md)
+Deploy to: [Cloudflare](./docs/deployment/CLOUDFLARE_DEPLOYMENT.md) | [GitHub Pages](./docs/deployment/GITHUB_PAGES_DEPLOYMENT.md) | [Self-Hosted](./docs/deployment/SELF_HOSTED_DEPLOYMENT.md)
