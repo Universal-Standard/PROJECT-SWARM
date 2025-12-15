@@ -1,0 +1,35 @@
+{
+  "recommendations": [
+    // Language support
+    "dbaeumer.vscode-eslint",
+    "esbenp.prettier-vscode",
+    "bradlc.vscode-tailwindcss",
+
+    // Framework/library support
+    "ms-vscode.vscode-typescript-next",
+    "dsznajder.es7-react-js-snippets",
+
+    // Database
+    "mtxr.sqltools",
+    "mtxr.sqltools-driver-pg",
+
+    // Testing
+    "vitest.explorer",
+    "ms-playwright.playwright",
+
+    // Git
+    "eamodio.gitlens",
+
+    // Utilities
+    "formulahendry.auto-rename-tag",
+    "christian-kohler.path-intellisense",
+    "visualstudioexptteam.vscodeintellicode",
+    "usernamehw.errorlens",
+
+    // Docker (for Phase 3)
+    "ms-azuretools.vscode-docker",
+
+    // API/HTTP
+    "humao.rest-client"
+  ]
+}

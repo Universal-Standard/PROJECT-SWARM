@@ -5,8 +5,13 @@ import { scheduler } from "./scheduler";
 import { errorHandler } from "./middleware/error-handler";
 import { wsManager } from "./websocket";
 import { createServer } from "http";
+import { configureHelmet } from "./middleware/helmet";
 
 const app = express();
+
+// Security headers (must be first)
+configureHelmet(app);
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
@@ -45,14 +50,14 @@ app.use((req, res, next) => {
 
   // Start workflow scheduler
   await scheduler.start();
-  log('Workflow scheduler started');
+  log("Workflow scheduler started");
   // Initialize Phase 3A features
   const { scheduler } = await import("./lib/scheduler");
   const { costTracker } = await import("./lib/cost-tracker");
-  
+
   await scheduler.initialize();
   await costTracker.initializePricing();
-  
+
   // Graceful shutdown
   process.on("SIGTERM", () => {
     log("SIGTERM signal received: closing HTTP server");
@@ -83,12 +88,12 @@ app.use((req, res, next) => {
   // Other ports are firewalled. Default to 5000 if not specified.
   // this serves both the API and the client.
   // It is the only port that is not firewalled.
-  const port = parseInt(process.env.PORT || '5000', 10);
-  
+  const port = parseInt(process.env.PORT || "5000", 10);
+
   // Create HTTP server and initialize WebSocket
   const server = createServer(app);
   wsManager.initialize(server);
-  
+
   server.listen(port, "0.0.0.0", () => {
     log(`serving on port ${port}`);
   });
