@@ -1,0 +1,54 @@
+# Dependencies
+node_modules
+npm-debug.log
+package-lock.json
+
+# Build output
+dist
+.vite
+coverage
+
+# Development
+.env
+.env.local
+.env.*.local
+*.log
+
+# Git
+.git
+.gitignore
+.github
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+*~
+
+# Testing
+tests
+**/__tests__
+**/*.test.ts
+**/*.test.tsx
+**/*.spec.ts
+playwright-report
+test-results
+
+# Documentation
+*.md
+!README.md
+docs
+
+# CI/CD
+.husky
+.prettierrc.json
+.prettierignore
+eslint.config.js
+vitest.config.ts
+playwright.config.ts
+
+# Misc
+.DS_Store
+Thumbs.db
+*.pem
