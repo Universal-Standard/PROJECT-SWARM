@@ -1,14 +1,34 @@
-import { WebSocketServer, WebSocket } from 'ws';
-import type { Server } from 'http';
-import type { IncomingMessage } from 'http';
-import url from 'url';
+import { WebSocketServer, WebSocket } from "ws";
+import type { Server } from "http";
+import type { IncomingMessage } from "http";
+import url from "url";
+import { logger } from "./lib/logger";
+
+export interface ExecutionEventData {
+  workflowName?: string;
+  status?: string;
+  result?: unknown;
+  output?: unknown;
+  error?: string;
+  level?: string;
+  message?: string;
+  role?: string;
+  content?: string;
+}
 
 export interface ExecutionEvent {
-  type: 'execution_started' | 'agent_started' | 'agent_completed' | 'execution_completed' | 'execution_failed' | 'log' | 'message';
+  type:
+    | "execution_started"
+    | "agent_started"
+    | "agent_completed"
+    | "execution_completed"
+    | "execution_failed"
+    | "log"
+    | "message";
   executionId: string;
   agentId?: string;
   agentName?: string;
-  data?: any;
+  data?: ExecutionEventData;
   timestamp: string;
 }
 
@@ -23,26 +43,26 @@ class WebSocketManager {
   private clients: Map<string, ClientConnection[]> = new Map(); // executionId -> clients
 
   initialize(server: Server) {
-    this.wss = new WebSocketServer({ 
+    this.wss = new WebSocketServer({
       server,
-      path: '/ws',
+      path: "/ws",
     });
 
-    this.wss.on('connection', (ws: WebSocket, req: IncomingMessage) => {
+    this.wss.on("connection", (ws: WebSocket, req: IncomingMessage) => {
       this.handleConnection(ws, req);
     });
 
-    console.log('[WebSocket] Server initialized on /ws');
+    logger.info("WebSocket server initialized", { path: "/ws" });
   }
 
   private handleConnection(ws: WebSocket, req: IncomingMessage) {
     // Parse query parameters for executionId and userId
-    const query = url.parse(req.url || '', true).query;
+    const query = url.parse(req.url || "", true).query;
     const executionId = query.executionId as string;
     const userId = query.userId as string;
 
     if (!executionId || !userId) {
-      ws.close(1008, 'Missing executionId or userId');
+      ws.close(1008, "Missing executionId or userId");
       return;
     }
 
@@ -52,49 +72,49 @@ class WebSocketManager {
     existingClients.push(connection);
     this.clients.set(executionId, existingClients);
 
-    console.log(`[WebSocket] Client connected to execution ${executionId}`);
+    logger.info("WebSocket client connected", { executionId, userId });
 
     // Send connection acknowledgment
     this.sendToClient(ws, {
-      type: 'log' as const,
+      type: "log" as const,
       executionId,
-      data: { message: 'Connected to execution monitor', level: 'info' },
+      data: { message: "Connected to execution monitor", level: "info" },
       timestamp: new Date().toISOString(),
     });
 
     // Handle client disconnection
-    ws.on('close', () => {
+    ws.on("close", () => {
       this.handleDisconnection(executionId, connection);
     });
 
     // Handle errors
-    ws.on('error', (error) => {
-      console.error('[WebSocket] Error:', error);
+    ws.on("error", (error) => {
+      logger.error("WebSocket error", error);
     });
 
     // Handle incoming messages (for future use like pause/resume)
-    ws.on('message', (data) => {
+    ws.on("message", (data) => {
       try {
         const message = JSON.parse(data.toString());
-        console.log('[WebSocket] Received message:', message);
+        logger.debug("WebSocket received message", { message });
         // Handle incoming messages if needed
       } catch (error) {
-        console.error('[WebSocket] Failed to parse message:', error);
+        logger.error("WebSocket failed to parse message", error);
       }
     });
   }
 
   private handleDisconnection(executionId: string, connection: ClientConnection) {
     const clients = this.clients.get(executionId) || [];
-    const updatedClients = clients.filter(c => c.ws !== connection.ws);
-    
+    const updatedClients = clients.filter((c) => c.ws !== connection.ws);
+
     if (updatedClients.length === 0) {
       this.clients.delete(executionId);
     } else {
       this.clients.set(executionId, updatedClients);
     }
 
-    console.log(`[WebSocket] Client disconnected from execution ${executionId}`);
+    logger.info("WebSocket client disconnected", { executionId });
   }
 
   private sendToClient(ws: WebSocket, event: ExecutionEvent) {
@@ -106,18 +126,22 @@ class WebSocketManager {
   /**
    * Broadcast an event to all clients watching a specific execution
    */
-  broadcast(executionId: string, event: Omit<ExecutionEvent, 'executionId' | 'timestamp'>) {
+  broadcast(executionId: string, event: Omit<ExecutionEvent, "executionId" | "timestamp">) {
     const clients = this.clients.get(executionId) || [];
-    
+
     const fullEvent: ExecutionEvent = {
       ...event,
       executionId,
       timestamp: new Date().toISOString(),
     };
 
-    console.log(`[WebSocket] Broadcasting to ${clients.length} clients:`, fullEvent.type);
+    logger.debug("WebSocket broadcasting event", {
+      executionId,
+      clientCount: clients.length,
+      eventType: fullEvent.type,
+    });
 
-    clients.forEach(client => {
+    clients.forEach((client) => {
       this.sendToClient(client.ws, fullEvent);
     });
   }
@@ -127,7 +151,7 @@ class WebSocketManager {
    */
   emitExecutionStarted(executionId: string, workflowName: string) {
     this.broadcast(executionId, {
-      type: 'execution_started',
+      type: "execution_started",
       data: { workflowName },
     });
   }
@@ -137,32 +161,32 @@ class WebSocketManager {
    */
   emitAgentStarted(executionId: string, agentId: string, agentName: string) {
     this.broadcast(executionId, {
-      type: 'agent_started',
+      type: "agent_started",
       agentId,
       agentName,
-      data: { status: 'running' },
+      data: { status: "running" },
     });
   }
 
   /**
    * Emit agent completed event
    */
-  emitAgentCompleted(executionId: string, agentId: string, agentName: string, result: any) {
+  emitAgentCompleted(executionId: string, agentId: string, agentName: string, result: unknown) {
     this.broadcast(executionId, {
-      type: 'agent_completed',
+      type: "agent_completed",
       agentId,
       agentName,
-      data: { status: 'completed', result },
+      data: { status: "completed", result },
     });
   }
 
   /**
    * Emit execution completed event
    */
-  emitExecutionCompleted(executionId: string, output: any) {
+  emitExecutionCompleted(executionId: string, output: unknown) {
     this.broadcast(executionId, {
-      type: 'execution_completed',
-      data: { status: 'completed', output },
+      type: "execution_completed",
+      data: { status: "completed", output },
     });
   }
 
@@ -171,17 +195,23 @@ class WebSocketManager {
    */
   emitExecutionFailed(executionId: string, error: string) {
     this.broadcast(executionId, {
-      type: 'execution_failed',
-      data: { status: 'error', error },
+      type: "execution_failed",
+      data: { status: "error", error },
     });
   }
 
   /**
    * Emit log message
    */
-  emitLog(executionId: string, level: string, message: string, agentId?: string, agentName?: string) {
+  emitLog(
+    executionId: string,
+    level: string,
+    message: string,
+    agentId?: string,
+    agentName?: string
+  ) {
     this.broadcast(executionId, {
-      type: 'log',
+      type: "log",
       agentId,
       agentName,
       data: { level, message },
@@ -191,9 +221,15 @@ class WebSocketManager {
   /**
    * Emit agent message
    */
-  emitMessage(executionId: string, agentId: string, agentName: string, role: string, content: string) {
+  emitMessage(
+    executionId: string,
+    agentId: string,
+    agentName: string,
+    role: string,
+    content: string
+  ) {
     this.broadcast(executionId, {
-      type: 'message',
+      type: "message",
       agentId,
       agentName,
       data: { role, content },

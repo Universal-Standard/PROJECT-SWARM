@@ -1,6 +1,7 @@
 import type { Express, Request, Response } from "express";
 import { db } from "../db";
 import { sql } from "drizzle-orm";
+import { logger } from "../lib/logger";
 
 /**
  * Health Check Endpoints
@@ -54,7 +55,7 @@ export function registerHealthRoutes(app: Express) {
         },
       });
     } catch (error) {
-      console.error("Readiness check failed:", error);
+      logger.error("Readiness check failed", error);
       res.status(503).json({
         status: "not ready",
         timestamp: new Date().toISOString(),
@@ -148,7 +149,7 @@ export function registerHealthRoutes(app: Express) {
         },
       });
     } catch (error) {
-      console.error("Status check failed:", error);
+      logger.error("Status check failed", error);
       res.status(503).json({
         status: "degraded",
         error: error instanceof Error ? error.message : "Unknown error",

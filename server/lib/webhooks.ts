@@ -1,8 +1,15 @@
 import crypto from "crypto";
 import { db } from "../db";
-import { workflowWebhooks, executions, workflows, type WorkflowWebhook, type InsertWorkflowWebhook } from "@shared/schema";
+import {
+  workflowWebhooks,
+  executions,
+  workflows,
+  type WorkflowWebhook,
+  type InsertWorkflowWebhook,
+} from "@shared/schema";
 import { eq } from "drizzle-orm";
 import { orchestrator } from "../ai/orchestrator";
+import { logger } from "./logger";
 
 interface WebhookCallLog {
   timestamp: Date;
@@ -57,7 +64,10 @@ export class WebhookManager {
   /**
    * Get webhook by secret key
    */
-  async getWebhookBySecret(workflowId: string, secretKey: string): Promise<WorkflowWebhook | undefined> {
+  async getWebhookBySecret(
+    workflowId: string,
+    secretKey: string
+  ): Promise<WorkflowWebhook | undefined> {
     const webhooks = await db.query.workflowWebhooks.findMany({
       where: eq(workflowWebhooks.secretKey, secretKey),
     });
@@ -162,10 +172,10 @@ export class WebhookManager {
 
     // Get recent calls
     let calls = this.rateLimitMap.get(webhookId) || [];
-    
+
     // Remove calls older than 1 hour
-    calls = calls.filter(timestamp => timestamp > oneHourAgo);
-    
+    calls = calls.filter((timestamp) => timestamp > oneHourAgo);
+
     // Check if limit exceeded
     if (calls.length >= this.MAX_CALLS_PER_HOUR) {
       return false;
@@ -204,7 +214,7 @@ export class WebhookManager {
    * Get value from object by dot notation path
    */
   private getValueByPath(obj: any, path: string): any {
-    return path.split('.').reduce((current, key) => current?.[key], obj);
+    return path.split(".").reduce((current, key) => current?.[key], obj);
   }
 
   /**
@@ -219,7 +229,7 @@ export class WebhookManager {
     try {
       // Get webhook
       const webhook = await this.getWebhookBySecret(workflowId, secretKey);
-      
+
       if (!webhook) {
         return { success: false, error: "Webhook not found" };
       }
@@ -255,8 +265,8 @@ export class WebhookManager {
         .returning();
 
       // Queue workflow execution (async)
-      orchestrator.executeWorkflow(execution.id).catch(error => {
-        console.error(`[Webhook] Error executing workflow ${workflowId}:`, error);
+      orchestrator.executeWorkflow(execution.id).catch((error) => {
+        logger.error(`Error executing workflow ${workflowId}`, error);
       });
 
       // Update webhook statistics
@@ -275,7 +285,7 @@ export class WebhookManager {
       return { success: true, executionId: execution.id };
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : "Unknown error";
-      console.error(`[Webhook] Error triggering webhook:`, error);
+      logger.error("Error triggering webhook", error);
       return { success: false, error: errorMessage };
     }
   }
@@ -291,7 +301,7 @@ export class WebhookManager {
     error?: string
   ): void {
     const logs = this.callLogs.get(webhookId) || [];
-    
+
     logs.unshift({
       timestamp: new Date(),
       payload,
@@ -319,11 +329,7 @@ export class WebhookManager {
   /**
    * Verify HMAC signature (for enhanced security)
    */
-  verifyHmacSignature(
-    payload: string,
-    signature: string,
-    secret: string
-  ): boolean {
+  verifyHmacSignature(payload: string, signature: string, secret: string): boolean {
     const hmac = crypto.createHmac("sha256", secret);
     hmac.update(payload);
     const expectedSignature = hmac.digest("hex");

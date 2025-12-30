@@ -1,6 +1,14 @@
 import { db } from "../db";
-import { executionCosts, providerPricing, executions, agents, type ExecutionCost, type ProviderPricing } from "@shared/schema";
+import {
+  executionCosts,
+  providerPricing,
+  executions,
+  agents,
+  type ExecutionCost,
+  type ProviderPricing,
+} from "@shared/schema";
 import { eq, and, gte, lte, sql, desc } from "drizzle-orm";
+import { logger } from "./logger";
 
 interface TokenUsage {
   inputTokens: number;
@@ -26,18 +34,66 @@ export class CostTracker {
   async initializePricing(): Promise<void> {
     const defaultPricing: Array<Omit<ProviderPricing, "id" | "effectiveDate" | "updatedAt">> = [
       // OpenAI pricing (per 1M tokens in cents)
-      { provider: "openai", model: "gpt-4", inputTokenPrice: 3000, outputTokenPrice: 6000, currency: "USD" },
-      { provider: "openai", model: "gpt-4-turbo", inputTokenPrice: 1000, outputTokenPrice: 3000, currency: "USD" },
-      { provider: "openai", model: "gpt-3.5-turbo", inputTokenPrice: 50, outputTokenPrice: 150, currency: "USD" },
-      
+      {
+        provider: "openai",
+        model: "gpt-4",
+        inputTokenPrice: 3000,
+        outputTokenPrice: 6000,
+        currency: "USD",
+      },
+      {
+        provider: "openai",
+        model: "gpt-4-turbo",
+        inputTokenPrice: 1000,
+        outputTokenPrice: 3000,
+        currency: "USD",
+      },
+      {
+        provider: "openai",
+        model: "gpt-3.5-turbo",
+        inputTokenPrice: 50,
+        outputTokenPrice: 150,
+        currency: "USD",
+      },
+
       // Anthropic pricing
-      { provider: "anthropic", model: "claude-3-opus-20240229", inputTokenPrice: 1500, outputTokenPrice: 7500, currency: "USD" },
-      { provider: "anthropic", model: "claude-3-5-sonnet-20241022", inputTokenPrice: 300, outputTokenPrice: 1500, currency: "USD" },
-      { provider: "anthropic", model: "claude-3-haiku-20240307", inputTokenPrice: 25, outputTokenPrice: 125, currency: "USD" },
-      
+      {
+        provider: "anthropic",
+        model: "claude-3-opus-20240229",
+        inputTokenPrice: 1500,
+        outputTokenPrice: 7500,
+        currency: "USD",
+      },
+      {
+        provider: "anthropic",
+        model: "claude-3-5-sonnet-20241022",
+        inputTokenPrice: 300,
+        outputTokenPrice: 1500,
+        currency: "USD",
+      },
+      {
+        provider: "anthropic",
+        model: "claude-3-haiku-20240307",
+        inputTokenPrice: 25,
+        outputTokenPrice: 125,
+        currency: "USD",
+      },
+
       // Gemini pricing
-      { provider: "gemini", model: "gemini-1.5-pro", inputTokenPrice: 125, outputTokenPrice: 500, currency: "USD" },
-      { provider: "gemini", model: "gemini-1.5-flash", inputTokenPrice: 7, outputTokenPrice: 30, currency: "USD" },
+      {
+        provider: "gemini",
+        model: "gemini-1.5-pro",
+        inputTokenPrice: 125,
+        outputTokenPrice: 500,
+        currency: "USD",
+      },
+      {
+        provider: "gemini",
+        model: "gemini-1.5-flash",
+        inputTokenPrice: 7,
+        outputTokenPrice: 30,
+        currency: "USD",
+      },
     ];
 
     for (const pricing of defaultPricing) {
@@ -54,7 +110,7 @@ export class CostTracker {
       }
     }
 
-    console.log("[CostTracker] Initialized provider pricing");
+    logger.info("Initialized provider pricing", { count: defaultPricing.length });
   }
 
   /**
@@ -69,10 +125,7 @@ export class CostTracker {
   ): Promise<ExecutionCost> {
     // Get pricing for provider and model
     const pricing = await db.query.providerPricing.findFirst({
-      where: and(
-        eq(providerPricing.provider, provider),
-        eq(providerPricing.model, model)
-      ),
+      where: and(eq(providerPricing.provider, provider), eq(providerPricing.model, model)),
     });
 
     let estimatedCost = 0;
@@ -105,11 +158,7 @@ export class CostTracker {
   /**
    * Get cost analytics for a time period
    */
-  async getCostAnalytics(
-    userId: string,
-    startDate: Date,
-    endDate: Date
-  ): Promise<CostAnalytics> {
+  async getCostAnalytics(userId: string, startDate: Date, endDate: Date): Promise<CostAnalytics> {
     // Get all execution costs in the period
     const costs = await db
       .select({
@@ -133,7 +182,7 @@ export class CostTracker {
 
     // Breakdown by workflow
     const workflowCosts = new Map<string, { name: string; cost: number }>();
-    costs.forEach(record => {
+    costs.forEach((record) => {
       const wfId = record.execution.workflowId;
       if (!workflowCosts.has(wfId)) {
         workflowCosts.set(wfId, { name: "Unknown", cost: 0 });
@@ -144,21 +193,24 @@ export class CostTracker {
 
     // Breakdown by provider
     const providerCosts = new Map<string, number>();
-    costs.forEach(record => {
+    costs.forEach((record) => {
       const provider = record.cost.provider;
-      providerCosts.set(provider, (providerCosts.get(provider) || 0) + (record.cost.estimatedCost || 0));
+      providerCosts.set(
+        provider,
+        (providerCosts.get(provider) || 0) + (record.cost.estimatedCost || 0)
+      );
     });
 
     // Breakdown by model
     const modelCosts = new Map<string, number>();
-    costs.forEach(record => {
+    costs.forEach((record) => {
       const model = record.cost.model;
       modelCosts.set(model, (modelCosts.get(model) || 0) + (record.cost.estimatedCost || 0));
     });
 
     // Breakdown by agent
     const agentCosts = new Map<string, { name: string; cost: number }>();
-    costs.forEach(record => {
+    costs.forEach((record) => {
       const agentId = record.agent.id;
       if (!agentCosts.has(agentId)) {
         agentCosts.set(agentId, { name: record.agent.name, cost: 0 });
@@ -167,7 +219,7 @@ export class CostTracker {
       agent.cost += record.cost.estimatedCost || 0;
     });
 
-    const period = `${startDate.toISOString().split('T')[0]} to ${endDate.toISOString().split('T')[0]}`;
+    const period = `${startDate.toISOString().split("T")[0]} to ${endDate.toISOString().split("T")[0]}`;
 
     return {
       totalCost,
@@ -230,9 +282,12 @@ export class CostTracker {
     const outputTokens = costs.reduce((sum, r) => sum + (r.cost.outputTokens || 0), 0);
 
     const providerTokens = new Map<string, number>();
-    costs.forEach(record => {
+    costs.forEach((record) => {
       const provider = record.cost.provider;
-      providerTokens.set(provider, (providerTokens.get(provider) || 0) + (record.cost.totalTokens || 0));
+      providerTokens.set(
+        provider,
+        (providerTokens.get(provider) || 0) + (record.cost.totalTokens || 0)
+      );
     });
 
     return {
@@ -271,8 +326,8 @@ export class CostTracker {
 
     // Group by date
     const dailyCosts = new Map<string, number>();
-    costs.forEach(record => {
-      const date = record.cost.calculatedAt.toISOString().split('T')[0];
+    costs.forEach((record) => {
+      const date = record.cost.calculatedAt.toISOString().split("T")[0];
       dailyCosts.set(date, (dailyCosts.get(date) || 0) + (record.cost.estimatedCost || 0));
     });
 
@@ -287,7 +342,9 @@ export class CostTracker {
   async getMostExpensiveWorkflows(
     userId: string,
     limit: number = 10
-  ): Promise<Array<{ workflowId: string; workflowName: string; totalCost: number; executionCount: number }>> {
+  ): Promise<
+    Array<{ workflowId: string; workflowName: string; totalCost: number; executionCount: number }>
+  > {
     const costs = await db
       .select({
         cost: executionCosts,
@@ -298,8 +355,11 @@ export class CostTracker {
       .where(eq(executions.userId, userId));
 
     // Group by workflow
-    const workflowStats = new Map<string, { name: string; totalCost: number; executionCount: number }>();
-    costs.forEach(record => {
+    const workflowStats = new Map<
+      string,
+      { name: string; totalCost: number; executionCount: number }
+    >();
+    costs.forEach((record) => {
       const wfId = record.execution.workflowId;
       if (!workflowStats.has(wfId)) {
         workflowStats.set(wfId, { name: "Unknown", totalCost: 0, executionCount: 0 });
@@ -323,11 +383,7 @@ export class CostTracker {
   /**
    * Export cost report as CSV
    */
-  async exportCostReport(
-    userId: string,
-    startDate: Date,
-    endDate: Date
-  ): Promise<string> {
+  async exportCostReport(userId: string, startDate: Date, endDate: Date): Promise<string> {
     const costs = await db
       .select({
         cost: executionCosts,
@@ -360,7 +416,7 @@ export class CostTracker {
       "Currency",
     ];
 
-    const rows = costs.map(record => [
+    const rows = costs.map((record) => [
       record.cost.calculatedAt.toISOString(),
       record.execution.id,
       record.execution.workflowId,
@@ -376,7 +432,7 @@ export class CostTracker {
 
     const csv = [
       headers.join(","),
-      ...rows.map(row => row.map(cell => `"${cell}"`).join(",")),
+      ...rows.map((row) => row.map((cell) => `"${cell}"`).join(",")),
     ].join("\n");
 
     return csv;
@@ -392,10 +448,7 @@ export class CostTracker {
     outputTokenPrice: number
   ): Promise<void> {
     const existing = await db.query.providerPricing.findFirst({
-      where: and(
-        eq(providerPricing.provider, provider),
-        eq(providerPricing.model, model)
-      ),
+      where: and(eq(providerPricing.provider, provider), eq(providerPricing.model, model)),
     });
 
     if (existing) {

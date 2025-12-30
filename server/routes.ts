@@ -1,6 +1,11 @@
 import type { Express } from "express";
 import { storage } from "./storage";
-import { insertWorkflowSchema, insertAgentSchema, insertExecutionSchema, insertTemplateSchema } from "@shared/schema";
+import {
+  insertWorkflowSchema,
+  insertAgentSchema,
+  insertExecutionSchema,
+  insertTemplateSchema,
+} from "@shared/schema";
 import { orchestrator } from "./ai/orchestrator";
 import { z } from "zod";
 import { setupAuth, isAuthenticated } from "./replitAuth";
@@ -8,15 +13,17 @@ import type { Request } from "express";
 import { workflowValidator, workflowExportSchema } from "./lib/workflow-validator";
 import { webhookHandler } from "./webhooks";
 import crypto from "crypto";
-import { 
-  getGitHubAuthUrl, 
-  exchangeCodeForToken, 
-  storeGitHubTokens, 
+import { logger } from "./lib/logger";
+import {
+  getGitHubAuthUrl,
+  exchangeCodeForToken,
+  storeGitHubTokens,
   revokeGitHubToken,
   getGitHubToken,
-  isGitHubTokenExpired 
+  isGitHubTokenExpired,
 } from "./auth/github-oauth";
 import { withGitHubAuth, type GitHubAuthRequest } from "./middleware/github-auth";
+import type { WorkflowNode, ChatMessage } from "./types/workflow";
 import { encrypt, decrypt, maskToken } from "./auth/encryption";
 import { WorkflowValidationError } from "@shared/errors";
 
@@ -24,7 +31,7 @@ import { WorkflowValidationError } from "@shared/errors";
 const executeWorkflowSchema = insertExecutionSchema.pick({ workflowId: true, input: true });
 
 // Sync Agent records from workflow nodes
-async function syncAgentsFromNodes(workflowId: string, nodes: any[]) {
+async function syncAgentsFromNodes(workflowId: string, nodes: WorkflowNode[]) {
   // Delete existing agents for this workflow
   const existingAgents = await storage.getAgentsByWorkflowId(workflowId);
   for (const agent of existingAgents) {
@@ -33,16 +40,22 @@ async function syncAgentsFromNodes(workflowId: string, nodes: any[]) {
 
   // Create new agents from nodes
   for (const node of nodes) {
-    if (node.type === 'agent') {
-      const role = node.data?.role || 'Coordinator';
-      const provider = node.data?.provider || 'openai';
-      const model = node.data?.model || (provider === 'openai' ? 'gpt-4' : provider === 'anthropic' ? 'claude-3-5-sonnet-20241022' : 'gemini-1.5-flash');
-      
+    if (node.type === "agent") {
+      const role = node.data?.role || "Coordinator";
+      const provider = node.data?.provider || "openai";
+      const model =
+        node.data?.model ||
+        (provider === "openai"
+          ? "gpt-4"
+          : provider === "anthropic"
+            ? "claude-3-5-sonnet-20241022"
+            : "gemini-1.5-flash");
+
       await storage.createAgent({
         workflowId,
         name: node.data?.label || `${role} Agent`,
         role,
-        description: node.data?.description || '',
+        description: node.data?.description || "",
         provider,
         model,
         systemPrompt: node.data?.systemPrompt || null,
@@ -66,28 +79,28 @@ export async function registerRoutes(app: Express) {
   await setupAuth(app);
 
   // Auth routes
-  app.get('/api/auth/user', isAuthenticated, async (req: any, res) => {
+  app.get("/api/auth/user", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const user = await storage.getUser(userId);
       res.json(user);
     } catch (error) {
-      console.error("Error fetching user:", error);
+      logger.error("Error fetching user", error);
       res.status(500).json({ message: "Failed to fetch user" });
     }
   });
 
   // GitHub OAuth routes
-  app.get('/api/auth/github/authorize', isAuthenticated, async (req: any, res) => {
+  app.get("/api/auth/github/authorize", isAuthenticated, async (req: any, res) => {
     try {
       // Generate CSRF state token
-      const state = crypto.randomBytes(32).toString('hex');
-      
+      const state = crypto.randomBytes(32).toString("hex");
+
       // Store state in session for verification
       if (req.session) {
         req.session.githubOAuthState = state;
       }
-      
+
       // Generate and redirect to GitHub authorization URL
       const authUrl = getGitHubAuthUrl(state);
       res.json({ authUrl });
@@ -96,63 +109,63 @@ export async function registerRoutes(app: Express) {
     }
   });
 
-  app.get('/api/auth/github/callback', isAuthenticated, async (req: any, res) => {
+  app.get("/api/auth/github/callback", isAuthenticated, async (req: any, res) => {
     try {
       const { code, state } = req.query;
-      
-      if (!code || typeof code !== 'string') {
-        return res.status(400).json({ error: 'Missing authorization code' });
+
+      if (!code || typeof code !== "string") {
+        return res.status(400).json({ error: "Missing authorization code" });
       }
-      
+
       // Verify state to prevent CSRF
       if (req.session && req.session.githubOAuthState !== state) {
-        return res.status(400).json({ error: 'Invalid state parameter' });
+        return res.status(400).json({ error: "Invalid state parameter" });
       }
-      
+
       // Clear state from session
       if (req.session) {
         delete req.session.githubOAuthState;
       }
-      
+
       // Exchange code for token
       const { accessToken, refreshToken, expiresAt } = await exchangeCodeForToken(code);
-      
+
       // Store tokens for user
       const userId = getUserId(req);
       await storeGitHubTokens(userId, accessToken, refreshToken, expiresAt);
-      
+
       // Redirect to settings page
-      res.redirect('/app/settings?github=connected');
+      res.redirect("/app/settings?github=connected");
     } catch (error: any) {
-      console.error('GitHub OAuth callback error:', error);
-      res.redirect('/app/settings?github=error');
+      logger.error("GitHub OAuth callback error", error);
+      res.redirect("/app/settings?github=error");
     }
   });
 
-  app.get('/api/auth/github/status', isAuthenticated, async (req: any, res) => {
+  app.get("/api/auth/github/status", isAuthenticated, async (req: any, res) => {
     try {
       const userId = getUserId(req);
       const user = await storage.getUser(userId);
-      
+
       if (!user) {
         return res.json({ connected: false });
       }
-      
+
       const hasToken = !!user.githubAccessToken;
       const isExpired = isGitHubTokenExpired(user);
       const maskedToken = hasToken ? maskToken(getGitHubToken(user)) : null;
-      
-      res.json({ 
+
+      res.json({
         connected: hasToken && !isExpired,
         expired: isExpired,
-        tokenPreview: maskedToken
+        tokenPreview: maskedToken,
       });
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }
   });
 
-  app.post('/api/auth/github/disconnect', isAuthenticated, async (req: any, res) => {
+  app.post("/api/auth/github/disconnect", isAuthenticated, async (req: any, res) => {
     try {
       const userId = getUserId(req);
       await revokeGitHubToken(userId);
@@ -198,10 +211,10 @@ export async function registerRoutes(app: Express) {
         userId,
       });
       const workflow = await storage.createWorkflow(data);
-      
+
       // Create Agent records for each node in the workflow
-      await syncAgentsFromNodes(workflow.id, workflow.nodes as any[]);
-      
+      await syncAgentsFromNodes(workflow.id, workflow.nodes as WorkflowNode[]);
+
       res.json(workflow);
     } catch (error: any) {
       res.status(400).json({ error: error.message });
@@ -211,7 +224,7 @@ export async function registerRoutes(app: Express) {
   app.patch("/api/workflows/:id", isAuthenticated, async (req: any, res) => {
     try {
       const userId = getUserId(req);
-      
+
       // Verify ownership first
       const existingWorkflow = await storage.getWorkflowById(req.params.id);
       if (!existingWorkflow) {
@@ -220,7 +233,7 @@ export async function registerRoutes(app: Express) {
       if (existingWorkflow.userId !== userId) {
         return res.status(403).json({ error: "Forbidden" });
       }
-      
+
       // Define structured schemas for workflow components
       const nodeSchema = z.object({
         id: z.string(),
@@ -237,16 +250,18 @@ export async function registerRoutes(app: Express) {
       });
 
       // Validate the update data with Zod schema
-      const updateWorkflowSchema = z.object({
-        name: z.string().min(1).max(255).optional(),
-        description: z.string().optional(),
-        nodes: z.array(nodeSchema).optional(),
-        edges: z.array(edgeSchema).optional(),
-        category: z.string().optional(),
-      }).strict();
+      const updateWorkflowSchema = z
+        .object({
+          name: z.string().min(1).max(255).optional(),
+          description: z.string().optional(),
+          nodes: z.array(nodeSchema).optional(),
+          edges: z.array(edgeSchema).optional(),
+          category: z.string().optional(),
+        })
+        .strict();
 
       const validated = updateWorkflowSchema.parse(req.body);
-      
+
       if (Object.keys(validated).length === 0) {
         return res.status(400).json({ error: "No valid fields to update" });
       }
@@ -255,15 +270,15 @@ export async function registerRoutes(app: Express) {
       if (!workflow) {
         return res.status(404).json({ error: "Workflow not found" });
       }
-      
+
       // Sync agents if nodes were updated
       if (validated.nodes) {
-        await syncAgentsFromNodes(req.params.id, validated.nodes as any[]);
+        await syncAgentsFromNodes(req.params.id, validated.nodes as WorkflowNode[]);
       }
-      
+
       res.json(workflow);
     } catch (error: any) {
-      if (error.name === 'ZodError') {
+      if (error.name === "ZodError") {
         return res.status(400).json({ error: "Invalid input", details: error.errors });
       }
       res.status(500).json({ error: error.message });
@@ -273,7 +288,7 @@ export async function registerRoutes(app: Express) {
   app.delete("/api/workflows/:id", isAuthenticated, async (req: any, res) => {
     try {
       const userId = getUserId(req);
-      
+
       // Verify ownership
       const workflow = await storage.getWorkflowById(req.params.id);
       if (!workflow) {
@@ -282,7 +297,7 @@ export async function registerRoutes(app: Express) {
       if (workflow.userId !== userId) {
         return res.status(403).json({ error: "Forbidden" });
       }
-      
+
       await storage.deleteWorkflow(req.params.id);
       res.json({ success: true });
     } catch (error: any) {
@@ -295,16 +310,16 @@ export async function registerRoutes(app: Express) {
     try {
       const userId = getUserId(req);
       const workflow = await storage.getWorkflowById(req.params.id);
-      
+
       if (!workflow) {
         return res.status(404).json({ error: "Workflow not found" });
       }
-      
+
       // Verify ownership
       if (workflow.userId !== userId) {
         return res.status(403).json({ error: "Forbidden" });
       }
-      
+
       const result = workflowValidator.validate(workflow);
       res.json(result);
     } catch (error: any) {
@@ -316,7 +331,7 @@ export async function registerRoutes(app: Express) {
   app.get("/api/workflows/:workflowId/agents", isAuthenticated, async (req: any, res) => {
     try {
       const userId = getUserId(req);
-      
+
       // Verify workflow ownership
       const workflow = await storage.getWorkflowById(req.params.workflowId);
       if (!workflow) {
@@ -325,7 +340,7 @@ export async function registerRoutes(app: Express) {
       if (workflow.userId !== userId) {
         return res.status(403).json({ error: "Forbidden" });
       }
-      
+
       const agents = await storage.getAgentsByWorkflowId(req.params.workflowId);
       res.json(agents);
     } catch (error: any) {
@@ -337,7 +352,7 @@ export async function registerRoutes(app: Express) {
     try {
       const userId = getUserId(req);
       const data = insertAgentSchema.parse(req.body);
-      
+
       // Verify workflow ownership
       const workflow = await storage.getWorkflowById(data.workflowId);
       if (!workflow) {
@@ -346,7 +361,7 @@ export async function registerRoutes(app: Express) {
       if (workflow.userId !== userId) {
         return res.status(403).json({ error: "Forbidden" });
       }
-      
+
       const agent = await storage.createAgent(data);
       res.json(agent);
     } catch (error: any) {
@@ -357,18 +372,18 @@ export async function registerRoutes(app: Express) {
   app.patch("/api/agents/:id", isAuthenticated, async (req: any, res) => {
     try {
       const userId = getUserId(req);
-      
+
       // Get agent and verify workflow ownership
       const agent = await storage.getAgentById(req.params.id);
       if (!agent) {
         return res.status(404).json({ error: "Agent not found" });
       }
-      
+
       const workflow = await storage.getWorkflowById(agent.workflowId);
       if (!workflow || workflow.userId !== userId) {
         return res.status(403).json({ error: "Forbidden" });
       }
-      
+
       // Define capability schema
       const capabilitySchema = z.object({
         type: z.string(),
@@ -378,24 +393,26 @@ export async function registerRoutes(app: Express) {
       });
 
       // Validate the update data with Zod schema
-      const updateAgentSchema = z.object({
-        name: z.string().min(1).max(255).optional(),
-        role: z.string().optional(),
-        description: z.string().optional(),
-        provider: z.enum(['openai', 'anthropic', 'gemini']).optional(),
-        model: z.string().optional(),
-        systemPrompt: z.string().optional(),
-        temperature: z.number().int().min(0).max(100).optional(),
-        maxTokens: z.number().int().min(1).max(100000).optional(),
-        capabilities: z.array(capabilitySchema).optional(),
-        topP: z.number().int().min(0).max(100).optional(),
-        frequencyPenalty: z.number().int().min(-200).max(200).optional(),
-        presencePenalty: z.number().int().min(-200).max(200).optional(),
-        stopSequences: z.array(z.string()).optional(),
-      }).strict();
+      const updateAgentSchema = z
+        .object({
+          name: z.string().min(1).max(255).optional(),
+          role: z.string().optional(),
+          description: z.string().optional(),
+          provider: z.enum(["openai", "anthropic", "gemini"]).optional(),
+          model: z.string().optional(),
+          systemPrompt: z.string().optional(),
+          temperature: z.number().int().min(0).max(100).optional(),
+          maxTokens: z.number().int().min(1).max(100000).optional(),
+          capabilities: z.array(capabilitySchema).optional(),
+          topP: z.number().int().min(0).max(100).optional(),
+          frequencyPenalty: z.number().int().min(-200).max(200).optional(),
+          presencePenalty: z.number().int().min(-200).max(200).optional(),
+          stopSequences: z.array(z.string()).optional(),
+        })
+        .strict();
 
       const validated = updateAgentSchema.parse(req.body);
-      
+
       if (Object.keys(validated).length === 0) {
         return res.status(400).json({ error: "No valid fields to update" });
       }
@@ -404,10 +421,10 @@ export async function registerRoutes(app: Express) {
       if (!updatedAgent) {
         return res.status(404).json({ error: "Agent not found" });
       }
-      
+
       // Update workflow nodes to keep them in sync with agent data
       if (workflow.nodes && Array.isArray(workflow.nodes)) {
-        const updatedNodes = (workflow.nodes as any[]).map((node: any) => {
+        const updatedNodes = (workflow.nodes as WorkflowNode[]).map((node) => {
           if (node.id === agent.nodeId) {
             return {
               ...node,
@@ -419,18 +436,18 @@ export async function registerRoutes(app: Express) {
                 role: updatedAgent.role,
                 description: updatedAgent.description || node.data.description,
                 systemPrompt: updatedAgent.systemPrompt || node.data.systemPrompt,
-              }
+              },
             };
           }
           return node;
         });
-        
+
         await storage.updateWorkflow(workflow.id, { nodes: updatedNodes });
       }
-      
+
       res.json(updatedAgent);
     } catch (error: any) {
-      if (error.name === 'ZodError') {
+      if (error.name === "ZodError") {
         return res.status(400).json({ error: "Invalid input", details: error.errors });
       }
       res.status(500).json({ error: error.message });
@@ -451,7 +468,7 @@ export async function registerRoutes(app: Express) {
   app.get("/api/workflows/:workflowId/executions", isAuthenticated, async (req: any, res) => {
     try {
       const userId = getUserId(req);
-      
+
       // Verify workflow ownership
       const workflow = await storage.getWorkflowById(req.params.workflowId);
       if (!workflow) {
@@ -460,7 +477,7 @@ export async function registerRoutes(app: Express) {
       if (workflow.userId !== userId) {
         return res.status(403).json({ error: "Forbidden" });
       }
-      
+
       const executions = await storage.getExecutionsByWorkflowId(req.params.workflowId);
       res.json(executions);
     } catch (error: any) {
@@ -475,13 +492,13 @@ export async function registerRoutes(app: Express) {
       if (!execution) {
         return res.status(404).json({ error: "Execution not found" });
       }
-      
+
       // Verify ownership through workflow
       const workflow = await storage.getWorkflowById(execution.workflowId);
       if (!workflow || workflow.userId !== userId) {
         return res.status(403).json({ error: "Forbidden" });
       }
-      
+
       res.json(execution);
     } catch (error: any) {
       res.status(500).json({ error: error.message });
@@ -492,7 +509,7 @@ export async function registerRoutes(app: Express) {
     try {
       const userId = getUserId(req);
       const { workflowId, input } = executeWorkflowSchema.parse(req.body);
-      
+
       // Verify workflow ownership
       const workflow = await storage.getWorkflowById(workflowId);
       if (!workflow) {
@@ -501,11 +518,11 @@ export async function registerRoutes(app: Express) {
       if (workflow.userId !== userId) {
         return res.status(403).json({ error: "Forbidden" });
       }
-      
+
       const execution = await orchestrator.executeWorkflow(workflowId, input);
       res.json(execution);
     } catch (error: any) {
-      if (error.name === 'ZodError') {
+      if (error.name === "ZodError") {
         return res.status(400).json({ error: "Invalid input", details: error.errors });
       }
       res.status(500).json({ error: error.message });
@@ -515,27 +532,29 @@ export async function registerRoutes(app: Express) {
   app.patch("/api/executions/:id", isAuthenticated, async (req: any, res) => {
     try {
       const userId = getUserId(req);
-      
+
       // Get execution and verify ownership through workflow
       const execution = await storage.getExecutionById(req.params.id);
       if (!execution) {
         return res.status(404).json({ error: "Execution not found" });
       }
-      
+
       const workflow = await storage.getWorkflowById(execution.workflowId);
       if (!workflow || workflow.userId !== userId) {
         return res.status(403).json({ error: "Forbidden" });
       }
-      
+
       // Validate the update data with Zod schema
-      const updateExecutionSchema = z.object({
-        status: z.enum(['pending', 'running', 'completed', 'error']).optional(),
-        output: z.record(z.any()).optional(),
-        error: z.string().optional(),
-      }).strict();
+      const updateExecutionSchema = z
+        .object({
+          status: z.enum(["pending", "running", "completed", "error"]).optional(),
+          output: z.record(z.any()).optional(),
+          error: z.string().optional(),
+        })
+        .strict();
 
       const validated = updateExecutionSchema.parse(req.body);
-      
+
       if (Object.keys(validated).length === 0) {
         return res.status(400).json({ error: "No valid fields to update" });
       }
@@ -546,7 +565,7 @@ export async function registerRoutes(app: Express) {
       }
       res.json(updatedExecution);
     } catch (error: any) {
-      if (error.name === 'ZodError') {
+      if (error.name === "ZodError") {
         return res.status(400).json({ error: "Invalid input", details: error.errors });
       }
       res.status(500).json({ error: error.message });
@@ -556,18 +575,18 @@ export async function registerRoutes(app: Express) {
   app.get("/api/executions/:id/logs", isAuthenticated, async (req: any, res) => {
     try {
       const userId = getUserId(req);
-      
+
       // Get execution and verify ownership
       const execution = await storage.getExecutionById(req.params.id);
       if (!execution) {
         return res.status(404).json({ error: "Execution not found" });
       }
-      
+
       const workflow = await storage.getWorkflowById(execution.workflowId);
       if (!workflow || workflow.userId !== userId) {
         return res.status(403).json({ error: "Forbidden" });
       }
-      
+
       // Parse query parameters for filtering
       const filters = {
         level: req.query.level as string | undefined,
@@ -575,7 +594,7 @@ export async function registerRoutes(app: Express) {
         limit: req.query.limit ? parseInt(req.query.limit as string, 10) : undefined,
         offset: req.query.offset ? parseInt(req.query.offset as string, 10) : undefined,
       };
-      
+
       const logs = await storage.getLogsByExecutionId(req.params.id, filters);
       res.json(logs);
     } catch (error: any) {
@@ -586,18 +605,18 @@ export async function registerRoutes(app: Express) {
   app.get("/api/executions/:id/messages", isAuthenticated, async (req: any, res) => {
     try {
       const userId = getUserId(req);
-      
+
       // Get execution and verify ownership
       const execution = await storage.getExecutionById(req.params.id);
       if (!execution) {
         return res.status(404).json({ error: "Execution not found" });
       }
-      
+
       const workflow = await storage.getWorkflowById(execution.workflowId);
       if (!workflow || workflow.userId !== userId) {
         return res.status(403).json({ error: "Forbidden" });
       }
-      
+
       const messages = await storage.getMessagesByExecutionId(req.params.id);
       res.json(messages);
     } catch (error: any) {
@@ -608,67 +627,67 @@ export async function registerRoutes(app: Express) {
   app.get("/api/executions/:id/timeline", isAuthenticated, async (req: any, res) => {
     try {
       const userId = getUserId(req);
-      
+
       // Get execution and verify ownership
       const execution = await storage.getExecutionById(req.params.id);
       if (!execution) {
         return res.status(404).json({ error: "Execution not found" });
       }
-      
+
       const workflow = await storage.getWorkflowById(execution.workflowId);
       if (!workflow || workflow.userId !== userId) {
         return res.status(403).json({ error: "Forbidden" });
       }
-      
+
       // Get logs with step information
       const logs = await storage.getLogsByExecutionId(req.params.id);
       const agents = await storage.getAgentsByWorkflowId(execution.workflowId);
-      
+
       // Build timeline from logs grouped by stepIndex and agentId
       const timeline: any[] = [];
       const stepMap = new Map<number, any>();
-      
-      logs.forEach(log => {
+
+      logs.forEach((log) => {
         if (log.stepIndex !== null && log.stepIndex !== undefined) {
           if (!stepMap.has(log.stepIndex)) {
-            const agent = agents.find(a => a.id === log.agentId);
+            const agent = agents.find((a) => a.id === log.agentId);
             stepMap.set(log.stepIndex, {
               stepIndex: log.stepIndex,
               agentId: log.agentId,
-              agentName: agent?.name || 'Unknown',
+              agentName: agent?.name || "Unknown",
               startTime: log.timestamp,
               endTime: log.timestamp,
-              status: 'completed',
+              status: "completed",
               logs: [],
             });
           }
-          
+
           const step = stepMap.get(log.stepIndex)!;
           step.logs.push(log);
-          
+
           // Update end time if this log is later
           if (new Date(log.timestamp) > new Date(step.endTime)) {
             step.endTime = log.timestamp;
           }
-          
+
           // Check for errors
-          if (log.level === 'error') {
-            step.status = 'error';
+          if (log.level === "error") {
+            step.status = "error";
           }
         }
       });
-      
+
       // Convert map to array and calculate durations
-      stepMap.forEach(step => {
+      stepMap.forEach((step) => {
         const start = new Date(step.startTime).getTime();
         const end = new Date(step.endTime).getTime();
         step.duration = end - start;
         timeline.push(step);
       });
-      
+
       // Sort by step index
       timeline.sort((a, b) => a.stepIndex - b.stepIndex);
-      
+
       res.json({
         execution,
         timeline,
@@ -684,36 +703,34 @@ export async function registerRoutes(app: Express) {
     try {
       const userId = getUserId(req);
       const { executionIds } = req.body;
-      
+
       if (!Array.isArray(executionIds) || executionIds.length < 2) {
         return res.status(400).json({ error: "At least 2 execution IDs required" });
       }
-      
+
       // Fetch all executions and verify ownership
-      const executions = await Promise.all(
-        executionIds.map(id => storage.getExecutionById(id))
-      );
-      
+      const executions = await Promise.all(executionIds.map((id) => storage.getExecutionById(id)));
+
       // Verify all exist and user has access
       for (const execution of executions) {
         if (!execution) {
           return res.status(404).json({ error: "One or more executions not found" });
         }
-        
+
         const workflow = await storage.getWorkflowById(execution.workflowId);
         if (!workflow || workflow.userId !== userId) {
           return res.status(403).json({ error: "Forbidden" });
         }
       }
-      
+
       // Build comparison data
       const comparisons = await Promise.all(
         executions.map(async (execution) => {
           if (!execution) return null;
-          
+
           const logs = await storage.getLogsByExecutionId(execution.id);
           const messages = await storage.getMessagesByExecutionId(execution.id);
-          
+
           return {
             id: execution.id,
             workflowId: execution.workflowId,
@@ -726,14 +743,14 @@ export async function registerRoutes(app: Express) {
             error: execution.error,
             logCount: logs.length,
             messageCount: messages.length,
-            errorLogs: logs.filter(l => l.level === 'error').length,
-            warningLogs: logs.filter(l => l.level === 'warning').length,
+            errorLogs: logs.filter((l) => l.level === "error").length,
+            warningLogs: logs.filter((l) => l.level === "warning").length,
           };
         })
       );
-      
+
       res.json({
-        executions: comparisons.filter(c => c !== null),
+        executions: comparisons.filter((c) => c !== null),
         comparisonDate: new Date().toISOString(),
       });
     } catch (error: any) {
@@ -787,16 +804,16 @@ export async function registerRoutes(app: Express) {
     try {
       const userId = getUserId(req);
       const data = insertTemplateSchema.parse(req.body);
-      
+
       // Verify workflow ownership
       const workflow = await storage.getWorkflowById(data.workflowId);
       if (!workflow || workflow.userId !== userId) {
         return res.status(403).json({ error: "Forbidden" });
       }
-      
+
       // Mark workflow as template
       await storage.updateWorkflow(data.workflowId, { isTemplate: true });
-      
+
       const template = await storage.createTemplate(data);
       res.json(template);
     } catch (error: any) {
@@ -808,31 +825,33 @@ export async function registerRoutes(app: Express) {
     try {
       const userId = getUserId(req);
       const template = await storage.getTemplateById(req.params.id);
-      
+
       if (!template) {
         return res.status(404).json({ error: "Template not found" });
       }
-      
+
       // Verify workflow ownership
       const workflow = await storage.getWorkflowById(template.workflowId);
       if (!workflow || workflow.userId !== userId) {
         return res.status(403).json({ error: "Forbidden" });
       }
-      
-      const updateTemplateSchema = z.object({
-        name: z.string().min(1).max(255).optional(),
-        description: z.string().optional(),
-        category: z.string().optional(),
-        thumbnailUrl: z.string().url().optional().nullable(),
-        featured: z.boolean().optional(),
-      }).strict();
-      
+
+      const updateTemplateSchema = z
+        .object({
+          name: z.string().min(1).max(255).optional(),
+          description: z.string().optional(),
+          category: z.string().optional(),
+          thumbnailUrl: z.string().url().optional().nullable(),
+          featured: z.boolean().optional(),
+        })
+        .strict();
+
       const validated = updateTemplateSchema.parse(req.body);
-      
+
       const updated = await storage.updateTemplate(req.params.id, validated);
       res.json(updated);
     } catch (error: any) {
-      if (error.name === 'ZodError') {
+      if (error.name === "ZodError") {
         return res.status(400).json({ error: "Invalid input", details: error.errors });
       }
       res.status(500).json({ error: error.message });
@@ -843,20 +862,20 @@ export async function registerRoutes(app: Express) {
     try {
       const userId = getUserId(req);
       const template = await storage.getTemplateById(req.params.id);
-      
+
       if (!template) {
         return res.status(404).json({ error: "Template not found" });
       }
-      
+
       // Verify workflow ownership
       const workflow = await storage.getWorkflowById(template.workflowId);
       if (!workflow || workflow.userId !== userId) {
         return res.status(403).json({ error: "Forbidden" });
       }
-      
+
       // Unmark workflow as template (don't delete the workflow)
       await storage.updateWorkflow(template.workflowId, { isTemplate: false });
-      
+
       await storage.deleteTemplate(req.params.id);
       res.json({ success: true });
     } catch (error: any) {
@@ -877,17 +896,17 @@ export async function registerRoutes(app: Express) {
     try {
       const userId = getUserId(req);
       const template = await storage.getTemplateById(req.params.id);
-      
+
       if (!template) {
         return res.status(404).json({ error: "Template not found" });
       }
-      
+
       // Get the source workflow
       const workflow = await storage.getWorkflowById(template.workflowId);
       if (!workflow) {
         return res.status(404).json({ error: "Template workflow not found" });
       }
-      
+
       // Create a new workflow from this template
       const newWorkflow = await storage.createWorkflow({
         userId,
@@ -898,7 +917,7 @@ export async function registerRoutes(app: Express) {
         category: template.category,
         isTemplate: false,
       });
-      
+
       res.json(newWorkflow);
     } catch (error: any) {
       res.status(500).json({ error: error.message });
@@ -908,17 +927,17 @@ export async function registerRoutes(app: Express) {
   app.get("/api/templates/:id/export", async (req, res) => {
     try {
       const template = await storage.getTemplateById(req.params.id);
-      
+
       if (!template) {
         return res.status(404).json({ error: "Template not found" });
       }
-      
+
       // Get the workflow data
       const workflow = await storage.getWorkflowById(template.workflowId);
       if (!workflow) {
         return res.status(404).json({ error: "Template workflow not found" });
       }
-      
+
       const exportData = {
         template: {
           name: template.name,
@@ -931,9 +950,12 @@ export async function registerRoutes(app: Express) {
         },
         exportedAt: new Date().toISOString(),
       };
-      
-      res.setHeader('Content-Type', 'application/json');
-      res.setHeader('Content-Disposition', `attachment; filename="${template.name.replace(/[^a-zA-Z0-9]/g, '-')}-template.json"`);
+
+      res.setHeader("Content-Type", "application/json");
+      res.setHeader(
+        "Content-Disposition",
+        `attachment; filename="${template.name.replace(/[^a-zA-Z0-9]/g, "-")}-template.json"`
+      );
       res.json(exportData);
     } catch (error: any) {
       res.status(500).json({ error: error.message });
@@ -945,7 +967,7 @@ export async function registerRoutes(app: Express) {
     try {
       const userId = getUserId(req);
       const template = await storage.getTemplateById(req.params.id);
-      
+
       if (!template) {
         return res.status(404).json({ error: "Template not found" });
       }
@@ -967,7 +989,7 @@ export async function registerRoutes(app: Express) {
       });
 
       const workflow = await storage.createWorkflow(workflowData);
-      
+
       // Increment template usage count
       await storage.updateTemplateUsageCount(req.params.id);
 
@@ -978,56 +1000,71 @@ export async function registerRoutes(app: Express) {
   });
 
   // GitHub integration routes (using per-user OAuth)
-  app.get('/api/github/repos', isAuthenticated, withGitHubAuth, async (req: GitHubAuthRequest, res) => {
-    try {
-      const { data } = await req.octokit!.repos.listForAuthenticatedUser({
-        sort: 'updated',
-        per_page: 100
-      });
-      res.json(data);
-    } catch (error: any) {
-      res.status(500).json({ error: error.message });
+  app.get(
+    "/api/github/repos",
+    isAuthenticated,
+    withGitHubAuth,
+    async (req: GitHubAuthRequest, res) => {
+      try {
+        const { data } = await req.octokit!.repos.listForAuthenticatedUser({
+          sort: "updated",
+          per_page: 100,
+        });
+        res.json(data);
+      } catch (error: any) {
+        res.status(500).json({ error: error.message });
+      }
     }
-  });
+  );
 
-  app.post('/api/github/repos', isAuthenticated, withGitHubAuth, async (req: GitHubAuthRequest, res) => {
-    try {
-      const { name, description, private: isPrivate } = req.body;
-      const { data } = await req.octokit!.repos.createForAuthenticatedUser({
-        name,
-        description: description || '',
-        private: isPrivate || false,
-        auto_init: true
-      });
-      res.json(data);
-    } catch (error: any) {
-      res.status(500).json({ error: error.message });
+  app.post(
+    "/api/github/repos",
+    isAuthenticated,
+    withGitHubAuth,
+    async (req: GitHubAuthRequest, res) => {
+      try {
+        const { name, description, private: isPrivate } = req.body;
+        const { data } = await req.octokit!.repos.createForAuthenticatedUser({
+          name,
+          description: description || "",
+          private: isPrivate || false,
+          auto_init: true,
+        });
+        res.json(data);
+      } catch (error: any) {
+        res.status(500).json({ error: error.message });
+      }
     }
-  });
+  );
 
-  app.get('/api/github/repos/:owner/:repo/contents', isAuthenticated, withGitHubAuth, async (req: GitHubAuthRequest, res) => {
-    try {
-      const { owner, repo } = req.params;
-      const { path } = req.query;
-      const { data } = await req.octokit!.repos.getContent({
-        owner,
-        repo,
-        path: (path as string) || ''
-      });
-      res.json(data);
-    } catch (error: any) {
-      res.status(500).json({ error: error.message });
+  app.get(
+    "/api/github/repos/:owner/:repo/contents",
+    isAuthenticated,
+    withGitHubAuth,
+    async (req: GitHubAuthRequest, res) => {
+      try {
+        const { owner, repo } = req.params;
+        const { path } = req.query;
+        const { data } = await req.octokit!.repos.getContent({
+          owner,
+          repo,
+          path: (path as string) || "",
+        });
+        res.json(data);
+      } catch (error: any) {
+        res.status(500).json({ error: error.message });
+      }
     }
-  });
+  );
 
   // Assistant Chat
   app.get("/api/assistant/chat", isAuthenticated, async (req: any, res) => {
     try {
       const userId = getUserId(req);
-      
+
       // Get or create chat session for user
       const chats = await storage.getAssistantChatsByUserId(userId);
-      
+
       if (chats.length === 0) {
         // Create new chat session
         const newChat = await storage.createAssistantChat({
@@ -1037,7 +1074,7 @@ export async function registerRoutes(app: Express) {
         });
         return res.json(newChat);
       }
-      
+
       // Return most recent chat
       res.json(chats[0]);
     } catch (error: any) {
@@ -1049,11 +1086,11 @@ export async function registerRoutes(app: Express) {
     try {
       const userId = getUserId(req);
       const { message } = z.object({ message: z.string() }).parse(req.body);
-      
+
       // Get or create chat session
       const chats = await storage.getAssistantChatsByUserId(userId);
       let chat = chats[0];
-      
+
       if (!chat) {
         chat = await storage.createAssistantChat({
           userId,
@@ -1061,16 +1098,16 @@ export async function registerRoutes(app: Express) {
           messages: [],
         });
       }
-      
+
       // Add user message
-      const userMessage = {
-        role: 'user' as const,
+      const userMessage: ChatMessage = {
+        role: "user" as const,
         content: message,
         timestamp: new Date().toISOString(),
       };
-      
-      const messages = [...(chat.messages as any[]), userMessage];
-      
+
+      const messages = [...(chat.messages as ChatMessage[]), userMessage];
+
       // Generate AI response
       const systemPrompt = `You are a helpful AI assistant for SWARM (Smart Workflow Automation & Repository Manager). 
 Your role is to help users build, optimize, and troubleshoot their AI agent workflows and repository automation.
@@ -1087,44 +1124,46 @@ Key capabilities:
 Be concise, practical, and provide actionable guidance. When relevant, suggest specific agent types (Coordinator, Coder, Researcher, Analyst, QA) and explain how to configure them. Help users leverage repository automation for code generation, refactoring, and intelligent repository management.`;
 
       // Use OpenAI for assistant responses
-      const { OpenAI } = await import('openai');
+      const { OpenAI } = await import("openai");
       const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-      
+
       const completion = await openai.chat.completions.create({
-        model: 'gpt-4o-mini',
+        model: "gpt-4o-mini",
         messages: [
-          { role: 'system', content: systemPrompt },
+          { role: "system", content: systemPrompt },
           ...messages.map((m: any) => ({ role: m.role, content: m.content })),
         ],
         temperature: 0.7,
         max_tokens: 500,
       });
-      
+
       const assistantMessage = {
-        role: 'assistant' as const,
-        content: completion.choices[0].message.content || 'I apologize, I could not generate a response.',
+        role: "assistant" as const,
+        content:
+          completion.choices[0].message.content || "I apologize, I could not generate a response.",
         timestamp: new Date().toISOString(),
       };
-      
+
       const updatedMessages = [...messages, assistantMessage];
-      
+
       // Update chat with new messages
       const updatedChat = await storage.updateAssistantChat(chat.id, {
-        messages: updatedMessages as any,
+        messages: updatedMessages as unknown as Record<string, unknown>,
       });
-      
+
       res.json(updatedChat);
     } catch (error: any) {
-      console.error('Assistant chat error:', error);
-      
+      logger.error("Assistant chat error", error);
+
       // Handle OpenAI quota/rate limit errors gracefully
-      if (error.status === 429 || error.message?.includes('quota')) {
-        return res.status(503).json({ 
-          error: 'AI service temporarily unavailable. Please try again later or check your API quota.' 
+      if (error.status === 429 || error.message?.includes("quota")) {
+        return res.status(503).json({
+          error:
+            "AI service temporarily unavailable. Please try again later or check your API quota.",
         });
       }
-      
-      res.status(500).json({ error: error.message || 'Failed to process message' });
+
+      res.status(500).json({ error: error.message || "Failed to process message" });
     }
   });
 
@@ -1135,14 +1174,14 @@ Be concise, practical, and provide actionable guidance. When relevant, suggest s
     try {
       const userId = getUserId(req);
       const workflow = await storage.getWorkflowById(req.params.id);
-      
+
       if (!workflow || workflow.userId !== userId) {
         return res.status(403).json({ error: "Forbidden" });
       }
 
       // Get current version number
       const versions = await storage.getWorkflowVersions(req.params.id);
-      const nextVersion = versions.length > 0 ? Math.max(...versions.map(v => v.version)) + 1 : 1;
+      const nextVersion = versions.length > 0 ? Math.max(...versions.map((v) => v.version)) + 1 : 1;
 
       const { commitMessage } = req.body;
 
@@ -1167,15 +1206,15 @@ Be concise, practical, and provide actionable guidance. When relevant, suggest s
     }
   });
   // Settings routes
-  app.get('/api/settings', isAuthenticated, async (req: any, res) => {
+  app.get("/api/settings", isAuthenticated, async (req: any, res) => {
     try {
       const userId = getUserId(req);
       const user = await storage.getUser(userId);
-      
+
       if (!user) {
-        return res.status(404).json({ error: 'User not found' });
+        return res.status(404).json({ error: "User not found" });
       }
-      
+
       // Return user settings (without sensitive data)
       res.json({
         defaultProvider: user.defaultProvider,
@@ -1202,7 +1241,7 @@ Be concise, practical, and provide actionable guidance. When relevant, suggest s
     try {
       const userId = getUserId(req);
       const workflow = await storage.getWorkflowById(req.params.id);
-      
+
       if (!workflow || workflow.userId !== userId) {
         return res.status(403).json({ error: "Forbidden" });
       }
@@ -1218,7 +1257,7 @@ Be concise, practical, and provide actionable guidance. When relevant, suggest s
     try {
       const userId = getUserId(req);
       const workflow = await storage.getWorkflowById(req.params.id);
-      
+
       if (!workflow || workflow.userId !== userId) {
         return res.status(403).json({ error: "Forbidden" });
       }
@@ -1234,28 +1273,30 @@ Be concise, practical, and provide actionable guidance. When relevant, suggest s
     }
   });
 
-  app.patch('/api/settings', isAuthenticated, async (req: any, res) => {
+  app.patch("/api/settings", isAuthenticated, async (req: any, res) => {
     try {
       const userId = getUserId(req);
-      
-      const updateSettingsSchema = z.object({
-        defaultProvider: z.enum(['openai', 'anthropic', 'gemini']).optional(),
-        defaultModel: z.string().optional(),
-        theme: z.enum(['light', 'dark', 'system']).optional(),
-        emailNotifications: z.boolean().optional(),
-        inAppNotifications: z.boolean().optional(),
-        executionTimeout: z.number().int().min(30).max(3600).optional(),
-        autoSaveInterval: z.number().int().min(10).max(300).optional(),
-      }).strict();
-      
+
+      const updateSettingsSchema = z
+        .object({
+          defaultProvider: z.enum(["openai", "anthropic", "gemini"]).optional(),
+          defaultModel: z.string().optional(),
+          theme: z.enum(["light", "dark", "system"]).optional(),
+          emailNotifications: z.boolean().optional(),
+          inAppNotifications: z.boolean().optional(),
+          executionTimeout: z.number().int().min(30).max(3600).optional(),
+          autoSaveInterval: z.number().int().min(10).max(300).optional(),
+        })
+        .strict();
+
       const validated = updateSettingsSchema.parse(req.body);
-      
+
       await storage.updateUser(userId, validated);
-      
+
       res.json({ success: true });
     } catch (error: any) {
-      if (error.name === 'ZodError') {
-        return res.status(400).json({ error: 'Invalid input', details: error.errors });
+      if (error.name === "ZodError") {
+        return res.status(400).json({ error: "Invalid input", details: error.errors });
       }
       res.status(500).json({ error: error.message });
     }
@@ -1265,7 +1306,7 @@ Be concise, practical, and provide actionable guidance. When relevant, suggest s
     try {
       const userId = getUserId(req);
       const workflow = await storage.getWorkflowById(req.params.id);
-      
+
       if (!workflow || workflow.userId !== userId) {
         return res.status(403).json({ error: "Forbidden" });
       }
@@ -1278,28 +1319,32 @@ Be concise, practical, and provide actionable guidance. When relevant, suggest s
     }
   });
 
-  app.post("/api/workflows/:id/versions/:versionId/restore", isAuthenticated, async (req: any, res) => {
-    try {
-      const userId = getUserId(req);
-      const workflow = await storage.getWorkflowById(req.params.id);
-      
-      if (!workflow || workflow.userId !== userId) {
-        return res.status(403).json({ error: "Forbidden" });
-      }
+  app.post(
+    "/api/workflows/:id/versions/:versionId/restore",
+    isAuthenticated,
+    async (req: any, res) => {
+      try {
+        const userId = getUserId(req);
+        const workflow = await storage.getWorkflowById(req.params.id);
 
-      await versionManager.restoreVersion(req.params.id, req.params.versionId, userId);
-      res.json({ success: true });
-    } catch (error: any) {
-      res.status(500).json({ error: error.message });
+        if (!workflow || workflow.userId !== userId) {
+          return res.status(403).json({ error: "Forbidden" });
+        }
+
+        await versionManager.restoreVersion(req.params.id, req.params.versionId, userId);
+        res.json({ success: true });
+      } catch (error: any) {
+        res.status(500).json({ error: error.message });
+      }
     }
-  });
+  );
 
   // Workflow Export/Import
   app.get("/api/workflows/:id/export", isAuthenticated, async (req: any, res) => {
     try {
       const userId = getUserId(req);
       const workflow = await storage.getWorkflowById(req.params.id);
-      
+
       if (!workflow || workflow.userId !== userId) {
         return res.status(403).json({ error: "Forbidden" });
       }
@@ -1310,7 +1355,7 @@ Be concise, practical, and provide actionable guidance. When relevant, suggest s
         includeSchedules: req.query.includeSchedules === "true",
         includeWebhooks: req.query.includeWebhooks === "true",
       });
-      
+
       res.json(exportData);
     } catch (error: any) {
       res.status(500).json({ error: error.message });
@@ -1318,36 +1363,36 @@ Be concise, practical, and provide actionable guidance. When relevant, suggest s
   });
 
   // API Keys management
-  app.post('/api/settings/api-keys', isAuthenticated, async (req: any, res) => {
+  app.post("/api/settings/api-keys", isAuthenticated, async (req: any, res) => {
     try {
       const userId = getUserId(req);
-      
+
       const apiKeysSchema = z.object({
-        provider: z.enum(['openai', 'anthropic', 'gemini']),
+        provider: z.enum(["openai", "anthropic", "gemini"]),
         apiKey: z.string().min(1),
       });
-      
+
       const { provider, apiKey } = apiKeysSchema.parse(req.body);
-      
+
       // Encrypt the API key
       const encryptedKey = encrypt(apiKey);
-      
+
       // Store encrypted key
       const updateData: any = {};
-      if (provider === 'openai') {
+      if (provider === "openai") {
         updateData.openaiApiKey = encryptedKey;
-      } else if (provider === 'anthropic') {
+      } else if (provider === "anthropic") {
         updateData.anthropicApiKey = encryptedKey;
-      } else if (provider === 'gemini') {
+      } else if (provider === "gemini") {
         updateData.geminiApiKey = encryptedKey;
       }
-      
+
       await storage.updateUser(userId, updateData);
-      
+
       res.json({ success: true });
     } catch (error: any) {
-      if (error.name === 'ZodError') {
-        return res.status(400).json({ error: 'Invalid input', details: error.errors });
+      if (error.name === "ZodError") {
+        return res.status(400).json({ error: "Invalid input", details: error.errors });
       }
       res.status(500).json({ error: error.message });
     }
@@ -1357,7 +1402,7 @@ Be concise, practical, and provide actionable guidance. When relevant, suggest s
     try {
       const userId = getUserId(req);
       const workflow = await storage.getWorkflowById(req.params.id);
-      
+
       if (!workflow || workflow.userId !== userId) {
         return res.status(403).json({ error: "Forbidden" });
       }
@@ -1387,18 +1432,18 @@ Be concise, practical, and provide actionable guidance. When relevant, suggest s
       // Validate import data
       const validation = workflowValidator.validateExport(workflowData);
       if (!validation.valid) {
-        return res.status(400).json({ error: 'Invalid workflow data', details: validation.errors });
+        return res.status(400).json({ error: "Invalid workflow data", details: validation.errors });
       }
 
       const data = validation.data!;
 
       // Check for duplicate IDs if merging
-      if (mode === 'merge') {
+      if (mode === "merge") {
         const duplicates = workflowValidator.checkDuplicateIds(data.workflow.nodes);
         if (duplicates.length > 0) {
-          return res.status(400).json({ 
-            error: 'Duplicate node IDs found', 
-            details: duplicates 
+          return res.status(400).json({
+            error: "Duplicate node IDs found",
+            details: duplicates,
           });
         }
       }
@@ -1406,8 +1451,8 @@ Be concise, practical, and provide actionable guidance. When relevant, suggest s
       // Generate unique IDs if creating new workflow
       let nodes = data.workflow.nodes;
       let edges = data.workflow.edges;
-      
-      if (mode === 'new' || mode === 'replace') {
+
+      if (mode === "new" || mode === "replace") {
         const uniqueIds = workflowValidator.generateUniqueIds(nodes, edges);
         nodes = uniqueIds.nodes;
         edges = uniqueIds.edges;
@@ -1416,9 +1461,9 @@ Be concise, practical, and provide actionable guidance. When relevant, suggest s
       // Validate workflow structure
       const structureValidation = workflowValidator.validateWorkflowStructure(nodes, edges);
       if (!structureValidation.valid) {
-        return res.status(400).json({ 
-          error: 'Invalid workflow structure', 
-          warnings: structureValidation.errors 
+        return res.status(400).json({
+          error: "Invalid workflow structure",
+          warnings: structureValidation.errors,
         });
       }
 
@@ -1426,7 +1471,7 @@ Be concise, practical, and provide actionable guidance. When relevant, suggest s
       const workflow = await storage.createWorkflow({
         userId,
         name: `${data.metadata.name} (Imported)`,
-        description: data.metadata.description || '',
+        description: data.metadata.description || "",
         nodes,
         edges,
         category: data.metadata.category || null,
@@ -1450,24 +1495,24 @@ Be concise, practical, and provide actionable guidance. When relevant, suggest s
     }
   });
 
-  app.delete('/api/settings/api-keys/:provider', isAuthenticated, async (req: any, res) => {
+  app.delete("/api/settings/api-keys/:provider", isAuthenticated, async (req: any, res) => {
     try {
       const userId = getUserId(req);
       const { provider } = req.params;
-      
-      if (!['openai', 'anthropic', 'gemini'].includes(provider)) {
-        return res.status(400).json({ error: 'Invalid provider' });
+
+      if (!["openai", "anthropic", "gemini"].includes(provider)) {
+        return res.status(400).json({ error: "Invalid provider" });
       }
-      
+
       const updateData: any = {};
-      if (provider === 'openai') {
+      if (provider === "openai") {
         updateData.openaiApiKey = null;
-      } else if (provider === 'anthropic') {
+      } else if (provider === "anthropic") {
         updateData.anthropicApiKey = null;
-      } else if (provider === 'gemini') {
+      } else if (provider === "gemini") {
         updateData.geminiApiKey = null;
       }
-      
+
       await storage.updateUser(userId, updateData);
       res.json({ success: true });
     } catch (error: any) {
@@ -1482,7 +1527,7 @@ Be concise, practical, and provide actionable guidance. When relevant, suggest s
     try {
       const userId = getUserId(req);
       const workflow = await storage.getWorkflowById(req.params.id);
-      
+
       if (!workflow || workflow.userId !== userId) {
         return res.status(404).json({ error: "Workflow not found" });
       }
@@ -1499,7 +1544,7 @@ Be concise, practical, and provide actionable guidance. When relevant, suggest s
     try {
       const userId = getUserId(req);
       const workflow = await storage.getWorkflowById(req.params.id);
-      
+
       if (!workflow || workflow.userId !== userId) {
         return res.status(403).json({ error: "Forbidden" });
       }
@@ -1531,7 +1576,7 @@ Be concise, practical, and provide actionable guidance. When relevant, suggest s
     try {
       const userId = getUserId(req);
       const workflow = await storage.getWorkflowById(req.params.id);
-      
+
       if (!workflow || workflow.userId !== userId) {
         return res.status(403).json({ error: "Forbidden" });
       }
@@ -1567,7 +1612,7 @@ Be concise, practical, and provide actionable guidance. When relevant, suggest s
     try {
       const userId = getUserId(req);
       const workflow = await storage.getWorkflowById(req.params.id);
-      
+
       if (!workflow || workflow.userId !== userId) {
         return res.status(403).json({ error: "Forbidden" });
       }
@@ -1593,7 +1638,7 @@ Be concise, practical, and provide actionable guidance. When relevant, suggest s
     try {
       const userId = getUserId(req);
       const workflow = await storage.getWorkflowById(req.params.id);
-      
+
       if (!workflow || workflow.userId !== userId) {
         return res.status(403).json({ error: "Forbidden" });
       }
@@ -1630,7 +1675,7 @@ Be concise, practical, and provide actionable guidance. When relevant, suggest s
     try {
       const userId = getUserId(req);
       const workflow = await storage.getWorkflowById(req.params.id);
-      
+
       if (!workflow || workflow.userId !== userId) {
         return res.status(403).json({ error: "Forbidden" });
       }
@@ -1642,36 +1687,40 @@ Be concise, practical, and provide actionable guidance. When relevant, suggest s
     }
   });
 
-  app.post("/api/workflows/:id/webhooks/:webhookId/regenerate-secret", isAuthenticated, async (req: any, res) => {
-    try {
-      const userId = getUserId(req);
-      const workflow = await storage.getWorkflowById(req.params.id);
-      
-      if (!workflow || workflow.userId !== userId) {
-        return res.status(403).json({ error: "Forbidden" });
+  app.post(
+    "/api/workflows/:id/webhooks/:webhookId/regenerate-secret",
+    isAuthenticated,
+    async (req: any, res) => {
+      try {
+        const userId = getUserId(req);
+        const workflow = await storage.getWorkflowById(req.params.id);
+
+        if (!workflow || workflow.userId !== userId) {
+          return res.status(403).json({ error: "Forbidden" });
+        }
+
+        const webhook = await storage.getWorkflowWebhookById(req.params.webhookId);
+        if (!webhook || webhook.workflowId !== req.params.id) {
+          return res.status(404).json({ error: "Webhook not found" });
+        }
+
+        const newSecret = webhookHandler.generateWebhookSecret();
+        const updated = await storage.updateWorkflowWebhook(req.params.webhookId, {
+          secret: newSecret,
+        });
+
+        res.json(updated);
+      } catch (error: any) {
+        res.status(500).json({ error: error.message });
       }
-
-      const webhook = await storage.getWorkflowWebhookById(req.params.webhookId);
-      if (!webhook || webhook.workflowId !== req.params.id) {
-        return res.status(404).json({ error: "Webhook not found" });
-      }
-
-      const newSecret = webhookHandler.generateWebhookSecret();
-      const updated = await storage.updateWorkflowWebhook(req.params.webhookId, {
-        secret: newSecret,
-      });
-
-      res.json(updated);
-    } catch (error: any) {
-      res.status(500).json({ error: error.message });
     }
-  });
+  );
 
   app.post("/api/workflows/:id/webhooks", isAuthenticated, async (req: any, res) => {
     try {
       const userId = getUserId(req);
       const workflow = await storage.getWorkflowById(req.params.id);
-      
+
       if (!workflow || workflow.userId !== userId) {
         return res.status(403).json({ error: "Forbidden" });
       }
@@ -1688,7 +1737,7 @@ Be concise, practical, and provide actionable guidance. When relevant, suggest s
     try {
       const userId = getUserId(req);
       const workflow = await storage.getWorkflowById(req.params.id);
-      
+
       if (!workflow || workflow.userId !== userId) {
         return res.status(403).json({ error: "Forbidden" });
       }
@@ -1722,7 +1771,7 @@ Be concise, practical, and provide actionable guidance. When relevant, suggest s
     try {
       const userId = getUserId(req);
       const workflow = await storage.getWorkflowById(req.params.id);
-      
+
       if (!workflow || workflow.userId !== userId) {
         return res.status(403).json({ error: "Forbidden" });
       }
@@ -1740,50 +1789,50 @@ Be concise, practical, and provide actionable guidance. When relevant, suggest s
   });
 
   // Test API key
-  app.post('/api/settings/test-api-key', isAuthenticated, async (req: any, res) => {
+  app.post("/api/settings/test-api-key", isAuthenticated, async (req: any, res) => {
     try {
       const testSchema = z.object({
-        provider: z.enum(['openai', 'anthropic', 'gemini']),
+        provider: z.enum(["openai", "anthropic", "gemini"]),
         apiKey: z.string().min(1),
       });
-      
+
       const { provider, apiKey } = testSchema.parse(req.body);
-      
+
       // Test the API key by making a simple request
-      if (provider === 'openai') {
-        const { OpenAI } = await import('openai');
+      if (provider === "openai") {
+        const { OpenAI } = await import("openai");
         const client = new OpenAI({ apiKey });
         await client.models.list();
-      } else if (provider === 'anthropic') {
-        const { Anthropic } = await import('@anthropic-ai/sdk');
+      } else if (provider === "anthropic") {
+        const { Anthropic } = await import("@anthropic-ai/sdk");
         const client = new Anthropic({ apiKey });
         // Just create client - Anthropic doesn't have a simple test endpoint
-      } else if (provider === 'gemini') {
-        const { GoogleGenAI } = await import('@google/genai');
+      } else if (provider === "gemini") {
+        const { GoogleGenAI } = await import("@google/genai");
         const client = new GoogleGenAI({ apiKey });
         // Just create client - Gemini validation happens on first use
       }
-      
+
       res.json({ success: true, valid: true });
     } catch (error: any) {
-      res.status(400).json({ 
-        success: false, 
+      res.status(400).json({
+        success: false,
         valid: false,
-        error: error.message || 'API key validation failed'
+        error: error.message || "API key validation failed",
       });
     }
   });
 
   // Danger zone actions
-  app.delete('/api/settings/workflows', isAuthenticated, async (req: any, res) => {
+  app.delete("/api/settings/workflows", isAuthenticated, async (req: any, res) => {
     try {
       const userId = getUserId(req);
       const workflows = await storage.getWorkflowsByUserId(userId);
-      
+
       for (const workflow of workflows) {
         await storage.deleteWorkflow(workflow.id);
       }
-      
+
       res.json({ success: true, deleted: workflows.length });
     } catch (error: any) {
       res.status(500).json({ error: error.message });
@@ -1812,7 +1861,7 @@ Be concise, practical, and provide actionable guidance. When relevant, suggest s
   // Public webhook endpoint (no authentication required)
   app.post("/webhooks/:webhookUrl", async (req, res) => {
     try {
-      const signature = req.headers['x-webhook-signature'] as string;
+      const signature = req.headers["x-webhook-signature"] as string;
       const result = await webhookHandler.processWebhook(
         req.params.webhookUrl,
         req.body,
@@ -1835,7 +1884,7 @@ Be concise, practical, and provide actionable guidance. When relevant, suggest s
     try {
       const { workflowId, secretKey } = req.params;
       const ipAddress = req.ip || req.socket.remoteAddress;
-      
+
       const result = await webhookManager.triggerWebhook(
         workflowId,
         secretKey,
@@ -1858,7 +1907,7 @@ Be concise, practical, and provide actionable guidance. When relevant, suggest s
     try {
       const userId = getUserId(req);
       const workflow = await storage.getWorkflowById(req.params.id);
-      
+
       if (!workflow || workflow.userId !== userId) {
         return res.status(403).json({ error: "Forbidden" });
       }
@@ -1867,7 +1916,7 @@ Be concise, practical, and provide actionable guidance. When relevant, suggest s
 
       // Check if schema already exists
       const existing = await storage.getWorkflowSchema(req.params.id);
-      
+
       if (existing) {
         const updated = await storage.updateWorkflowSchema(req.params.id, {
           inputSchema,
@@ -1894,7 +1943,9 @@ Be concise, practical, and provide actionable guidance. When relevant, suggest s
   app.get("/api/analytics/costs", isAuthenticated, async (req: any, res) => {
     try {
       const userId = getUserId(req);
-      const startDate = req.query.startDate ? new Date(req.query.startDate as string) : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+      const startDate = req.query.startDate
+        ? new Date(req.query.startDate as string)
+        : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
       const endDate = req.query.endDate ? new Date(req.query.endDate as string) : new Date();
 
       const analytics = await costTracker.getCostAnalytics(userId, startDate, endDate);
@@ -1908,7 +1959,7 @@ Be concise, practical, and provide actionable guidance. When relevant, suggest s
     try {
       const userId = getUserId(req);
       const workflow = await storage.getWorkflowById(req.params.id);
-      
+
       if (!workflow || workflow.userId !== userId) {
         return res.status(403).json({ error: "Forbidden" });
       }
@@ -1923,7 +1974,9 @@ Be concise, practical, and provide actionable guidance. When relevant, suggest s
   app.get("/api/analytics/usage", isAuthenticated, async (req: any, res) => {
     try {
       const userId = getUserId(req);
-      const startDate = req.query.startDate ? new Date(req.query.startDate as string) : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+      const startDate = req.query.startDate
+        ? new Date(req.query.startDate as string)
+        : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
       const endDate = req.query.endDate ? new Date(req.query.endDate as string) : new Date();
 
       const usage = await costTracker.getTokenUsageStats(userId, startDate, endDate);
@@ -1962,7 +2015,7 @@ Be concise, practical, and provide actionable guidance. When relevant, suggest s
       // Aggregate costs
       const totalCost = costs.reduce((sum, cost) => sum + cost.costUsd, 0);
       const totalTokens = costs.reduce((sum, cost) => sum + cost.totalTokens, 0);
-      
+
       const byProvider = costs.reduce((acc: any, cost) => {
         if (!acc[cost.provider]) {
           acc[cost.provider] = { cost: 0, tokens: 0, count: 0 };
@@ -1987,7 +2040,9 @@ Be concise, practical, and provide actionable guidance. When relevant, suggest s
   app.get("/api/analytics/trends", isAuthenticated, async (req: any, res) => {
     try {
       const userId = getUserId(req);
-      const startDate = req.query.startDate ? new Date(req.query.startDate as string) : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+      const startDate = req.query.startDate
+        ? new Date(req.query.startDate as string)
+        : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
       const endDate = req.query.endDate ? new Date(req.query.endDate as string) : new Date();
 
       const trends = await costTracker.getCostTrends(userId, startDate, endDate);
@@ -2031,7 +2086,7 @@ Be concise, practical, and provide actionable guidance. When relevant, suggest s
 
       const tag = await storage.createTag({
         name,
-        color: color || '#3b82f6',
+        color: color || "#3b82f6",
       });
 
       res.json(tag);
@@ -2043,11 +2098,13 @@ Be concise, practical, and provide actionable guidance. When relevant, suggest s
   app.get("/api/analytics/export", isAuthenticated, async (req: any, res) => {
     try {
       const userId = getUserId(req);
-      const startDate = req.query.startDate ? new Date(req.query.startDate as string) : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+      const startDate = req.query.startDate
+        ? new Date(req.query.startDate as string)
+        : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
       const endDate = req.query.endDate ? new Date(req.query.endDate as string) : new Date();
 
       const csv = await costTracker.exportCostReport(userId, startDate, endDate);
-      
+
       res.setHeader("Content-Type", "text/csv");
       res.setHeader("Content-Disposition", "attachment; filename=cost-report.csv");
       res.send(csv);
@@ -2073,7 +2130,7 @@ Be concise, practical, and provide actionable guidance. When relevant, suggest s
     try {
       const userId = getUserId(req);
       const workflow = await storage.getWorkflowById(req.params.id);
-      
+
       if (!workflow || workflow.userId !== userId) {
         return res.status(404).json({ error: "Workflow not found" });
       }
@@ -2087,7 +2144,7 @@ Be concise, practical, and provide actionable guidance. When relevant, suggest s
       };
 
       const exportData = await workflowExporter.exportWorkflow(req.params.id, options);
-      
+
       res.setHeader("Content-Type", "application/json");
       res.setHeader("Content-Disposition", `attachment; filename=${workflow.name}.json`);
       res.json(exportData);
@@ -2100,7 +2157,7 @@ Be concise, practical, and provide actionable guidance. When relevant, suggest s
     try {
       const userId = getUserId(req);
       const workflow = await storage.getWorkflowById(req.params.id);
-      
+
       if (!workflow || workflow.userId !== userId) {
         return res.status(403).json({ error: "Forbidden" });
       }
@@ -2118,14 +2175,14 @@ Be concise, practical, and provide actionable guidance. When relevant, suggest s
     }
   });
 
-  app.delete('/api/settings/executions', isAuthenticated, async (req: any, res) => {
+  app.delete("/api/settings/executions", isAuthenticated, async (req: any, res) => {
     try {
       const userId = getUserId(req);
       const executions = await storage.getExecutionsByUserId(userId);
-      
+
       // Note: Executions will be cascade deleted when workflows are deleted
       // This endpoint is for explicitly deleting just executions
-      
+
       res.json({ success: true, deleted: executions.length });
     } catch (error: any) {
       res.status(500).json({ error: error.message });
@@ -2135,10 +2192,11 @@ Be concise, practical, and provide actionable guidance. When relevant, suggest s
   app.post("/api/workflows/import", isAuthenticated, async (req: any, res) => {
     try {
       const userId = getUserId(req);
-      
+
       const options = {
         userId,
-        conflictResolution: (req.body.conflictResolution as "skip" | "rename" | "overwrite") || "rename",
+        conflictResolution:
+          (req.body.conflictResolution as "skip" | "rename" | "overwrite") || "rename",
         importSchedules: req.body.importSchedules !== false,
         importWebhooks: req.body.importWebhooks !== false,
         importKnowledgeBase: req.body.importKnowledgeBase !== false,
@@ -2155,7 +2213,7 @@ Be concise, practical, and provide actionable guidance. When relevant, suggest s
     try {
       const userId = getUserId(req);
       const workflow = await storage.getWorkflowById(req.params.id);
-      
+
       if (!workflow || workflow.userId !== userId) {
         return res.status(403).json({ error: "Forbidden" });
       }
@@ -2168,24 +2226,27 @@ Be concise, practical, and provide actionable guidance. When relevant, suggest s
     }
   });
 
-  app.get('/api/settings/export', isAuthenticated, async (req: any, res) => {
+  app.get("/api/settings/export", isAuthenticated, async (req: any, res) => {
     try {
       const userId = getUserId(req);
-      
+
       // Export all user data
       const [workflows, executions] = await Promise.all([
         storage.getWorkflowsByUserId(userId),
         storage.getExecutionsByUserId(userId),
       ]);
-      
+
       const exportData = {
         exportedAt: new Date().toISOString(),
         workflows,
         executions,
       };
-      
-      res.setHeader('Content-Type', 'application/json');
-      res.setHeader('Content-Disposition', `attachment; filename="swarm-data-${userId}-${Date.now()}.json"`);
+
+      res.setHeader("Content-Type", "application/json");
+      res.setHeader(
+        "Content-Disposition",
+        `attachment; filename="swarm-data-${userId}-${Date.now()}.json"`
+      );
       res.json(exportData);
     } catch (error: any) {
       res.status(500).json({ error: error.message });
@@ -2209,7 +2270,7 @@ Be concise, practical, and provide actionable guidance. When relevant, suggest s
       };
 
       const exportData = await workflowExporter.exportMultipleWorkflows(workflowIds, options);
-      
+
       res.setHeader("Content-Type", "application/json");
       res.setHeader("Content-Disposition", "attachment; filename=workflows-export.json");
       res.json(exportData);
@@ -2222,7 +2283,7 @@ Be concise, practical, and provide actionable guidance. When relevant, suggest s
     try {
       const userId = getUserId(req);
       const workflow = await storage.getWorkflowById(req.params.id);
-      
+
       if (!workflow || workflow.userId !== userId) {
         return res.status(403).json({ error: "Forbidden" });
       }
@@ -2238,17 +2299,13 @@ Be concise, practical, and provide actionable guidance. When relevant, suggest s
     try {
       const userId = getUserId(req);
       const workflow = await storage.getWorkflowById(req.params.id);
-      
+
       if (!workflow || workflow.userId !== userId) {
         return res.status(403).json({ error: "Forbidden" });
       }
 
-      const result = await workflowImporter.cloneWorkflow(
-        req.params.id,
-        userId,
-        req.body.name
-      );
-      
+      const result = await workflowImporter.cloneWorkflow(req.params.id, userId, req.body.name);
+
       res.json(result);
     } catch (error: any) {
       res.status(500).json({ error: error.message });

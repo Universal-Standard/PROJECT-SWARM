@@ -7,6 +7,7 @@ import type { Express, RequestHandler } from "express";
 import memoize from "memoizee";
 import connectPg from "connect-pg-simple";
 import { storage } from "./storage";
+import type { ReplitAuthUser } from "./types/auth";
 
 if (!process.env.REPLIT_DOMAINS) {
   throw new Error("Environment variable REPLIT_DOMAINS not provided");
@@ -45,24 +46,30 @@ export function getSession() {
 }
 
 function updateUserSession(
-  user: any,
+  user: Partial<ReplitAuthUser>,
   tokens: client.TokenEndpointResponse & client.TokenEndpointResponseHelpers
-) {
-  user.claims = tokens.claims();
+): void {
+  const claims = tokens.claims();
+  user.claims = {
+    sub: claims.sub,
+    email: claims.email,
+    first_name: claims.first_name,
+    last_name: claims.last_name,
+    profile_image_url: claims.profile_image_url,
+    exp: claims.exp,
+  };
   user.access_token = tokens.access_token;
   user.refresh_token = tokens.refresh_token;
-  user.expires_at = user.claims?.exp;
+  user.expires_at = claims.exp;
 }
 
-async function upsertUser(
-  claims: any,
-) {
+async function upsertUser(claims: Record<string, unknown>): Promise<void> {
   await storage.upsertUser({
-    id: claims["sub"],
-    email: claims["email"],
-    firstName: claims["first_name"],
-    lastName: claims["last_name"],
-    profileImageUrl: claims["profile_image_url"],
+    id: claims.sub as string,
+    email: claims.email as string,
+    firstName: claims.first_name as string | undefined,
+    lastName: claims.last_name as string | undefined,
+    profileImageUrl: claims.profile_image_url as string | undefined,
   });
 }
 
@@ -78,14 +85,13 @@ export async function setupAuth(app: Express) {
     tokens: client.TokenEndpointResponse & client.TokenEndpointResponseHelpers,
     verified: passport.AuthenticateCallback
   ) => {
-    const user = {};
+    const user: Partial<ReplitAuthUser> = {};
     updateUserSession(user, tokens);
     await upsertUser(tokens.claims());
     verified(null, user);
   };
 
-  for (const domain of process.env
-    .REPLIT_DOMAINS!.split(",")) {
+  for (const domain of process.env.REPLIT_DOMAINS!.split(",")) {
     const strategy = new Strategy(
       {
         name: `replitauth:${domain}`,
@@ -93,7 +99,7 @@ export async function setupAuth(app: Express) {
         scope: "openid email profile offline_access",
         callbackURL: `https://${domain}/api/callback`,
       },
-      verify,
+      verify
     );
     passport.use(strategy);
   }
@@ -128,9 +134,9 @@ export async function setupAuth(app: Express) {
 }
 
 export const isAuthenticated: RequestHandler = async (req, res, next) => {
-  const user = req.user as any;
+  const user = req.user as ReplitAuthUser | undefined;
 
-  if (!req.isAuthenticated() || !user.expires_at) {
+  if (!req.isAuthenticated() || !user || !user.expires_at) {
     return res.status(401).json({ message: "Unauthorized" });
   }
 

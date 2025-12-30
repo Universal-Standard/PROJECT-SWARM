@@ -1,6 +1,7 @@
 import type { Request, Response, NextFunction } from "express";
 import type { ZodSchema, ZodError } from "zod";
 import { fromZodError } from "zod-validation-error";
+import { logger } from "../lib/logger";
 
 /**
  * Input Validation Middleware
@@ -57,7 +58,7 @@ export function validate(schema: ZodSchema, target: ValidationTarget = "body") {
       }
 
       // Unknown error
-      console.error("Validation error:", error);
+      logger.error("Validation error", error);
       return res.status(500).json({
         error: "Internal server error",
         message: "An unexpected error occurred during validation",
@@ -121,7 +122,7 @@ export function validateMultiple(schemas: Partial<Record<ValidationTarget, ZodSc
 
       next();
     } catch (error) {
-      console.error("Validation error:", error);
+      logger.error("Validation error", error);
       return res.status(500).json({
         error: "Internal server error",
         message: "An unexpected error occurred during validation",
