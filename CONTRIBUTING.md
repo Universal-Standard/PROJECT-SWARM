@@ -215,6 +215,8 @@ We follow strict code style guidelines to maintain consistency. Please read our 
 
 ## 🧪 Testing Guidelines
 
+> **Note**: Unit testing infrastructure is not yet implemented. These guidelines serve as best practices for when tests are added to the project. For now, test changes manually by running the application.
+
 ### What to Test
 
 - ✅ Utility functions
@@ -231,7 +233,7 @@ We follow strict code style guidelines to maintain consistency. Please read our 
 - ❌ Simple getters/setters
 - ❌ Type definitions
 
-### Test Structure
+### Test Structure (for future implementation)
 
 ```typescript
 describe('ComponentName or FunctionName', () => {
