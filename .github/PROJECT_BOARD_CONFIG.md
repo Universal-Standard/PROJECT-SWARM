@@ -1579,7 +1579,7 @@ echo "Issues exported successfully"
 - [GitHub Actions Documentation](https://docs.github.com/en/actions)
 
 ### PROJECT-SWARM Specific Docs
-- [PROJECT_BOARD.md](../PROJECT_BOARD.md) - All 32 planned issues with details
+- [PROJECT_BOARD.md](../docs/project-management/PROJECT_BOARD.md) - All 32 planned issues with details
 - [PROJECT_BOARD_MASTER_GUIDE.md](../PROJECT_BOARD_MASTER_GUIDE.md) - Complete guide overview
 - [PROJECT_BOARD_SETUP.md](../PROJECT_BOARD_SETUP.md) - Original manual setup guide
 - [PROJECT_BOARD_README.md](../PROJECT_BOARD_README.md) - Quick start README
