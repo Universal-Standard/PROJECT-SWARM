@@ -201,7 +201,7 @@ Follow standard workflow above
 
 - [Full Project Board Setup](./PROJECT_BOARD_SETUP.md)
 - [Parallel Development Guide](../PARALLEL_DEVELOPMENT_GUIDE.md)
-- [Features Roadmap](../FEATURES_ROADMAP.md)
+- [Features Roadmap](../docs/architecture/FEATURES_ROADMAP.md)
 - [Contributing Guide](../CONTRIBUTING.md) *(create this)*
 
 ## 🆘 Need Help?
