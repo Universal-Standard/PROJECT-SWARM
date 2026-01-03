@@ -353,7 +353,7 @@ docs/789-api-reference-update
 6. Write tests
 
 ### Adding a New Feature
-1. Check PROJECT_BOARD.md for requirements
+1. Check docs/project-management/PROJECT_BOARD.md for requirements
 2. Create feature branch
 3. Implement with tests
 4. Update documentation
@@ -381,9 +381,9 @@ npm run db:generate     # Generate migrations
 
 ## Resources
 
-- [PROJECT_BOARD.md](../PROJECT_BOARD.md) - Feature roadmap
+- [PROJECT_BOARD.md](../docs/project-management/PROJECT_BOARD.md) - Feature roadmap
 - [README.md](../README.md) - Project overview
-- [FEATURES_ROADMAP.md](../FEATURES_ROADMAP.md) - Detailed features
+- [FEATURES_ROADMAP.md](../docs/architecture/FEATURES_ROADMAP.md) - Detailed features
 - [docs/](../docs/) - Additional documentation
 
 ## When Suggesting Code
