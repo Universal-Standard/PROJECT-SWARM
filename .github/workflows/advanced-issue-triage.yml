@@ -148,7 +148,7 @@ jobs:
 
       - name: Add to project board
         if: vars.PROJECT_BOARD_URL != null && vars.PROJECT_BOARD_URL != ''
-        uses: actions/add-to-project@v0.5.0
+        uses: actions/add-to-project@v1.0.2
         with:
           project-url: ${{ vars.PROJECT_BOARD_URL }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
