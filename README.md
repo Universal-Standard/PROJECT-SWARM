@@ -210,6 +210,11 @@ See [FEATURES_ROADMAP.md](./docs/architecture/FEATURES_ROADMAP.md) for complete 
 
 We welcome contributions! See [CONTRIBUTING.md](./CONTRIBUTING.md) for guidelines.
 
+**Developer Resources:**
+- 📘 [Contributing Guide](./CONTRIBUTING.md) - How to contribute
+- 🤖 [GitHub Copilot Instructions](./.github/copilot-instructions.md) - Code style and conventions
+- 📖 [Getting Started](./GETTING_STARTED.md) - Project setup
+
 **Ways to contribute:**
 - 🐛 Report bugs via GitHub Issues
 - 💡 Suggest features via GitHub Discussions

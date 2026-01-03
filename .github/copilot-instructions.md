@@ -379,8 +379,41 @@ npm run db:studio       # Open Drizzle Studio
 npm run db:generate     # Generate migrations
 ```
 
+## Environment Setup
+
+### Required Environment Variables
+
+Copy `.env.example` to `.env` and configure:
+
+```bash
+cp .env.example .env
+```
+
+**Essential variables:**
+- `DATABASE_URL` - PostgreSQL connection string (required)
+- `SESSION_SECRET` - Secret for session encryption (required)
+- `ENCRYPTION_KEY` - For encrypting sensitive data (required)
+- `ENCRYPTION_SALT` - Salt for encryption (required)
+
+**AI Provider API Keys (at least one required):**
+- `OPENAI_API_KEY` - OpenAI API key
+- `ANTHROPIC_API_KEY` - Anthropic API key  
+- `GEMINI_API_KEY` - Google Gemini API key
+
+**GitHub OAuth (optional):**
+- `GITHUB_CLIENT_ID` - GitHub OAuth app client ID
+- `GITHUB_CLIENT_SECRET` - GitHub OAuth app secret
+- `GITHUB_REDIRECT_URI` - OAuth callback URL
+
+**Best practices:**
+- Never commit `.env` files (already in `.gitignore`)
+- Use strong random strings for secrets
+- Rotate keys regularly
+- Use different keys for dev/staging/production
+
 ## Resources
 
+- [CONTRIBUTING.md](../CONTRIBUTING.md) - Contribution guidelines
 - [PROJECT_BOARD.md](../docs/project-management/PROJECT_BOARD.md) - Feature roadmap
 - [README.md](../README.md) - Project overview
 - [FEATURES_ROADMAP.md](../docs/architecture/FEATURES_ROADMAP.md) - Detailed features
