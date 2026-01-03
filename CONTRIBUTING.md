@@ -81,15 +81,14 @@ Follow our coding standards documented in [GitHub Copilot Instructions](./.githu
 # Type checking
 npm run check
 
-# Run tests (when available)
-npm test
-
 # Build to ensure no errors
 npm run build
 
 # Test the application manually
 npm run dev
 ```
+
+**Note**: Unit tests are not yet implemented. For now, test changes manually by running the application and verifying functionality.
 
 ### 5. Commit Your Changes
 

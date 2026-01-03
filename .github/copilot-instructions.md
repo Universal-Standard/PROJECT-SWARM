@@ -369,15 +369,12 @@ npm run build           # Build for production
 npm run check           # TypeScript check
 npm run db:push         # Push schema to database
 
-# Testing
-npm test                # Run tests
-npm run test:watch      # Watch mode
-npm run test:coverage   # Coverage report
-
 # Database
 npm run db:studio       # Open Drizzle Studio
 npm run db:generate     # Generate migrations
 ```
+
+**Note**: Unit testing infrastructure is not yet implemented. Test changes manually for now.
 
 ## Environment Setup
 
