@@ -2,12 +2,18 @@
 
 Thank you for your interest in contributing to PROJECT-SWARM! This document provides guidelines and instructions for contributing to the project.
 
+## 📜 Code of Conduct
+
+This project and everyone participating in it is governed by our [Code of Conduct](./CODE_OF_CONDUCT.md). By participating, you are expected to uphold this code. Please report unacceptable behavior to [github-security@spurs.gov](mailto:github-security@spurs.gov).
+
 ## 🤝 Ways to Contribute
 
 We welcome all types of contributions:
 
-- 🐛 **Report bugs** via [GitHub Issues](https://github.com/Universal-Standard/PROJECT-SWARM/issues)
-- 💡 **Suggest features** via [GitHub Discussions](https://github.com/Universal-Standard/PROJECT-SWARM/discussions)
+- 🐛 **Report bugs** - Use our [bug report template](./.github/ISSUE_TEMPLATE/01-bug-report.yml)
+- ✨ **Suggest features** - Use our [feature request template](./.github/ISSUE_TEMPLATE/02-feature-request.yml)
+- 📋 **Submit tasks** - Use our [task template](./.github/ISSUE_TEMPLATE/03-task.yml)
+- 🔧 **Submit fixes** - Use our [fix template](./.github/ISSUE_TEMPLATE/05-fix.yml)
 - 📝 **Improve documentation** - Fix typos, add examples, clarify instructions
 - 🔧 **Submit pull requests** - Fix bugs, implement features, improve code
 - ⭐ **Star the repository** - Help others discover the project
@@ -16,12 +22,15 @@ We welcome all types of contributions:
 
 ## 📋 Before You Start
 
-1. **Check existing issues** to avoid duplicate work
-2. **Read the documentation**:
+1. **Read our policies**:
+   - [Code of Conduct](./CODE_OF_CONDUCT.md) - Community standards
+   - [Security Policy](./SECURITY.md) - Security reporting and best practices
+2. **Check existing issues** to avoid duplicate work
+3. **Read the documentation**:
    - [README.md](./README.md) - Project overview
    - [GETTING_STARTED.md](./GETTING_STARTED.md) - Setup guide
    - [GitHub Copilot Instructions](./.github/copilot-instructions.md) - Code style and conventions
-3. **Join discussions** for major changes before starting work
+4. **Join discussions** for major changes before starting work
 
 ## 🚀 Getting Started
 
@@ -127,6 +136,8 @@ git push origin feature/123-add-workflow-versioning
 
 ## 📝 Pull Request Guidelines
 
+Our repository includes a [Pull Request Template](./.github/PULL_REQUEST_TEMPLATE.md) that will guide you through the PR process.
+
 ### PR Title
 
 Use the same format as commit messages:
@@ -139,7 +150,7 @@ docs(api): Update REST API documentation
 
 ### PR Description
 
-Include:
+The PR template includes sections for:
 
 1. **Summary**: What does this PR do?
 2. **Related Issue**: `Closes #123` or `Fixes #456`
@@ -147,7 +158,7 @@ Include:
 4. **Testing**: How was this tested?
 5. **Screenshots**: For UI changes (required)
 6. **Breaking Changes**: Any breaking changes? (if applicable)
-7. **Checklist**: Use the PR template checklist
+7. **Checklist**: Complete the provided checklist
 
 **Example:**
 
@@ -272,6 +283,10 @@ describe('ComponentName or FunctionName', () => {
 - ❌ Commit secrets to the repository
 - ❌ Use deprecated or insecure dependencies
 
+### Security Vulnerabilities
+
+If you discover a security vulnerability, **do not** open a public issue. Instead, please report it according to our [Security Policy](./SECURITY.md). Send details to [github-security@spurs.gov](mailto:github-security@spurs.gov).
+
 ## 📚 Documentation Guidelines
 
 ### Code Comments
@@ -309,9 +324,13 @@ Update relevant documentation when:
 - Adding dependencies
 - Changing deployment process
 
-## 🐛 Bug Reports
+## 🐛 Reporting Issues
 
-When reporting bugs, include:
+We use GitHub issue templates to help structure reports. When creating an issue, please use the appropriate template:
+
+### Bug Reports
+
+Use the [Bug Report Template](./.github/ISSUE_TEMPLATE/01-bug-report.yml) and include:
 
 1. **Description**: Clear description of the bug
 2. **Steps to Reproduce**: Detailed steps to reproduce
@@ -321,9 +340,9 @@ When reporting bugs, include:
 6. **Screenshots**: If applicable
 7. **Error Messages**: Full error messages or logs
 
-## 💡 Feature Requests
+### Feature Requests
 
-When suggesting features:
+Use the [Feature Request Template](./.github/ISSUE_TEMPLATE/02-feature-request.yml) and include:
 
 1. **Problem**: What problem does this solve?
 2. **Solution**: Your proposed solution
@@ -331,18 +350,29 @@ When suggesting features:
 4. **Use Cases**: Real-world examples
 5. **Implementation**: Technical approach (optional)
 
+### Tasks & Fixes
+
+- **Tasks**: Use the [Task Template](./.github/ISSUE_TEMPLATE/03-task.yml) for general tasks
+- **Fixes**: Use the [Fix Template](./.github/ISSUE_TEMPLATE/05-fix.yml) for non-bug fixes
+- **Planned Upgrades**: Use the [Planned Upgrade Template](./.github/ISSUE_TEMPLATE/04-planned-upgrade.yml)
+
 ## 📞 Getting Help
 
 - **Questions**: Use [GitHub Discussions](https://github.com/Universal-Standard/PROJECT-SWARM/discussions)
-- **Bugs**: Open an [Issue](https://github.com/Universal-Standard/PROJECT-SWARM/issues)
+- **Bugs**: Open an [Issue](https://github.com/Universal-Standard/PROJECT-SWARM/issues) using the appropriate template
+- **Security Issues**: Follow the [Security Policy](./SECURITY.md) - do not open public issues
 - **Chat**: Join our community chat (if available)
 - **Documentation**: Check [docs/](./docs/) directory
 
 ## 📖 Additional Resources
 
+- [Code of Conduct](./CODE_OF_CONDUCT.md) - Community standards
+- [Security Policy](./SECURITY.md) - Security reporting and best practices
 - [Project README](./README.md) - Project overview and features
 - [Getting Started Guide](./GETTING_STARTED.md) - Setup and workflow
 - [GitHub Copilot Instructions](./.github/copilot-instructions.md) - Detailed code guidelines
+- [Pull Request Template](./.github/PULL_REQUEST_TEMPLATE.md) - PR guidelines
+- [Issue Templates](./.github/ISSUE_TEMPLATE/) - Templates for reporting issues
 - [Features Roadmap](./docs/architecture/FEATURES_ROADMAP.md) - Planned features
 - [Architecture Docs](./docs/architecture/) - Technical architecture
 - [Deployment Guides](./docs/deployment/) - Deployment instructions

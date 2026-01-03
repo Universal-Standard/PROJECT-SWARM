@@ -214,6 +214,8 @@ We welcome contributions! See [CONTRIBUTING.md](./CONTRIBUTING.md) for guideline
 - 📘 [Contributing Guide](./CONTRIBUTING.md) - How to contribute
 - 🤖 [GitHub Copilot Instructions](./.github/copilot-instructions.md) - Code style and conventions
 - 📖 [Getting Started](./GETTING_STARTED.md) - Project setup
+- 📜 [Code of Conduct](./CODE_OF_CONDUCT.md) - Community standards
+- 🔒 [Security Policy](./SECURITY.md) - Security reporting
 
 **Ways to contribute:**
 - 🐛 Report bugs via GitHub Issues
