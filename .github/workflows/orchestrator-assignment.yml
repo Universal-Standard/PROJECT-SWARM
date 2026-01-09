@@ -3,18 +3,35 @@ name: Orchestrator Task Assignment
 on:
   schedule:
     # Run every hour to check for tasks needing assignment
-    - cron: '0 * * * *'
+    - cron: "0 * * * *"
   workflow_dispatch:
     inputs:
       force_reassign:
-        description: 'Force reassignment of all auto-assign tasks'
+        description: "Force reassignment of all auto-assign tasks"
         required: false
         type: boolean
         default: false
+      enable_ai_agents:
+        description: "Allow AI agents to be selected/mentioned for each group"
+        required: false
+        type: boolean
+        default: true
+      enable_provider_routing:
+        description: "Add a provider:* label (claude/gemini/openai/grok/ollama) per task"
+        required: false
+        type: boolean
+        default: true
 
 permissions:
   issues: write
-  contents: read
+  contents: write
+  actions: write
+  checks: write
+  deployments: write
+  pull-requests: write
+  repository-projects: write
+  security-events: write
+  id-token: write
 
 jobs:
   orchestrate:
@@ -33,125 +50,356 @@ jobs:
               state: 'open',
               per_page: 100
             });
-            
+
             // Filter to only unassigned issues (or force reassign if requested)
             const forceReassign = context.payload.inputs?.force_reassign === 'true';
-            const unassigned = forceReassign 
-              ? issues 
+            const unassigned = forceReassign
+              ? issues
               : issues.filter(issue => issue.assignees.length === 0);
-            
+
             console.log(`Found ${unassigned.length} tasks needing assignment`);
             return unassigned;
 
-      - name: Assign tasks by priority and group
+      - name: Assign tasks by priority, group, AI agent, and provider
         uses: actions/github-script@v7
         with:
           script: |
             const tasks = ${{ steps.find-tasks.outputs.result }};
-            
-            // Define team members and their specializations
-            // Configure this by adding GitHub usernames to each team's members array
-            // Example: members: ['octocat', 'github-user']
+
+            const enableAiAgents =
+              (context.payload.inputs?.enable_ai_agents ?? 'true').toString() === 'true';
+
+            const enableProviderRouting =
+              (context.payload.inputs?.enable_provider_routing ?? 'true').toString() === 'true';
+
+            /**
+             * TEAM CONFIG
+             * - human_members: real GitHub usernames you can assign issues to
+             * - ai_agents:
+             *     - id: stable identifier used in comments/labels
+             *     - display: friendly name shown in comments
+             *     - gh_username: OPTIONAL GitHub username for a bot account IF you actually want to assign to it
+             *                   (leave "" to keep AI agents as "advisory" only)
+             *     - specialties: keywords (optional) used for tie-breaking
+             */
             const team = {
               'core-engine': {
                 labels: ['group-a-core', 'execution-engine'],
-                members: [] // TODO: Add GitHub usernames here
+                human_members: [], // TODO: Add GitHub usernames here
+                ai_agents: [
+                  { id: 'core-architect', display: 'Core Architect Agent', gh_username: '', specialties: ['architecture','runtime','orchestration','queueing'] },
+                  { id: 'perf-profiler', display: 'Performance Profiler Agent', gh_username: '', specialties: ['latency','throughput','profiling','benchmarking'] }
+                ]
               },
               'auth-security': {
                 labels: ['group-b-auth', 'github-integration', 'security'],
-                members: [] // TODO: Add GitHub usernames here
+                human_members: [], // TODO: Add GitHub usernames here
+                ai_agents: [
+                  { id: 'threat-modeler', display: 'Threat Modeler Agent', gh_username: '', specialties: ['oauth','oidc','tokens','threat-model','abuse'] },
+                  { id: 'policy-auditor', display: 'Policy & Compliance Agent', gh_username: '', specialties: ['least-privilege','permissions','secrets','compliance'] }
+                ]
               },
               'monitoring': {
                 labels: ['group-c-monitoring', 'execution-monitoring'],
-                members: [] // TODO: Add GitHub usernames here
+                human_members: [], // TODO: Add GitHub usernames here
+                ai_agents: [
+                  { id: 'sre-analyst', display: 'SRE Analyst Agent', gh_username: '', specialties: ['alerts','slo','observability','oncall'] },
+                  { id: 'log-forensics', display: 'Log Forensics Agent', gh_username: '', specialties: ['traces','metrics','logs','root-cause'] }
+                ]
               },
               'knowledge': {
                 labels: ['group-d-knowledge', 'knowledge-base', 'templates'],
-                members: [] // TODO: Add GitHub usernames here
+                human_members: [], // TODO: Add GitHub usernames here
+                ai_agents: [
+                  { id: 'doc-wrangler', display: 'Doc Wrangler Agent', gh_username: '', specialties: ['docs','templates','how-to','runbooks'] },
+                  { id: 'taxonomy-librarian', display: 'Taxonomy Librarian Agent', gh_username: '', specialties: ['information-architecture','tagging','search'] }
+                ]
               },
               'ux': {
                 labels: ['group-e-ux', 'workflow-builder', 'ux'],
-                members: [] // TODO: Add GitHub usernames here
+                human_members: [], // TODO: Add GitHub usernames here
+                ai_agents: [
+                  { id: 'ux-heuristics', display: 'UX Heuristics Agent', gh_username: '', specialties: ['usability','flows','heuristics','accessibility'] },
+                  { id: 'copy-designer', display: 'UX Copy & Microcopy Agent', gh_username: '', specialties: ['copy','labels','empty-states','onboarding'] }
+                ]
               },
               'advanced': {
                 labels: ['group-f-advanced', 'ai-providers'],
-                members: [] // TODO: Add GitHub usernames here
+                human_members: [], // TODO: Add GitHub usernames here
+                ai_agents: [
+                  { id: 'llm-integrator', display: 'LLM Integrator Agent', gh_username: '', specialties: ['providers','api','rate-limits','evals'] },
+                  { id: 'prompt-systems', display: 'Prompt & Agent Systems Agent', gh_username: '', specialties: ['tooling','routing','memory','guardrails'] }
+                ]
               }
             };
-            
-            // Check if any teams are configured
-            const hasConfiguredTeams = Object.values(team).some(t => t.members.length > 0);
-            if (!hasConfiguredTeams) {
-              console.log('⚠️ No team members configured in orchestrator workflow');
-              console.log('');
-              console.log('To enable automatic task assignment:');
-              console.log('1. Edit .github/workflows/orchestrator-assignment.yml');
-              console.log('2. Add GitHub usernames to the team.members arrays');
-              console.log('3. Example: members: ["octocat", "github-user"]');
-              console.log('');
+
+            /**
+             * PROVIDER ROUTING CONFIG
+             * - Adds labels like provider:claude / provider:gemini / provider:openai / provider:grok / provider:ollama
+             * - You can override routing by manually applying a label provider:<name> to an issue
+             */
+            const providers = {
+              claude: {
+                label: 'provider:claude',
+                display: 'Claude (Anthropic)',
+                specialties: ['security', 'policy', 'threat', 'auth', 'compliance', 'privacy'],
+                defaultForTeams: ['auth-security']
+              },
+              gemini: {
+                label: 'provider:gemini',
+                display: 'Gemini (Google)',
+                specialties: ['docs', 'summarize', 'knowledge', 'search', 'multimodal'],
+                defaultForTeams: ['knowledge', 'ux']
+              },
+              openai: {
+                label: 'provider:openai',
+                display: 'ChatGPT (OpenAI)',
+                specialties: ['coding', 'refactor', 'tests', 'design', 'agents', 'tooling'],
+                defaultForTeams: ['core-engine', 'advanced']
+              },
+              grok: {
+                label: 'provider:grok',
+                display: 'Grok (xAI)',
+                specialties: ['debug', 'fast-iteration', 'system-design'],
+                defaultForTeams: ['advanced']
+              },
+              ollama: {
+                label: 'provider:ollama',
+                display: 'Ollama (Local)',
+                specialties: ['offline', 'airgap', 'private', 'sensitive'],
+                defaultForTeams: ['auth-security', 'core-engine']
+              }
+            };
+
+            // -----------------------------
+            // Helpers
+            // -----------------------------
+            const normalize = (s) => (s || '').toString().toLowerCase();
+
+            function pickTeamForLabels(issueLabels) {
+              for (const [teamName, teamData] of Object.entries(team)) {
+                if (teamData.labels.some(label => issueLabels.includes(label))) {
+                  return { teamName, teamData };
+                }
+              }
+              return null;
+            }
+
+            function pickHumanAssignee(teamData, issueNumber) {
+              if (!teamData.human_members || teamData.human_members.length === 0) return null;
+              return teamData.human_members[issueNumber % teamData.human_members.length];
+            }
+
+            function pickAiAgent(teamData, task, issueLabels) {
+              if (!enableAiAgents) return null;
+              if (!teamData.ai_agents || teamData.ai_agents.length === 0) return null;
+
+              const haystack = normalize(`${task.title || ''} ${(task.body || '').slice(0, 2000)}`);
+              let best = null;
+              let bestScore = -1;
+
+              for (const agent of teamData.ai_agents) {
+                let score = 0;
+
+                for (const kw of (agent.specialties || [])) {
+                  if (haystack.includes(normalize(kw))) score += 2;
+                }
+
+                for (const l of issueLabels) {
+                  if (normalize(l).includes('ai:')) score += 1;
+                }
+
+                if (score > bestScore) {
+                  best = agent;
+                  bestScore = score;
+                }
+              }
+
+              if (!best) {
+                best = teamData.ai_agents[task.number % teamData.ai_agents.length];
+              }
+
+              return best;
+            }
+
+            function pickProvider(teamName, labels, task) {
+              if (!enableProviderRouting) return null;
+
+              // 1) Explicit provider label wins: provider:claude etc.
+              const explicit = labels.find(l => l.startsWith('provider:'));
+              if (explicit) {
+                const key = explicit.split(':')[1];
+                if (providers[key]) return { key, ...providers[key], reason: 'explicit label' };
+              }
+
+              // 2) Team default
+              for (const [k, p] of Object.entries(providers)) {
+                if ((p.defaultForTeams || []).includes(teamName)) {
+                  return { key: k, ...p, reason: `team default (${teamName})` };
+                }
+              }
+
+              // 3) Keyword match in title/body
+              const hay = normalize(`${task.title || ''} ${(task.body || '').slice(0, 4000)}`);
+              let best = { score: -1, k: 'openai' };
+
+              for (const [k, p] of Object.entries(providers)) {
+                let score = 0;
+                for (const s of (p.specialties || [])) {
+                  if (hay.includes(normalize(s))) score += 2;
+                }
+                if (score > best.score) best = { score, k };
+              }
+
+              const chosen = providers[best.k] || providers.openai;
+              return {
+                key: best.k,
+                ...chosen,
+                reason: best.score > 0 ? 'keyword match' : 'fallback default'
+              };
+            }
+
+            function priorityBadge(labels) {
+              return labels.includes('critical')
+                ? '🔴 Critical'
+                : labels.includes('high')
+                  ? '🟡 High'
+                  : '🟢 Medium';
+            }
+
+            // -----------------------------
+            // Sanity checks
+            // -----------------------------
+            const hasAnyHumans = Object.values(team).some(t => (t.human_members || []).length > 0);
+            const hasAnyAi = Object.values(team).some(t => (t.ai_agents || []).length > 0);
+
+            if (!hasAnyHumans && !(enableAiAgents && hasAnyAi)) {
+              console.log('⚠️ No human members configured and AI agents disabled/missing.');
               console.log('Tasks will be labeled as "needs-manual-assignment" until configured.');
               return;
             }
-            
+
+            // -----------------------------
+            // Main loop
+            // -----------------------------
             for (const task of tasks) {
-              const labels = task.labels.map(l => l.name);
-              
-              // Find matching team based on labels
-              let assignedTo = null;
-              for (const [teamName, teamData] of Object.entries(team)) {
-                if (teamData.labels.some(label => labels.includes(label))) {
-                  if (teamData.members.length > 0) {
-                    // Round-robin assignment within team
-                    assignedTo = teamData.members[task.number % teamData.members.length];
-                    break;
-                  }
-                }
-              }
-              
-              if (assignedTo) {
-                // Assign the task
-                await github.rest.issues.addAssignees({
-                  owner: context.repo.owner,
-                  repo: context.repo.repo,
-                  issue_number: task.number,
-                  assignees: [assignedTo]
-                });
-                
-                // Update labels
-                await github.rest.issues.removeLabel({
-                  owner: context.repo.owner,
-                  repo: context.repo.repo,
-                  issue_number: task.number,
-                  name: 'awaiting-assignment'
-                }).catch(() => {}); // Ignore if label doesn't exist
-                
-                await github.rest.issues.addLabels({
-                  owner: context.repo.owner,
-                  repo: context.repo.repo,
-                  issue_number: task.number,
-                  labels: ['orchestrator-assigned', 'in-progress']
-                });
-                
-                // Post assignment comment
-                await github.rest.issues.createComment({
-                  owner: context.repo.owner,
-                  repo: context.repo.repo,
-                  issue_number: task.number,
-                  body: `🤖 **Orchestrator Assignment**\n\nThis task has been automatically assigned to @${assignedTo} based on their expertise and current workload.\n\n**Priority:** ${labels.includes('critical') ? '🔴 Critical' : labels.includes('high') ? '🟡 High' : '🟢 Medium'}\n\nPlease acknowledge this assignment and update the issue status when you begin work.`
-                });
-                
-                console.log(`Assigned issue #${task.number} to ${assignedTo}`);
-              } else {
-                // No suitable team member found
+              const labels = (task.labels || []).map(l => l.name);
+
+              const matched = pickTeamForLabels(labels);
+              if (!matched) {
                 await github.rest.issues.addLabels({
                   owner: context.repo.owner,
                   repo: context.repo.repo,
                   issue_number: task.number,
                   labels: ['needs-manual-assignment']
                 });
-                
-                console.log(`Could not auto-assign issue #${task.number} - needs manual assignment`);
+                console.log(`No matching team for issue #${task.number}`);
+                continue;
               }
+
+              const { teamName, teamData } = matched;
+
+              const humanAssignee = pickHumanAssignee(teamData, task.number);
+              const aiAgent = pickAiAgent(teamData, task, labels);
+              const provider = pickProvider(teamName, labels, task);
+
+              // Decide who gets assigned:
+              //   A) Prefer humans (if configured)
+              //   B) If no humans, optionally assign to AI bot username (if provided)
+              //   C) If AI has no gh_username, keep it advisory: label + comment, but don't assign
+              let assignedTo = humanAssignee;
+              let assignedType = 'human';
+
+              if (!assignedTo) {
+                if (enableAiAgents && aiAgent?.gh_username) {
+                  assignedTo = aiAgent.gh_username;
+                  assignedType = 'ai';
+                } else {
+                  assignedTo = null; // advisory only
+                  assignedType = 'advisory';
+                }
+              }
+
+              // Update labels
+              await github.rest.issues.removeLabel({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: task.number,
+                name: 'awaiting-assignment'
+              }).catch(() => {});
+
+              const baseLabels = ['orchestrator-assigned', 'in-progress', `team:${teamName}`];
+              const aiLabels = (enableAiAgents && aiAgent) ? [`ai-agent:${aiAgent.id}`] : [];
+              const providerLabels = (provider && enableProviderRouting) ? [provider.label] : [];
+
+              await github.rest.issues.addLabels({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: task.number,
+                labels: [...baseLabels, ...aiLabels, ...providerLabels]
+              });
+
+              // Assign if we have a real GitHub username to assign to
+              if (assignedTo) {
+                await github.rest.issues.addAssignees({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: task.number,
+                  assignees: [assignedTo]
+                });
+              } else {
+                await github.rest.issues.addLabels({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: task.number,
+                  labels: ['needs-manual-assignment']
+                });
+              }
+
+              // Comment payload
+              const whoLine =
+                assignedType === 'human'
+                  ? `Assigned to @${assignedTo} (human).`
+                  : assignedType === 'ai'
+                    ? `Assigned to @${assignedTo} (AI bot account).`
+                    : `No GitHub assignee set (AI agent advisory mode).`;
+
+              const aiLine = enableAiAgents && aiAgent
+                ? `**AI Agent:** ${aiAgent.display} \`(${aiAgent.id})\``
+                : `**AI Agent:** _disabled or not available for this team_`;
+
+              const providerLine = enableProviderRouting && provider
+                ? `**AI Provider:** ${provider.display} \`(${provider.key})\` — ${provider.reason}`
+                : `**AI Provider:** _routing disabled_`;
+
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: task.number,
+                body: [
+                  `🤖 **Orchestrator Assignment**`,
+                  ``,
+                  `**Team:** \`${teamName}\``,
+                  `**Priority:** ${priorityBadge(labels)}`,
+                  `${aiLine}`,
+                  `${providerLine}`,
+                  ``,
+                  `**Status:** ${whoLine}`,
+                  ``,
+                  `**Next Actions**`,
+                  `  1. Confirm scope + acceptance criteria.`,
+                  `  2. Use the provider above for analysis (or override with a \`provider:<name>\` label).`,
+                  `  3. To generate an AI plan/test checklist automatically, comment:`,
+                  `     \`/ai run\``,
+                  `  4. Update the issue with progress notes once work begins.`,
+                ].join('\n')
+              });
+
+              console.log(
+                assignedTo
+                  ? `Assigned issue #${task.number} to ${assignedTo} (${assignedType})`
+                  : `Marked issue #${task.number} advisory AI + needs manual assignment`
+              );
             }
 
       - name: Report assignment summary
@@ -159,12 +407,12 @@ jobs:
         with:
           script: |
             const tasks = ${{ steps.find-tasks.outputs.result }};
-            
+
             if (tasks.length === 0) {
               console.log('✅ No tasks needed assignment');
               return;
             }
-            
+
             console.log(`\n📊 Assignment Summary:`);
             console.log(`   Total tasks processed: ${tasks.length}`);
             console.log(`\n✅ Task assignment complete!`);
