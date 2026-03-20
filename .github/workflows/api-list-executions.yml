@@ -1,0 +1,128 @@
+name: "API: List Executions"
+# Proof-of-concept: workflow_dispatch used as an HTTP GET equivalent.
+# Expected latency: ~10-30 s (GitHub Actions cold start).
+# Result is written as a downloadable artifact (JSON).
+
+on:
+  workflow_dispatch:
+    inputs:
+      repo_filter:
+        description: "Repository filter (owner/repo) — leave blank for all"
+        required: false
+        type: string
+      status_filter:
+        description: "Status (queued | in_progress | completed | failed)"
+        required: false
+        type: string
+      limit:
+        description: "Max records to return"
+        required: false
+        type: string
+        default: "10"
+      offset:
+        description: "Pagination offset"
+        required: false
+        type: string
+        default: "0"
+
+permissions:
+  contents: read
+  actions: write
+
+jobs:
+  query:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: Install runtime deps
+        run: npm ci --omit=dev --ignore-scripts || npm install better-sqlite3
+
+      - name: Query database
+        id: query
+        env:
+          REPO_FILTER:   ${{ inputs.repo_filter }}
+          STATUS_FILTER: ${{ inputs.status_filter }}
+          LIMIT:         ${{ inputs.limit }}
+          OFFSET:        ${{ inputs.offset }}
+          RUN_ID:        ${{ github.run_id }}
+          REPOSITORY:    ${{ github.repository }}
+        run: |
+          mkdir -p api-output
+          node - << 'EOF'
+          const Database = require('better-sqlite3');
+          const fs        = require('fs');
+
+          const db = new Database('swarm.db', { readonly: true });
+          db.pragma('foreign_keys = ON');
+
+          const repo   = process.env.REPO_FILTER   || '';
+          const status = process.env.STATUS_FILTER || '';
+          const limit  = Math.min(parseInt(process.env.LIMIT  || '10'),  100);
+          const offset = Math.max(parseInt(process.env.OFFSET || '0'),     0);
+
+          const conds  = [];
+          const params = {};
+          if (repo)   { conds.push('github_repo = $repo');   params.$repo   = repo;   }
+          if (status) { conds.push('status      = $status'); params.$status = status; }
+          const where = conds.length ? 'WHERE ' + conds.join(' AND ') : '';
+
+          const rows  = db.prepare(`
+            SELECT id, github_repo, github_run_id, workflow_path,
+                   status, started_at, completed_at, cost_cents
+            FROM   execution_runs ${where}
+            ORDER  BY started_at DESC
+            LIMIT  $limit OFFSET $offset
+          `).all({ ...params, $limit: limit, $offset: offset });
+
+          const total = db.prepare(`
+            SELECT COUNT(*) AS n FROM execution_runs ${where}
+          `).get(params).n;
+
+          db.close();
+
+          const body = JSON.stringify({
+            success: true,
+            data: rows,
+            pagination: { limit, offset, total, hasMore: offset + limit < total },
+            meta: {
+              workflow_run_id:  process.env.RUN_ID,
+              workflow_run_url: `https://github.com/${process.env.REPOSITORY}/actions/runs/${process.env.RUN_ID}`,
+              generated_at:     new Date().toISOString(),
+            },
+          }, null, 2);
+
+          fs.writeFileSync('api-output/result.json', body);
+          console.log('Records returned:', rows.length, '/ total:', total);
+          EOF
+
+      - name: Upload result artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: api-list-executions-${{ github.run_id }}
+          path: api-output/result.json
+          retention-days: 1
+
+      - name: Job summary
+        run: |
+          {
+            echo "## API: List Executions"
+            echo "| Key | Value |"
+            echo "|-----|-------|"
+            echo "| Run | \`${{ github.run_id }}\` |"
+            echo "| repo_filter | \`${{ inputs.repo_filter || '(all)' }}\` |"
+            echo "| status_filter | \`${{ inputs.status_filter || '(all)' }}\` |"
+            echo "| limit | ${{ inputs.limit }} |"
+            echo "| offset | ${{ inputs.offset }} |"
+            echo ""
+            echo "Download artifact \`api-list-executions-${{ github.run_id }}\` for the JSON response."
+          } >> "$GITHUB_STEP_SUMMARY"

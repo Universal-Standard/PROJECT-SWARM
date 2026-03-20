@@ -69,7 +69,10 @@ playwright/.cache/
 .tmp/
 
 # Database
-*.db
+# swarm.db is intentionally tracked (GitHub-only architecture)
+# WAL side-car files are ephemeral and must NOT be committed
+swarm.db-wal
+swarm.db-shm
 *.sqlite
 *.sqlite3
 
