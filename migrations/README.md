@@ -95,8 +95,8 @@ This will show:
 ### Index creation is slow
 
 - This is normal for large tables (>100k rows)
-- Indexes are created CONCURRENTLY by default (doesn't block reads/writes)
-- Let it run to completion
+- Index creation uses standard `CREATE INDEX IF NOT EXISTS`, which can block writes (and sometimes reads) while indexes are being built
+- Run `npm run db:indexes` during a low-traffic window and let it run to completion
 
 ### Index already exists error
 

@@ -12,8 +12,6 @@
  */
 
 import { Pool } from "@neondatabase/serverless";
-import { readFileSync } from "fs";
-import { join } from "path";
 import ws from "ws";
 import { neonConfig } from "@neondatabase/serverless";
 

@@ -5,6 +5,8 @@
  * Supports different log levels and structured data.
  */
 
+import type { Request, Response, NextFunction } from "express";
+
 export type LogLevel = "debug" | "info" | "warn" | "error";
 
 export interface LogContext {
@@ -138,7 +140,7 @@ export const logger = new Logger();
 /**
  * HTTP request logger middleware
  */
-export function httpLogger(req: any, res: any, next: any) {
+export function httpLogger(req: Request, res: Response, next: NextFunction) {
   const start = Date.now();
 
   // Log request
@@ -152,15 +154,24 @@ export function httpLogger(req: any, res: any, next: any) {
   // Log response
   res.on("finish", () => {
     const duration = Date.now() - start;
-    const level = res.statusCode >= 400 ? "warn" : "info";
 
-    logger[level]("HTTP Response", {
-      method: req.method,
-      path: req.path,
-      statusCode: res.statusCode,
-      duration: `${duration}ms`,
-      ip: req.ip,
-    });
+    if (res.statusCode >= 400) {
+      logger.warn("HTTP Response", {
+        method: req.method,
+        path: req.path,
+        statusCode: res.statusCode,
+        duration: `${duration}ms`,
+        ip: req.ip,
+      });
+    } else {
+      logger.info("HTTP Response", {
+        method: req.method,
+        path: req.path,
+        statusCode: res.statusCode,
+        duration: `${duration}ms`,
+        ip: req.ip,
+      });
+    }
   });
 
   next();
@@ -211,12 +222,16 @@ export function logWorkflowExecution(
   status: string,
   duration?: number
 ) {
-  const level = status === "failed" ? "error" : "info";
-
-  logger[level]("Workflow execution", {
+  const context = {
     workflowId,
     executionId,
     status,
     ...(duration && { duration: `${duration}ms` }),
-  });
+  };
+
+  if (status === "failed") {
+    logger.error("Workflow execution", undefined, context);
+  } else {
+    logger.info("Workflow execution", context);
+  }
 }

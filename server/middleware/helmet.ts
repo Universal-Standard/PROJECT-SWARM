@@ -48,8 +48,6 @@ export function configureHelmet(app: Express): void {
       },
       // X-Content-Type-Options (MIME sniffing protection)
       noSniff: true,
-      // X-XSS-Protection
-      xssFilter: true,
       // Referrer-Policy
       referrerPolicy: {
         policy: "strict-origin-when-cross-origin",
