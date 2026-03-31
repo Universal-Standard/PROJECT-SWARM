@@ -912,8 +912,8 @@ export async function registerRoutes(app: Express) {
         userId,
         name: `${template.name} (Copy)`,
         description: template.description,
-        nodes: workflow.nodes,
-        edges: workflow.edges,
+        nodes: workflow.nodes as Record<string, unknown>[],
+        edges: workflow.edges as Record<string, unknown>[],
         category: template.category,
         isTemplate: false,
       });
@@ -1262,7 +1262,7 @@ Be concise, practical, and provide actionable guidance. When relevant, suggest s
         return res.status(403).json({ error: "Forbidden" });
       }
 
-      const version = await versionManager.getVersion(req.params.id, req.params.versionId);
+      const version = await versionManager.getVersion(req.params.versionId);
       if (!version) {
         return res.status(404).json({ error: "Version not found" });
       }

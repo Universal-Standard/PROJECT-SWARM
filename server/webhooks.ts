@@ -105,7 +105,7 @@ export class WebhookHandler {
     try {
       await storage.createWebhookLog({
         webhookId,
-        payload,
+        payload: payload as Record<string, unknown>,
         headers,
         status,
         error,
