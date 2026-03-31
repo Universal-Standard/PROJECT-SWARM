@@ -1,13 +1,17 @@
+# .github/dependabot.yml
 version: 2
+
 updates:
-  # npm dependencies
+  # Root workspace / app
   - package-ecosystem: "npm"
     directory: "/"
     schedule:
       interval: "weekly"
       day: "monday"
       time: "09:00"
+      timezone: "America/Los_Angeles"
     open-pull-requests-limit: 10
+    versioning-strategy: "auto"
     reviewers:
       - "Universal-Standard"
     assignees:
@@ -19,29 +23,36 @@ updates:
       prefix: "chore(deps):"
       include: "scope"
     groups:
-      development-dependencies:
-        dependency-type: "development"
-        update-types:
-          - "minor"
-          - "patch"
       production-dependencies:
         dependency-type: "production"
         update-types:
           - "minor"
           - "patch"
+      dev-dependencies:
+        dependency-type: "development"
+        update-types:
+          - "minor"
+          - "patch"
 
-  # GitHub Actions
+  # GitHub Actions workflow dependencies
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
       interval: "weekly"
       day: "monday"
-    open-pull-requests-limit: 5
+      time: "10:00"
+      timezone: "America/Los_Angeles"
+    open-pull-requests-limit: 10
     labels:
       - "ci/cd"
       - "automated"
     commit-message:
       prefix: "ci:"
+    groups:
+      actions:
+        update-types:
+          - "minor"
+          - "patch"
 
   # Docker
   - package-ecosystem: "docker"

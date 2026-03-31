@@ -1,0 +1,144 @@
+name: AI Runner
+
+on:
+  issue_comment:
+    types: [created]
+
+permissions:
+  issues: write
+  contents: read
+
+jobs:
+  ai_run:
+    if: contains(github.event.comment.body, '/ai run')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Generate AI output and comment back
+        uses: actions/github-script@v7
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          XAI_API_KEY: ${{ secrets.XAI_API_KEY }}
+          OLLAMA_BASE_URL: ${{ secrets.OLLAMA_BASE_URL }} # e.g., http://your-ollama-host:11434
+        with:
+          script: |
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const issue_number = context.payload.issue.number;
+
+            const { data: issue } = await github.rest.issues.get({ owner, repo, issue_number });
+            const labels = (issue.labels || []).map(l => l.name);
+
+            // Determine provider from labels
+            const providerLabel = labels.find(l => l.startsWith('provider:'));
+            const provider = providerLabel ? providerLabel.split(':')[1] : 'openai';
+
+            // Prompt packet
+            const prompt = `
+You are an engineering assistant.
+Return:
+1) Plan
+2) Risks
+3) Test plan
+4) Implementation checklist
+
+Issue:
+${issue.title}
+
+Body:
+${issue.body || '(no body)'}
+            `.trim();
+
+            async function post(body) {
+              await github.rest.issues.createComment({ owner, repo, issue_number, body });
+            }
+
+            // Minimal HTTP helper
+            async function httpJson(url, method, headers, json) {
+              const res = await fetch(url, {
+                method,
+                headers: { 'Content-Type': 'application/json', ...headers },
+                body: json ? JSON.stringify(json) : undefined
+              });
+              const text = await res.text();
+              let data;
+              try { data = JSON.parse(text); } catch { data = { raw: text }; }
+              if (!res.ok) throw new Error(`${method} ${url} -> ${res.status}: ${text.slice(0, 500)}`);
+              return data;
+            }
+
+            let output = '';
+
+            if (provider === 'openai') {
+              if (!process.env.OPENAI_API_KEY) throw new Error('Missing OPENAI_API_KEY secret');
+              const data = await httpJson(
+                'https://api.openai.com/v1/chat/completions',
+                'POST',
+                { Authorization: `Bearer ${process.env.OPENAI_API_KEY}` },
+                {
+                  model: 'gpt-4.1-mini',
+                  messages: [
+                    { role: 'system', content: 'You are a helpful engineering assistant.' },
+                    { role: 'user', content: prompt }
+                  ]
+                }
+              );
+              output = data.choices?.[0]?.message?.content || JSON.stringify(data).slice(0, 2000);
+
+            } else if (provider === 'claude') {
+              if (!process.env.ANTHROPIC_API_KEY) throw new Error('Missing ANTHROPIC_API_KEY secret');
+              const data = await httpJson(
+                'https://api.anthropic.com/v1/messages',
+                'POST',
+                {
+                  'x-api-key': process.env.ANTHROPIC_API_KEY,
+                  'anthropic-version': '2023-06-01'
+                },
+                {
+                  model: 'claude-3-5-sonnet-latest',
+                  max_tokens: 900,
+                  messages: [{ role: 'user', content: prompt }]
+                }
+              );
+              output = data.content?.map(c => c.text).join('\n') || JSON.stringify(data).slice(0, 2000);
+
+            } else if (provider === 'gemini') {
+              if (!process.env.GEMINI_API_KEY) throw new Error('Missing GEMINI_API_KEY secret');
+              const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key=${process.env.GEMINI_API_KEY}`;
+              const data = await httpJson(url, 'POST', {}, {
+                contents: [{ parts: [{ text: prompt }]}]
+              });
+              output = data.candidates?.[0]?.content?.parts?.map(p => p.text).join('\n') || JSON.stringify(data).slice(0, 2000);
+
+            } else if (provider === 'grok') {
+              if (!process.env.XAI_API_KEY) throw new Error('Missing XAI_API_KEY secret');
+              const data = await httpJson(
+                'https://api.x.ai/v1/chat/completions',
+                'POST',
+                { Authorization: `Bearer ${process.env.XAI_API_KEY}` },
+                {
+                  model: 'grok-2-latest',
+                  messages: [
+                    { role: 'system', content: 'You are a helpful engineering assistant.' },
+                    { role: 'user', content: prompt }
+                  ]
+                }
+              );
+              output = data.choices?.[0]?.message?.content || JSON.stringify(data).slice(0, 2000);
+
+            } else if (provider === 'ollama') {
+              if (!process.env.OLLAMA_BASE_URL) throw new Error('Missing OLLAMA_BASE_URL secret');
+              const data = await httpJson(
+                `${process.env.OLLAMA_BASE_URL}/api/generate`,
+                'POST',
+                {},
+                { model: 'llama3.1:8b', prompt, stream: false }
+              );
+              output = data.response || JSON.stringify(data).slice(0, 2000);
+
+            } else {
+              throw new Error(`Unknown provider: ${provider}`);
+            }
+
+            await post(`🧠 **AI Run Complete**\n\n**Provider:** \`${provider}\`\n\n${output}`);
