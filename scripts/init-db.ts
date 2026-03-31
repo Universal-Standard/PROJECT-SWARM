@@ -1,4 +1,4 @@
-#!/usr/bin/env node
+#!/usr/bin/env tsx
 /**
  * Initialize the PROJECT-SWARM SQLite database.
  * Usage: npx tsx scripts/init-db.ts [--reset]
