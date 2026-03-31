@@ -101,6 +101,9 @@ export function validateMultiple(schemas: Partial<Record<ValidationTarget, ZodSc
               target: target as ValidationTarget,
               issues: zodError.issues,
             });
+          } else {
+            logger.error(`Unexpected error during validation for target "${target}"`, error);
+            throw error;
           }
         }
       }
