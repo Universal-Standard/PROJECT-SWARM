@@ -1,4 +1,4 @@
-import type { Request, Response, NextFunction } from 'express';
+import type { Request, Response, NextFunction } from "express";
 import {
   WorkflowValidationError,
   AuthenticationError,
@@ -6,18 +6,20 @@ import {
   NotFoundError,
   RateLimitError,
   type StructuredError,
-} from '@shared/errors';
-import { ZodError } from 'zod';
+} from "@shared/errors";
+import { ZodError } from "zod";
+import { logger } from "../lib/logger";
 
 /**
  * Advanced error handling middleware with structured error responses
  */
 export function errorHandler(err: any, req: Request, res: Response, next: NextFunction) {
   // Log error with stack trace for debugging
-  console.error(`[Error] ${req.method} ${req.path}:`, err);
-  if (err.stack && process.env.NODE_ENV === 'development') {
-    console.error('Stack trace:', err.stack);
-  }
+  logger.error(`Error in ${req.method} ${req.path}`, err, {
+    method: req.method,
+    path: req.path,
+    ...(err.stack && process.env.NODE_ENV === "development" && { stack: err.stack }),
+  });
 
   // Handle specific error types
   if (err instanceof WorkflowValidationError) {
@@ -52,7 +54,7 @@ export function errorHandler(err: any, req: Request, res: Response, next: NextFu
 
   if (err instanceof RateLimitError) {
     if (err.retryAfter) {
-      res.setHeader('Retry-After', err.retryAfter.toString());
+      res.setHeader("Retry-After", err.retryAfter.toString());
     }
     return res.status(err.statusCode).json({
       error: err.message,
@@ -64,9 +66,9 @@ export function errorHandler(err: any, req: Request, res: Response, next: NextFu
   // Handle Zod validation errors
   if (err instanceof ZodError) {
     const response: StructuredError = {
-      error: 'Validation failed',
-      details: err.errors.map(e => ({
-        field: e.path.join('.'),
+      error: "Validation failed",
+      details: err.errors.map((e) => ({
+        field: e.path.join("."),
         message: e.message,
         code: e.code,
       })),
@@ -77,7 +79,7 @@ export function errorHandler(err: any, req: Request, res: Response, next: NextFu
 
   // Handle known HTTP errors with status codes
   const statusCode = err.statusCode || err.status || 500;
-  const message = err.message || 'Internal Server Error';
+  const message = err.message || "Internal Server Error";
 
   // Don't expose internal error details in production
   const response: any = {
@@ -85,7 +87,7 @@ export function errorHandler(err: any, req: Request, res: Response, next: NextFu
     statusCode,
   };
 
-  if (process.env.NODE_ENV === 'development') {
+  if (process.env.NODE_ENV === "development") {
     response.stack = err.stack;
     response.details = err.details;
   }
@@ -96,7 +98,9 @@ export function errorHandler(err: any, req: Request, res: Response, next: NextFu
 /**
  * Async error wrapper to catch errors in async route handlers
  */
-export function asyncHandler(fn: (req: Request, res: Response, next: NextFunction) => Promise<any>) {
+export function asyncHandler(
+  fn: (req: Request, res: Response, next: NextFunction) => Promise<any>
+) {
   return (req: Request, res: Response, next: NextFunction) => {
     Promise.resolve(fn(req, res, next)).catch(next);
   };

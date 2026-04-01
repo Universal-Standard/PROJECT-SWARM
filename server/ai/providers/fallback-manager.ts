@@ -1,4 +1,5 @@
 import type { Agent } from "@shared/schema";
+import { logger } from "../../lib/logger";
 
 interface FallbackConfig {
   primaryProvider: string;
@@ -87,7 +88,7 @@ export class FallbackManager {
       if (statusCode >= 400) {
         return true;
       }
-      
+
       // Network errors
       if (errorMessage.includes("network") || errorMessage.includes("connection")) {
         return true;
@@ -178,7 +179,7 @@ export class FallbackManager {
    */
   recordFailure(provider: string, reason: string): void {
     const health = this.getProviderHealth(provider);
-    
+
     health.failureCount++;
     health.consecutiveFailures++;
     health.lastFailure = new Date();
@@ -186,9 +187,10 @@ export class FallbackManager {
     // Open circuit breaker if threshold exceeded
     if (health.consecutiveFailures >= this.CIRCUIT_BREAKER_THRESHOLD) {
       health.isCircuitOpen = true;
-      console.warn(
-        `[Fallback] Circuit breaker opened for ${provider} after ${health.consecutiveFailures} consecutive failures`
-      );
+      logger.warn("Circuit breaker opened", {
+        provider,
+        consecutiveFailures: health.consecutiveFailures,
+      });
     }
 
     this.providerHealth.set(provider, health);
@@ -199,14 +201,14 @@ export class FallbackManager {
    */
   recordSuccess(provider: string): void {
     const health = this.getProviderHealth(provider);
-    
+
     // Reset consecutive failures on success
     health.consecutiveFailures = 0;
-    
+
     // Close circuit breaker if it was open
     if (health.isCircuitOpen) {
       health.isCircuitOpen = false;
-      console.log(`[Fallback] Circuit breaker closed for ${provider}`);
+      logger.info("Circuit breaker closed", { provider });
     }
 
     this.providerHealth.set(provider, health);
@@ -236,7 +238,7 @@ export class FallbackManager {
     health.isCircuitOpen = false;
     health.consecutiveFailures = 0;
     this.providerHealth.set(provider, health);
-    console.log(`[Fallback] Circuit breaker reset for ${provider}`);
+    logger.info("Circuit breaker reset", { provider });
   }
 
   /**
@@ -263,9 +265,12 @@ export class FallbackManager {
       this.fallbackEvents.splice(100);
     }
 
-    console.log(
-      `[Fallback] ${fromProvider} → ${toProvider} (${reason}) - ${success ? "Success" : "Failed"}`
-    );
+    logger.info("Fallback event", {
+      fromProvider,
+      toProvider,
+      reason,
+      success,
+    });
   }
 
   /**
@@ -288,14 +293,11 @@ export class FallbackManager {
   } {
     const providers = Array.from(this.providerHealth.entries()).map(([name, health]) => {
       // Calculate success rate from recent fallback events
-      const recentEvents = this.fallbackEvents
-        .filter(e => e.toProvider === name)
-        .slice(0, 20);
-      
-      const successCount = recentEvents.filter(e => e.success).length;
-      const successRate = recentEvents.length > 0
-        ? Math.round((successCount / recentEvents.length) * 100)
-        : 100;
+      const recentEvents = this.fallbackEvents.filter((e) => e.toProvider === name).slice(0, 20);
+
+      const successCount = recentEvents.filter((e) => e.success).length;
+      const successRate =
+        recentEvents.length > 0 ? Math.round((successCount / recentEvents.length) * 100) : 100;
 
       return {
         name,
@@ -320,7 +322,7 @@ export class FallbackManager {
     }
   ): string {
     // Filter out providers with open circuit breakers
-    const healthyProviders = availableProviders.filter(provider => {
+    const healthyProviders = availableProviders.filter((provider) => {
       const health = this.getProviderHealth(provider);
       return !health.isCircuitOpen;
     });

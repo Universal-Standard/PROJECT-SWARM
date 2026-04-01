@@ -1,8 +1,3 @@
-# To get started with Dependabot version updates, you'll need to specify which
-# package ecosystems to update and where the package manifests are located.
-# Please see the documentation for all configuration options:
-# https://docs.github.com/code-security/dependabot/dependabot-version-updates/configuration-options-for-the-dependabot.yml-file
-
 # .github/dependabot.yml
 version: 2
 
@@ -17,6 +12,16 @@ updates:
       timezone: "America/Los_Angeles"
     open-pull-requests-limit: 10
     versioning-strategy: "auto"
+    reviewers:
+      - "Universal-Standard"
+    assignees:
+      - "Universal-Standard"
+    labels:
+      - "dependencies"
+      - "automated"
+    commit-message:
+      prefix: "chore(deps):"
+      include: "scope"
     groups:
       production-dependencies:
         dependency-type: "production"
@@ -25,54 +30,6 @@ updates:
           - "patch"
       dev-dependencies:
         dependency-type: "development"
-        update-types:
-          - "minor"
-          - "patch"
-
-  # Client app (if it has its own package.json)
-  - package-ecosystem: "npm"
-    directory: "/client"
-    schedule:
-      interval: "weekly"
-      day: "monday"
-      time: "09:15"
-      timezone: "America/Los_Angeles"
-    open-pull-requests-limit: 10
-    versioning-strategy: "auto"
-    groups:
-      client-deps:
-        update-types:
-          - "minor"
-          - "patch"
-
-  # Server app (if it has its own package.json)
-  - package-ecosystem: "npm"
-    directory: "/server"
-    schedule:
-      interval: "weekly"
-      day: "monday"
-      time: "09:30"
-      timezone: "America/Los_Angeles"
-    open-pull-requests-limit: 10
-    versioning-strategy: "auto"
-    groups:
-      server-deps:
-        update-types:
-          - "minor"
-          - "patch"
-
-  # Shared packages (if it has its own package.json)
-  - package-ecosystem: "npm"
-    directory: "/shared"
-    schedule:
-      interval: "weekly"
-      day: "monday"
-      time: "09:45"
-      timezone: "America/Los_Angeles"
-    open-pull-requests-limit: 10
-    versioning-strategy: "auto"
-    groups:
-      shared-deps:
         update-types:
           - "minor"
           - "patch"
@@ -86,8 +43,26 @@ updates:
       time: "10:00"
       timezone: "America/Los_Angeles"
     open-pull-requests-limit: 10
+    labels:
+      - "ci/cd"
+      - "automated"
+    commit-message:
+      prefix: "ci:"
     groups:
       actions:
         update-types:
           - "minor"
           - "patch"
+
+  # Docker
+  - package-ecosystem: "docker"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 5
+    labels:
+      - "docker"
+      - "automated"
+    commit-message:
+      prefix: "chore(docker):"

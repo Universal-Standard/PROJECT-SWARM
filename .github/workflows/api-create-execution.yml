@@ -1,0 +1,142 @@
+name: "API: Create Execution"
+# Proof-of-concept: workflow_dispatch used as an HTTP POST equivalent.
+# Writes a new execution_runs record to swarm.db, commits, and pushes.
+
+on:
+  workflow_dispatch:
+    inputs:
+      github_repo:
+        description: "Target repository (owner/repo)"
+        required: true
+        type: string
+      github_run_id:
+        description: "GitHub Actions run ID being tracked"
+        required: true
+        type: string
+      workflow_path:
+        description: "Path to the .swarm workflow file"
+        required: true
+        type: string
+      status:
+        description: "Initial status"
+        required: false
+        type: choice
+        options: [queued, in_progress, completed, failed]
+        default: queued
+
+permissions:
+  contents: write
+  actions: write
+
+jobs:
+  create:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: Install runtime deps
+        run: npm ci --omit=dev --ignore-scripts || npm install better-sqlite3
+
+      - name: Insert execution record
+        id: insert
+        env:
+          GITHUB_REPO:   ${{ inputs.github_repo }}
+          GITHUB_RUN_IN: ${{ inputs.github_run_id }}
+          WORKFLOW_PATH: ${{ inputs.workflow_path }}
+          STATUS:        ${{ inputs.status }}
+          RUN_ID:        ${{ github.run_id }}
+          REPOSITORY:    ${{ github.repository }}
+        run: |
+          mkdir -p api-output
+          node - << 'EOF'
+          const Database = require('better-sqlite3');
+          const crypto   = require('crypto');
+          const fs       = require('fs');
+
+          const db = new Database('swarm.db');
+          db.pragma('journal_mode = WAL');
+          db.pragma('foreign_keys = ON');
+
+          const id        = 'exec_' + crypto.randomBytes(10).toString('hex');
+          const now       = Math.floor(Date.now() / 1000);
+
+          db.prepare(`
+            INSERT INTO execution_runs
+              (id, github_repo, github_run_id, workflow_path, status, started_at, created_at, updated_at)
+            VALUES
+              ($id, $repo, $run_id, $path, $status, $now, $now, $now)
+          `).run({
+            $id:     id,
+            $repo:   process.env.GITHUB_REPO,
+            $run_id: parseInt(process.env.GITHUB_RUN_IN),
+            $path:   process.env.WORKFLOW_PATH,
+            $status: process.env.STATUS || 'queued',
+            $now:    now,
+          });
+
+          const record = db.prepare('SELECT * FROM execution_runs WHERE id = ?').get(id);
+          db.close();
+
+          const body = JSON.stringify({
+            success: true,
+            data: record,
+            meta: {
+              workflow_run_id:  process.env.RUN_ID,
+              workflow_run_url: `https://github.com/${process.env.REPOSITORY}/actions/runs/${process.env.RUN_ID}`,
+              created_at: new Date().toISOString(),
+            },
+          }, null, 2);
+
+          fs.writeFileSync('api-output/result.json', body);
+          fs.writeFileSync('api-output/id.txt', id);
+          console.log('Created execution:', id);
+          EOF
+
+      - name: Commit database
+        run: |
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git config user.name  "github-actions[bot]"
+          git add swarm.db swarm.db-wal swarm.db-shm 2>/dev/null || git add swarm.db
+          if git diff --staged --quiet; then
+            echo "Nothing to commit"
+          else
+            ID=$(cat api-output/id.txt)
+            git commit -m "data: record execution ${ID}
+
+          repo=${{ inputs.github_repo }}
+          workflow=${{ inputs.workflow_path }}
+          status=${{ inputs.status }}
+          api_run=${{ github.run_id }}"
+            git push
+          fi
+
+      - name: Upload result artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: api-create-execution-${{ github.run_id }}
+          path: api-output/result.json
+          retention-days: 1
+
+      - name: Job summary
+        run: |
+          ID=$(cat api-output/id.txt 2>/dev/null || echo "unknown")
+          {
+            echo "## API: Create Execution"
+            echo "| Key | Value |"
+            echo "|-----|-------|"
+            echo "| execution_id | \`${ID}\` |"
+            echo "| github_repo | \`${{ inputs.github_repo }}\` |"
+            echo "| workflow_path | \`${{ inputs.workflow_path }}\` |"
+            echo "| status | \`${{ inputs.status }}\` |"
+            echo ""
+            echo "Database updated and committed."
+          } >> "$GITHUB_STEP_SUMMARY"

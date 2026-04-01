@@ -2,402 +2,438 @@
 
 Thank you for your interest in contributing to PROJECT-SWARM! This document provides guidelines and instructions for contributing to the project.
 
-## 📜 Code of Conduct
+## 📋 Table of Contents
 
-This project and everyone participating in it is governed by our [Code of Conduct](./CODE_OF_CONDUCT.md). By participating, you are expected to uphold this code. Please report unacceptable behavior to [github-security@spurs.gov](mailto:github-security@spurs.gov).
+- [Code of Conduct](#code-of-conduct)
+- [Getting Started](#getting-started)
+- [Development Setup](#development-setup)
+- [Development Workflow](#development-workflow)
+- [Coding Standards](#coding-standards)
+- [Commit Guidelines](#commit-guidelines)
+- [Pull Request Process](#pull-request-process)
+- [Testing](#testing)
+- [Documentation](#documentation)
 
-## 🤝 Ways to Contribute
+---
 
-We welcome all types of contributions:
+## 🤝 Code of Conduct
 
-- 🐛 **Report bugs** - Use our [bug report template](./.github/ISSUE_TEMPLATE/01-bug-report.yml)
-- ✨ **Suggest features** - Use our [feature request template](./.github/ISSUE_TEMPLATE/02-feature-request.yml)
-- 📋 **Submit tasks** - Use our [task template](./.github/ISSUE_TEMPLATE/03-task.yml)
-- 🔧 **Submit fixes** - Use our [fix template](./.github/ISSUE_TEMPLATE/05-fix.yml)
-- 📝 **Improve documentation** - Fix typos, add examples, clarify instructions
-- 🔧 **Submit pull requests** - Fix bugs, implement features, improve code
-- ⭐ **Star the repository** - Help others discover the project
-- 🧪 **Write tests** - Improve test coverage
-- 🎨 **Improve UI/UX** - Design suggestions and implementations
+We are committed to providing a welcoming and inclusive environment for all contributors. Please be respectful, constructive, and professional in all interactions.
 
-## 📋 Before You Start
-
-1. **Read our policies**:
-   - [Code of Conduct](./CODE_OF_CONDUCT.md) - Community standards
-   - [Security Policy](./SECURITY.md) - Security reporting and best practices
-2. **Check existing issues** to avoid duplicate work
-3. **Read the documentation**:
-   - [README.md](./README.md) - Project overview
-   - [GETTING_STARTED.md](./GETTING_STARTED.md) - Setup guide
-   - [GitHub Copilot Instructions](./.github/copilot-instructions.md) - Code style and conventions
-4. **Join discussions** for major changes before starting work
+---
 
 ## 🚀 Getting Started
 
-### 1. Set Up Your Development Environment
+### Prerequisites
+
+- Node.js 22.16.0 or higher (check version: `node --version`)
+- PostgreSQL database (local or cloud)
+- Git for version control
+- AI provider API keys (OpenAI, Anthropic, or Google Gemini)
+
+### First Time Setup
+
+1. **Fork the repository** on GitHub
+2. **Clone your fork**:
+   ```bash
+   git clone https://github.com/YOUR-USERNAME/PROJECT-SWARM.git
+   cd PROJECT-SWARM
+   ```
+
+3. **Add upstream remote**:
+   ```bash
+   git remote add upstream https://github.com/UniversalStandards/PROJECT-SWARM.git
+   ```
+
+4. **Install dependencies**:
+   ```bash
+   npm install
+   ```
+
+5. **Configure environment**:
+   ```bash
+   cp .env.example .env
+   # Edit .env with your configuration
+   ```
+
+6. **Set up database**:
+   ```bash
+   npm run db:push
+   ```
+
+7. **Start development server**:
+   ```bash
+   npm run dev
+   ```
+
+8. **Verify setup**: Visit http://localhost:5000
+
+---
+
+## 💻 Development Setup
+
+### Recommended Tools
+
+- **VS Code** with extensions:
+  - ESLint
+  - Prettier
+  - TypeScript and JavaScript Language Features
+  - Tailwind CSS IntelliSense
+  - GitLens
+
+### Project Structure
+
+```
+PROJECT-SWARM/
+├── client/           # React frontend
+│   ├── src/
+│   │   ├── components/  # React components
+│   │   ├── pages/       # Page components
+│   │   ├── hooks/       # Custom React hooks
+│   │   └── lib/         # Utilities
+├── server/           # Express backend
+│   ├── routes/       # API route handlers
+│   ├── ai/           # AI orchestration
+│   ├── lib/          # Server utilities
+│   └── middleware/   # Express middleware
+├── shared/           # Shared types & schemas
+├── docs/             # Documentation
+└── workflows/        # SWARM workflow templates
+```
+
+---
+
+## 🔄 Development Workflow
+
+### Creating a New Feature
+
+1. **Update your fork**:
+   ```bash
+   git checkout main
+   git pull upstream main
+   git push origin main
+   ```
+
+2. **Create a feature branch**:
+   ```bash
+   git checkout -b feature/your-feature-name
+   ```
+
+3. **Make your changes** following coding standards
+
+4. **Test your changes**:
+   ```bash
+   npm run check        # Type checking
+   npm test             # Run tests (when available)
+   npm run build        # Ensure build works
+   ```
+
+5. **Commit your changes** (see commit guidelines below)
+
+6. **Push to your fork**:
+   ```bash
+   git push origin feature/your-feature-name
+   ```
+
+7. **Create a Pull Request** on GitHub
+
+### Keeping Your Branch Updated
 
 ```bash
-# Fork and clone the repository
-git clone https://github.com/YOUR_USERNAME/PROJECT-SWARM.git
-cd PROJECT-SWARM
-
-# Install dependencies
-npm install
-
-# Set up environment variables
-cp .env.example .env
-# Edit .env with your configuration
-
-# Set up database
-npm run db:push
-
-# Start development server
-npm run dev
+git checkout main
+git pull upstream main
+git checkout feature/your-feature-name
+git rebase main
 ```
 
-### 2. Create a Branch
+If conflicts occur, resolve them and continue:
+```bash
+git rebase --continue
+```
 
-Use descriptive branch names following this convention:
+---
+
+## 📝 Coding Standards
+
+### TypeScript
+
+- **Use TypeScript** for all new code (`.ts` and `.tsx` files)
+- **Define types** explicitly; avoid `any` unless absolutely necessary
+- **Use interfaces** for object shapes
+- **Export types** from `shared/schema.ts` when applicable
+
+### Code Style
+
+- **Indentation**: 2 spaces
+- **Quotes**: Double quotes for strings
+- **Semicolons**: Required
+- **Line length**: Maximum 100 characters (soft limit)
+- **File naming**:
+  - Components: `PascalCase.tsx` (e.g., `WorkflowBuilder.tsx`)
+  - Utilities: `kebab-case.ts` (e.g., `workflow-validator.ts`)
+  - Pages: `kebab-case.tsx` (e.g., `app-workflows.tsx`)
+
+### React Components
+
+- **Use functional components** with hooks
+- **Prefer named exports** over default exports
+- **Keep components small** (< 200 lines preferred)
+- **Extract custom hooks** for reusable logic
+- **Use TypeScript interfaces** for props
+
+Example:
+```typescript
+interface WorkflowCardProps {
+  workflow: Workflow;
+  onEdit: (id: string) => void;
+  onDelete: (id: string) => void;
+}
+
+export function WorkflowCard({ workflow, onEdit, onDelete }: WorkflowCardProps) {
+  // Component implementation
+}
+```
+
+### Backend Code
+
+- **Use async/await** instead of callbacks
+- **Handle errors** with try/catch blocks
+- **Validate input** using Zod schemas from `shared/schema.ts`
+- **Use Drizzle ORM** for database queries (no raw SQL)
+- **Add logging** for debugging (but remove before committing)
+
+Example:
+```typescript
+app.post('/api/workflows', isAuthenticated, async (req, res) => {
+  try {
+    const validated = insertWorkflowSchema.parse(req.body);
+    const workflow = await storage.createWorkflow({
+      ...validated,
+      userId: req.user.id
+    });
+    res.json(workflow);
+  } catch (error) {
+    console.error('Error creating workflow:', error);
+    res.status(500).json({ message: 'Failed to create workflow' });
+  }
+});
+```
+
+### Database Schemas
+
+- **Use Drizzle ORM** schema definitions in `shared/schema.ts`
+- **Add Zod validators** using `createInsertSchema`
+- **Include comments** for complex fields
+- **Use appropriate types** (text, integer, jsonb, etc.)
+
+---
+
+## 📝 Commit Guidelines
+
+### Commit Message Format
+
+Use conventional commits format:
+
+```
+<type>(<scope>): <subject>
+
+<body>
+
+<footer>
+```
+
+### Types
+
+- **feat**: New feature
+- **fix**: Bug fix
+- **docs**: Documentation changes
+- **style**: Code style changes (formatting, etc.)
+- **refactor**: Code refactoring
+- **test**: Adding or updating tests
+- **chore**: Maintenance tasks
+
+### Examples
 
 ```bash
-# Feature branches
-git checkout -b feature/<issue-number>-<short-description>
-# Example: git checkout -b feature/123-add-workflow-versioning
+# Good commits
+feat(workflow): add conditional logic nodes
+fix(auth): resolve session expiration issue
+docs(api): add OpenAPI specification
+refactor(routes): split routes.ts into modules
+test(executor): add unit tests for AI executor
 
-# Bug fix branches
-git checkout -b fix/<issue-number>-<short-description>
-# Example: git checkout -b fix/456-github-auth-token-refresh
-
-# Documentation branches
-git checkout -b docs/<issue-number>-<short-description>
-# Example: git checkout -b docs/789-api-reference-update
+# Bad commits
+update stuff
+fix bug
+WIP
+asdf
 ```
 
-### 3. Make Your Changes
+### Commit Best Practices
 
-Follow our coding standards documented in [GitHub Copilot Instructions](./.github/copilot-instructions.md):
+- **One logical change** per commit
+- **Present tense** ("add feature" not "added feature")
+- **Imperative mood** ("move cursor to..." not "moves cursor to...")
+- **Descriptive subject** (50 characters or less)
+- **Detailed body** if necessary (wrap at 72 characters)
+- **Reference issues** in footer (`Fixes #123`, `Closes #456`)
 
-- **TypeScript**: Use strict types, avoid `any`, use explicit return types
-- **React**: Use functional components with hooks, named exports
-- **API Routes**: RESTful conventions, Zod validation, proper error handling
-- **Database**: Use Drizzle ORM, transactions for multi-step operations
-- **Testing**: Write tests for utility functions, business logic, and API endpoints
-- **Security**: Validate inputs, sanitize data, never expose API keys
+---
 
-### 4. Test Your Changes
+## 🔀 Pull Request Process
 
-```bash
-# Type checking
-npm run check
+### Before Submitting
 
-# Build to ensure no errors
-npm run build
+- [ ] Code follows project coding standards
+- [ ] All tests pass (`npm test`)
+- [ ] Type checking passes (`npm run check`)
+- [ ] Build succeeds (`npm run build`)
+- [ ] Documentation is updated if needed
+- [ ] Commit messages follow guidelines
+- [ ] Branch is up-to-date with main
 
-# Test the application manually
-npm run dev
+### PR Title Format
+
+Follow conventional commits format:
+```
+feat(workflow-builder): add drag-and-drop support
+fix(execution): resolve race condition in orchestrator
+docs(deployment): update Cloudflare Workers guide
 ```
 
-**Note**: Unit tests are not yet implemented. For now, test changes manually by running the application and verifying functionality.
-
-### 5. Commit Your Changes
-
-Follow [Conventional Commits](https://www.conventionalcommits.org/):
-
-```bash
-# Format: <type>(<scope>): <subject>
-#
-# Types: feat, fix, docs, style, refactor, test, chore
-
-# Examples:
-git commit -m "feat(workflow): add cycle detection validation"
-git commit -m "fix(execution): handle AI provider timeout"
-git commit -m "docs(api): update endpoint documentation"
-git commit -m "test(workflow): add validation tests"
-```
-
-**Good commit messages:**
-- Explain **what** changed and **why**
-- Reference issue numbers: `Closes #123`, `Part of #456`
-- Keep subject line under 72 characters
-- Use imperative mood: "add" not "added"
-
-**Avoid:**
-- Vague messages: "fixed stuff", "wip", "updates"
-- Missing context or references
-
-### 6. Push and Create Pull Request
-
-```bash
-# Push your branch
-git push origin feature/123-add-workflow-versioning
-
-# Create Pull Request on GitHub
-```
-
-## 📝 Pull Request Guidelines
-
-Our repository includes a [Pull Request Template](./.github/PULL_REQUEST_TEMPLATE.md) that will guide you through the PR process.
-
-### PR Title
-
-Use the same format as commit messages:
-
-```
-feat(workflow): Add cycle detection validation
-fix(execution): Handle AI provider timeout errors
-docs(api): Update REST API documentation
-```
-
-### PR Description
-
-The PR template includes sections for:
-
-1. **Summary**: What does this PR do?
-2. **Related Issue**: `Closes #123` or `Fixes #456`
-3. **Changes Made**: Bullet list of main changes
-4. **Testing**: How was this tested?
-5. **Screenshots**: For UI changes (required)
-6. **Breaking Changes**: Any breaking changes? (if applicable)
-7. **Checklist**: Complete the provided checklist
-
-**Example:**
+### PR Description Template
 
 ```markdown
-## Summary
-Adds cycle detection to workflow validation to prevent infinite loops.
+## Description
+Brief description of what this PR does.
 
-Closes #123
+## Motivation
+Why is this change needed? What problem does it solve?
 
-## Changes Made
-- Implement topological sort algorithm
-- Add cycle detection in WorkflowValidator
-- Update validation error messages
-- Add unit tests for cycle detection
+## Changes
+- List of changes made
+- Another change
+- Yet another change
 
 ## Testing
-- Unit tests for cycle detection
-- Manual testing with circular workflow
-- Tested with complex multi-node workflows
+How was this tested? What test cases were covered?
 
-## Screenshots
-N/A (backend change)
+## Screenshots (if applicable)
+Include screenshots for UI changes
 
 ## Checklist
-- [x] Code follows project conventions
-- [x] Tests added/updated
-- [x] Documentation updated
-- [x] No breaking changes
-- [x] TypeScript checks pass
+- [ ] Code follows coding standards
+- [ ] Tests pass
+- [ ] Documentation updated
+- [ ] No breaking changes (or clearly documented)
 ```
 
-### PR Review Process
+### Review Process
 
-1. **Automated checks** must pass (linting, type checking, tests)
-2. **Code review** by maintainers (usually 1-2 days)
-3. **Address feedback** - Make requested changes
-4. **Approval & Merge** - Maintainer merges when approved
+1. **Automated checks** must pass (when CI is set up)
+2. **At least one approval** required from maintainers
+3. **Address feedback** from reviewers
+4. **Squash commits** if requested
+5. **Rebase on main** before merging
 
-## 🎨 Code Style
+### After Merging
 
-We follow strict code style guidelines to maintain consistency. Please read our [GitHub Copilot Instructions](./.github/copilot-instructions.md) for detailed guidelines.
+- Delete your feature branch (GitHub will prompt)
+- Update your local main:
+  ```bash
+  git checkout main
+  git pull upstream main
+  git push origin main
+  ```
 
-### Key Principles
+---
 
-1. **Type Safety**: Use TypeScript strictly, avoid `any`
-2. **Readability**: Write self-documenting code with clear names
-3. **Consistency**: Follow existing patterns in the codebase
-4. **Simplicity**: Prefer simple solutions over clever ones
-5. **Testing**: Write tests for business logic
-6. **Security**: Validate inputs, sanitize outputs
-7. **Performance**: Optimize when needed, but don't prematurely optimize
+## 🧪 Testing
 
-### File Naming
+### Test Structure
 
-- Components: `PascalCase.tsx` (e.g., `WorkflowBuilder.tsx`)
-- Hooks: `camelCase.ts` with `use` prefix (e.g., `useWorkflow.ts`)
-- Utils: `kebab-case.ts` (e.g., `workflow-utils.ts`)
-- Types: `PascalCase.ts` (e.g., `Workflow.ts`)
+- **Unit tests**: Test individual functions/components
+- **Integration tests**: Test API endpoints and database interactions
+- **E2E tests**: Test user flows in the browser
 
-### Variable Naming
+### Running Tests
 
-- camelCase for variables and functions
-- PascalCase for components and types
-- SCREAMING_SNAKE_CASE for constants
+```bash
+# Run all tests (when implemented)
+npm test
 
-## 🧪 Testing Guidelines
+# Run tests in watch mode
+npm test -- --watch
 
-> **Note**: Unit testing infrastructure is not yet implemented. These guidelines serve as best practices for when tests are added to the project. For now, test changes manually by running the application.
+# Run tests with coverage
+npm test -- --coverage
+```
 
-### What to Test
+### Writing Tests
 
-- ✅ Utility functions
-- ✅ Complex business logic
-- ✅ API endpoints
-- ✅ React hooks
-- ✅ Component interactions
-- ✅ Error handling
-- ✅ Edge cases
-
-### What Not to Test
-
-- ❌ Third-party libraries
-- ❌ Simple getters/setters
-- ❌ Type definitions
-
-### Test Structure (for future implementation)
+Use descriptive test names:
 
 ```typescript
-describe('ComponentName or FunctionName', () => {
-  describe('specific functionality', () => {
-    it('should behave in a specific way', () => {
-      // Arrange
-      const input = createTestData();
-      
-      // Act
-      const result = functionUnderTest(input);
-      
-      // Assert
-      expect(result).toBe(expectedValue);
-    });
+describe('WorkflowValidator', () => {
+  it('should validate a valid workflow', () => {
+    // Test implementation
+  });
+
+  it('should reject workflow with circular dependencies', () => {
+    // Test implementation
+  });
+
+  it('should reject workflow with missing required fields', () => {
+    // Test implementation
   });
 });
 ```
 
-## 🔒 Security Guidelines
+---
 
-### Always
+## 📚 Documentation
 
-- ✅ Validate all user input
-- ✅ Sanitize data before output
-- ✅ Use parameterized queries (Drizzle handles this)
-- ✅ Never expose API keys or secrets
-- ✅ Implement proper authentication
-- ✅ Use HTTPS in production
-- ✅ Follow OWASP security practices
+### When to Update Documentation
 
-### Never
+- **New features**: Document in appropriate `/docs` file
+- **API changes**: Update OpenAPI spec (when generated)
+- **Breaking changes**: Document in CHANGELOG.md
+- **Setup changes**: Update GETTING_STARTED.md or README.md
+- **Configuration changes**: Update .env.example
 
-- ❌ Trust client-side data without validation
-- ❌ Store sensitive data in client-side code
-- ❌ Use `eval()` or similar dangerous functions
-- ❌ Commit secrets to the repository
-- ❌ Use deprecated or insecure dependencies
+### Documentation Style
 
-### Security Vulnerabilities
+- **Clear and concise**: Use simple language
+- **Code examples**: Include practical examples
+- **Screenshots**: Add for UI features
+- **Links**: Cross-reference related docs
+- **Keep updated**: Docs should match code
 
-If you discover a security vulnerability, **do not** open a public issue. Instead, please report it according to our [Security Policy](./SECURITY.md). Send details to [github-security@spurs.gov](mailto:github-security@spurs.gov).
+### Documentation Structure
 
-## 📚 Documentation Guidelines
-
-### Code Comments
-
-- Add JSDoc comments for public functions
-- Explain **why**, not **what** (code should be self-explanatory)
-- Document complex algorithms
-- Add TODO comments for future improvements
-
-```typescript
-/**
- * Executes a workflow using topological sort to determine node order.
- * Handles agent coordination and context passing between nodes.
- * 
- * @param workflowId - The ID of the workflow to execute
- * @param inputs - Initial input data for the workflow
- * @returns Execution result with outputs and logs
- * @throws {ValidationError} If workflow has cycles
- * @throws {ExecutionError} If execution fails
- */
-export async function executeWorkflow(
-  workflowId: string,
-  inputs: Record<string, any>
-): Promise<ExecutionResult> {
-  // Implementation
-}
+```
+docs/
+├── deployment/          # Deployment guides
+├── development/         # Technical docs
+├── features/            # Feature documentation
+├── guides/              # User guides
+├── project-management/  # Project management
+└── reviews/             # Code reviews
 ```
 
-### README Updates
+---
 
-Update relevant documentation when:
-- Adding new features
-- Changing API endpoints
-- Modifying configuration
-- Adding dependencies
-- Changing deployment process
+## ❓ Questions?
 
-## 🐛 Reporting Issues
+- **Documentation**: Check [/docs](./docs/) first
+- **Issues**: Search [existing issues](https://github.com/UniversalStandards/PROJECT-SWARM/issues)
+- **Discussions**: Join [GitHub Discussions](https://github.com/UniversalStandards/PROJECT-SWARM/discussions)
+- **Contact**: Open a new issue for questions
 
-We use GitHub issue templates to help structure reports. When creating an issue, please use the appropriate template:
-
-### Bug Reports
-
-Use the [Bug Report Template](./.github/ISSUE_TEMPLATE/01-bug-report.yml) and include:
-
-1. **Description**: Clear description of the bug
-2. **Steps to Reproduce**: Detailed steps to reproduce
-3. **Expected Behavior**: What should happen
-4. **Actual Behavior**: What actually happens
-5. **Environment**: OS, Node version, browser, etc.
-6. **Screenshots**: If applicable
-7. **Error Messages**: Full error messages or logs
-
-### Feature Requests
-
-Use the [Feature Request Template](./.github/ISSUE_TEMPLATE/02-feature-request.yml) and include:
-
-1. **Problem**: What problem does this solve?
-2. **Solution**: Your proposed solution
-3. **Alternatives**: Other solutions you considered
-4. **Use Cases**: Real-world examples
-5. **Implementation**: Technical approach (optional)
-
-### Tasks & Fixes
-
-- **Tasks**: Use the [Task Template](./.github/ISSUE_TEMPLATE/03-task.yml) for general tasks
-- **Fixes**: Use the [Fix Template](./.github/ISSUE_TEMPLATE/05-fix.yml) for non-bug fixes
-- **Planned Upgrades**: Use the [Planned Upgrade Template](./.github/ISSUE_TEMPLATE/04-planned-upgrade.yml)
-
-## 📞 Getting Help
-
-- **Questions**: Use [GitHub Discussions](https://github.com/Universal-Standard/PROJECT-SWARM/discussions)
-- **Bugs**: Open an [Issue](https://github.com/Universal-Standard/PROJECT-SWARM/issues) using the appropriate template
-- **Security Issues**: Follow the [Security Policy](./SECURITY.md) - do not open public issues
-- **Chat**: Join our community chat (if available)
-- **Documentation**: Check [docs/](./docs/) directory
-
-## 📖 Additional Resources
-
-- [Code of Conduct](./CODE_OF_CONDUCT.md) - Community standards
-- [Security Policy](./SECURITY.md) - Security reporting and best practices
-- [Project README](./README.md) - Project overview and features
-- [Getting Started Guide](./GETTING_STARTED.md) - Setup and workflow
-- [GitHub Copilot Instructions](./.github/copilot-instructions.md) - Detailed code guidelines
-- [Pull Request Template](./.github/PULL_REQUEST_TEMPLATE.md) - PR guidelines
-- [Issue Templates](./.github/ISSUE_TEMPLATE/) - Templates for reporting issues
-- [Features Roadmap](./docs/architecture/FEATURES_ROADMAP.md) - Planned features
-- [Architecture Docs](./docs/architecture/) - Technical architecture
-- [Deployment Guides](./docs/deployment/) - Deployment instructions
-
-## 🎯 Project Priorities
-
-When contributing, consider these priorities:
-
-1. **Security** - Security fixes take highest priority
-2. **Bugs** - Bug fixes are important
-3. **Performance** - Performance improvements matter
-4. **Features** - New features come after stability
-5. **Refactoring** - Code quality improvements are continuous
-6. **Documentation** - Always welcome!
-
-## ⚖️ License
-
-By contributing, you agree that your contributions will be licensed under the MIT License.
+---
 
 ## 🙏 Thank You!
 
 Your contributions make PROJECT-SWARM better for everyone. We appreciate your time and effort!
 
----
-
-**Questions?** Open a discussion or reach out to maintainers.
-
-**Ready to contribute?** Find an issue labeled `good first issue` or `help wanted`!
+**Happy coding!** 🚀

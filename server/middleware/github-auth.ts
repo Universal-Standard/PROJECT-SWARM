@@ -1,6 +1,7 @@
 import type { Request, Response, NextFunction } from "express";
 import { getOctokitForUser, isGitHubTokenExpired } from "../auth/github-oauth";
 import { storage } from "../storage";
+import { logger } from "../lib/logger";
 
 export interface GitHubAuthRequest extends Request {
   octokit?: ReturnType<typeof getOctokitForUser>;
@@ -18,9 +19,9 @@ export async function withGitHubAuth(
 ): Promise<void> {
   try {
     if (!req.user || !req.user.claims || !req.user.claims.sub) {
-      res.status(401).json({ 
+      res.status(401).json({
         error: "Unauthorized",
-        message: "User not authenticated" 
+        message: "User not authenticated",
       });
       return;
     }
@@ -29,8 +30,8 @@ export async function withGitHubAuth(
     const user = await storage.getUser(userId);
 
     if (!user) {
-      res.status(404).json({ 
-        error: "User not found" 
+      res.status(404).json({
+        error: "User not found",
       });
       return;
     }
@@ -71,10 +72,10 @@ export async function withGitHubAuth(
     req.octokit = octokit;
     next();
   } catch (error) {
-    console.error("GitHub auth middleware error:", error);
-    res.status(500).json({ 
+    logger.error("GitHub auth middleware error", error);
+    res.status(500).json({
       error: "Internal server error",
-      message: "Failed to authenticate with GitHub" 
+      message: "Failed to authenticate with GitHub",
     });
   }
 }

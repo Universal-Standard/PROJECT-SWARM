@@ -36,13 +36,13 @@ import type {
   InsertWorkflowTag,
 } from "@shared/schema";
 import { db } from "./db";
-import { 
-  users, 
-  workflows, 
-  agents, 
-  executions, 
-  agentMessages, 
-  executionLogs, 
+import {
+  users,
+  workflows,
+  agents,
+  executions,
+  agentMessages,
+  executionLogs,
   templates,
   assistantChats,
   knowledgeEntries,
@@ -65,21 +65,21 @@ export interface IStorage {
   // Legacy user methods (for backward compatibility)
   createUser(user: InsertUser): Promise<User>;
   getUserById(id: string): Promise<User | undefined>;
-  
+
   // Workflows
   createWorkflow(workflow: InsertWorkflow): Promise<Workflow>;
   getWorkflowById(id: string): Promise<Workflow | undefined>;
   getWorkflowsByUserId(userId: string): Promise<Workflow[]>;
   updateWorkflow(id: string, workflow: Partial<InsertWorkflow>): Promise<Workflow | undefined>;
   deleteWorkflow(id: string): Promise<void>;
-  
+
   // Agents
   createAgent(agent: InsertAgent): Promise<Agent>;
   getAgentById(id: string): Promise<Agent | undefined>;
   getAgentsByWorkflowId(workflowId: string): Promise<Agent[]>;
   updateAgent(id: string, agent: Partial<InsertAgent>): Promise<Agent | undefined>;
   deleteAgent(id: string): Promise<void>;
-  
+
   // Executions
   createExecution(execution: InsertExecution): Promise<Execution>;
   getExecutionById(id: string): Promise<Execution | undefined>;
@@ -88,20 +88,23 @@ export interface IStorage {
   updateExecution(id: string, execution: Partial<InsertExecution>): Promise<Execution | undefined>;
   deleteExecution(id: string): Promise<void>;
   deleteExecutionsByUserId(userId: string): Promise<number>;
-  
+
   // Agent Messages
   createAgentMessage(message: InsertAgentMessage): Promise<AgentMessage>;
   getMessagesByExecutionId(executionId: string): Promise<AgentMessage[]>;
-  
+
   // Execution Logs
   createExecutionLog(log: InsertExecutionLog): Promise<ExecutionLog>;
-  getLogsByExecutionId(executionId: string, filters?: {
-    level?: string;
-    agentId?: string;
-    limit?: number;
-    offset?: number;
-  }): Promise<ExecutionLog[]>;
-  
+  getLogsByExecutionId(
+    executionId: string,
+    filters?: {
+      level?: string;
+      agentId?: string;
+      limit?: number;
+      offset?: number;
+    }
+  ): Promise<ExecutionLog[]>;
+
   // Templates
   createTemplate(template: InsertTemplate): Promise<Template>;
   getTemplateById(id: string): Promise<Template | undefined>;
@@ -110,55 +113,71 @@ export interface IStorage {
   updateTemplate(id: string, template: Partial<InsertTemplate>): Promise<Template | undefined>;
   deleteTemplate(id: string): Promise<void>;
   updateTemplateUsageCount(id: string): Promise<void>;
-  
+
   // Assistant Chats
   createAssistantChat(chat: InsertAssistantChat): Promise<AssistantChat>;
   getAssistantChatById(id: string): Promise<AssistantChat | undefined>;
   getAssistantChatsByUserId(userId: string): Promise<AssistantChat[]>;
-  updateAssistantChat(id: string, chat: Partial<InsertAssistantChat>): Promise<AssistantChat | undefined>;
-  
+  updateAssistantChat(
+    id: string,
+    chat: Partial<InsertAssistantChat>
+  ): Promise<AssistantChat | undefined>;
+
   // Knowledge Base
   createKnowledgeEntry(entry: InsertKnowledgeEntry): Promise<KnowledgeEntry>;
   getKnowledgeByUserId(userId: string): Promise<KnowledgeEntry[]>;
   getKnowledgeByAgentType(userId: string, agentType: string): Promise<KnowledgeEntry[]>;
   getKnowledgeByCategory(userId: string, category: string): Promise<KnowledgeEntry[]>;
-  getRelevantKnowledge(userId: string, agentType: string, categories: string[]): Promise<KnowledgeEntry[]>;
-  
+  getRelevantKnowledge(
+    userId: string,
+    agentType: string,
+    categories: string[]
+  ): Promise<KnowledgeEntry[]>;
+
   // Workflow Versions
   createWorkflowVersion(version: InsertWorkflowVersion): Promise<WorkflowVersion>;
   getWorkflowVersions(workflowId: string): Promise<WorkflowVersion[]>;
   getWorkflowVersionById(id: string): Promise<WorkflowVersion | undefined>;
   setActiveVersion(workflowId: string, versionId: string): Promise<void>;
-  
+
   // Workflow Schedules
   createWorkflowSchedule(schedule: InsertWorkflowSchedule): Promise<WorkflowSchedule>;
   getWorkflowSchedules(workflowId: string): Promise<WorkflowSchedule[]>;
   getWorkflowScheduleById(id: string): Promise<WorkflowSchedule | undefined>;
-  updateWorkflowSchedule(id: string, schedule: Partial<InsertWorkflowSchedule>): Promise<WorkflowSchedule | undefined>;
+  updateWorkflowSchedule(
+    id: string,
+    schedule: Partial<InsertWorkflowSchedule>
+  ): Promise<WorkflowSchedule | undefined>;
   deleteWorkflowSchedule(id: string): Promise<void>;
   getAllEnabledSchedules(): Promise<WorkflowSchedule[]>;
-  
+
   // Workflow Webhooks
   createWorkflowWebhook(webhook: InsertWorkflowWebhook): Promise<WorkflowWebhook>;
   getWorkflowWebhooks(workflowId: string): Promise<WorkflowWebhook[]>;
   getWorkflowWebhookById(id: string): Promise<WorkflowWebhook | undefined>;
   getWorkflowWebhookByUrl(url: string): Promise<WorkflowWebhook | undefined>;
-  updateWorkflowWebhook(id: string, webhook: Partial<InsertWorkflowWebhook>): Promise<WorkflowWebhook | undefined>;
+  updateWorkflowWebhook(
+    id: string,
+    webhook: Partial<InsertWorkflowWebhook>
+  ): Promise<WorkflowWebhook | undefined>;
   deleteWorkflowWebhook(id: string): Promise<void>;
   createWebhookLog(log: InsertWebhookLog): Promise<WebhookLog>;
   getWebhookLogs(webhookId: string): Promise<WebhookLog[]>;
-  
+
   // Workflow Schemas
   createWorkflowSchema(schema: InsertWorkflowSchema): Promise<WorkflowSchemaType>;
   getWorkflowSchema(workflowId: string): Promise<WorkflowSchemaType | undefined>;
-  updateWorkflowSchema(workflowId: string, schema: Partial<InsertWorkflowSchema>): Promise<WorkflowSchemaType | undefined>;
-  
+  updateWorkflowSchema(
+    workflowId: string,
+    schema: Partial<InsertWorkflowSchema>
+  ): Promise<WorkflowSchemaType | undefined>;
+
   // Execution Costs
   createExecutionCost(cost: InsertExecutionCost): Promise<ExecutionCost>;
   getExecutionCosts(executionId: string): Promise<ExecutionCost[]>;
   getWorkflowCosts(workflowId: string, startDate?: Date, endDate?: Date): Promise<ExecutionCost[]>;
   getUserCosts(userId: string, startDate?: Date, endDate?: Date): Promise<ExecutionCost[]>;
-  
+
   // Tags
   createTag(tag: InsertTag): Promise<Tag>;
   getAllTags(): Promise<Tag[]>;
@@ -232,7 +251,10 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(workflows.updatedAt));
   }
 
-  async updateWorkflow(id: string, workflow: Partial<InsertWorkflow>): Promise<Workflow | undefined> {
+  async updateWorkflow(
+    id: string,
+    workflow: Partial<InsertWorkflow>
+  ): Promise<Workflow | undefined> {
     const [updated] = await db
       .update(workflows)
       .set({ ...workflow, updatedAt: new Date() })
@@ -261,11 +283,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateAgent(id: string, agent: Partial<InsertAgent>): Promise<Agent | undefined> {
-    const [updated] = await db
-      .update(agents)
-      .set(agent)
-      .where(eq(agents.id, id))
-      .returning();
+    const [updated] = await db.update(agents).set(agent).where(eq(agents.id, id)).returning();
     return updated;
   }
 
@@ -300,7 +318,10 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(executions.startedAt));
   }
 
-  async updateExecution(id: string, execution: Partial<InsertExecution>): Promise<Execution | undefined> {
+  async updateExecution(
+    id: string,
+    execution: Partial<InsertExecution>
+  ): Promise<Execution | undefined> {
     const [updated] = await db
       .update(executions)
       .set(execution)
@@ -314,7 +335,10 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteExecutionsByUserId(userId: string): Promise<number> {
-    const result = await db.delete(executions).where(eq(executions.userId, userId)).returning({ id: executions.id });
+    const result = await db
+      .delete(executions)
+      .where(eq(executions.userId, userId))
+      .returning({ id: executions.id });
     return result.length;
   }
 
@@ -338,40 +362,39 @@ export class DatabaseStorage implements IStorage {
     return newLog;
   }
 
-  async getLogsByExecutionId(executionId: string, filters?: {
-    level?: string;
-    agentId?: string;
-    limit?: number;
-    offset?: number;
-  }): Promise<ExecutionLog[]> {
+  async getLogsByExecutionId(
+    executionId: string,
+    filters?: {
+      level?: string;
+      agentId?: string;
+      limit?: number;
+      offset?: number;
+    }
+  ): Promise<ExecutionLog[]> {
+    // Build where conditions
+    const conditions = [eq(executionLogs.executionId, executionId)];
+    if (filters?.level) {
+      conditions.push(eq(executionLogs.level, filters.level));
+    }
+    if (filters?.agentId) {
+      conditions.push(eq(executionLogs.agentId, filters.agentId));
+    }
+
+    // Build base query
     let query = db
       .select()
       .from(executionLogs)
-      .where(eq(executionLogs.executionId, executionId))
+      .where(and(...conditions))
       .orderBy(executionLogs.timestamp);
-    
-    if (filters?.level) {
-      query = query.where(and(
-        eq(executionLogs.executionId, executionId),
-        eq(executionLogs.level, filters.level)
-      )) as any;
-    }
-    
-    if (filters?.agentId) {
-      query = query.where(and(
-        eq(executionLogs.executionId, executionId),
-        eq(executionLogs.agentId, filters.agentId)
-      )) as any;
-    }
-    
+
+    // Apply pagination if provided (using typeof to preserve query type)
     if (filters?.limit) {
-      query = query.limit(filters.limit) as any;
+      query = query.limit(filters.limit) as typeof query;
     }
-    
     if (filters?.offset) {
-      query = query.offset(filters.offset) as any;
+      query = query.offset(filters.offset) as typeof query;
     }
-    
+
     return await query;
   }
 
@@ -398,7 +421,10 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(templates.usageCount));
   }
 
-  async updateTemplate(id: string, template: Partial<InsertTemplate>): Promise<Template | undefined> {
+  async updateTemplate(
+    id: string,
+    template: Partial<InsertTemplate>
+  ): Promise<Template | undefined> {
     const [updated] = await db
       .update(templates)
       .set(template)
@@ -437,7 +463,10 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(assistantChats.updatedAt));
   }
 
-  async updateAssistantChat(id: string, chat: Partial<InsertAssistantChat>): Promise<AssistantChat | undefined> {
+  async updateAssistantChat(
+    id: string,
+    chat: Partial<InsertAssistantChat>
+  ): Promise<AssistantChat | undefined> {
     const [updated] = await db
       .update(assistantChats)
       .set({ ...chat, updatedAt: new Date() })
@@ -464,12 +493,7 @@ export class DatabaseStorage implements IStorage {
     return await db
       .select()
       .from(knowledgeEntries)
-      .where(
-        and(
-          eq(knowledgeEntries.userId, userId),
-          eq(knowledgeEntries.agentType, agentType)
-        )
-      )
+      .where(and(eq(knowledgeEntries.userId, userId), eq(knowledgeEntries.agentType, agentType)))
       .orderBy(desc(knowledgeEntries.confidence), desc(knowledgeEntries.createdAt));
   }
 
@@ -477,32 +501,28 @@ export class DatabaseStorage implements IStorage {
     return await db
       .select()
       .from(knowledgeEntries)
-      .where(
-        and(
-          eq(knowledgeEntries.userId, userId),
-          eq(knowledgeEntries.category, category)
-        )
-      )
+      .where(and(eq(knowledgeEntries.userId, userId), eq(knowledgeEntries.category, category)))
       .orderBy(desc(knowledgeEntries.confidence), desc(knowledgeEntries.createdAt));
   }
 
-  async getRelevantKnowledge(userId: string, agentType: string, categories: string[]): Promise<KnowledgeEntry[]> {
+  async getRelevantKnowledge(
+    userId: string,
+    agentType: string,
+    categories: string[]
+  ): Promise<KnowledgeEntry[]> {
     // Get knowledge that matches either:
     // 1. The specific agent type (specialist knowledge)
     // 2. 'general' agent type (shared knowledge for all)
     // AND matches one of the requested categories
-    const categoryConditions = categories.map(cat => eq(knowledgeEntries.category, cat));
-    
+    const categoryConditions = categories.map((cat) => eq(knowledgeEntries.category, cat));
+
     return await db
       .select()
       .from(knowledgeEntries)
       .where(
         and(
           eq(knowledgeEntries.userId, userId),
-          or(
-            eq(knowledgeEntries.agentType, agentType),
-            eq(knowledgeEntries.agentType, 'general')
-          ),
+          or(eq(knowledgeEntries.agentType, agentType), eq(knowledgeEntries.agentType, "general")),
           or(...categoryConditions)
         )
       )
@@ -535,7 +555,7 @@ export class DatabaseStorage implements IStorage {
       .update(workflowVersions)
       .set({ isActive: false })
       .where(eq(workflowVersions.workflowId, workflowId));
-    
+
     // Then activate the specified version
     await db
       .update(workflowVersions)
@@ -558,11 +578,17 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getWorkflowScheduleById(id: string): Promise<WorkflowSchedule | undefined> {
-    const [schedule] = await db.select().from(workflowSchedules).where(eq(workflowSchedules.id, id));
+    const [schedule] = await db
+      .select()
+      .from(workflowSchedules)
+      .where(eq(workflowSchedules.id, id));
     return schedule;
   }
 
-  async updateWorkflowSchedule(id: string, schedule: Partial<InsertWorkflowSchedule>): Promise<WorkflowSchedule | undefined> {
+  async updateWorkflowSchedule(
+    id: string,
+    schedule: Partial<InsertWorkflowSchedule>
+  ): Promise<WorkflowSchedule | undefined> {
     const [updated] = await db
       .update(workflowSchedules)
       .set({ ...schedule, updatedAt: new Date() })
@@ -576,10 +602,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getAllEnabledSchedules(): Promise<WorkflowSchedule[]> {
-    return await db
-      .select()
-      .from(workflowSchedules)
-      .where(eq(workflowSchedules.enabled, true));
+    return await db.select().from(workflowSchedules).where(eq(workflowSchedules.enabled, true));
   }
 
   // Workflow Webhooks
@@ -606,7 +629,10 @@ export class DatabaseStorage implements IStorage {
     return webhook;
   }
 
-  async updateWorkflowWebhook(id: string, webhook: Partial<InsertWorkflowWebhook>): Promise<WorkflowWebhook | undefined> {
+  async updateWorkflowWebhook(
+    id: string,
+    webhook: Partial<InsertWorkflowWebhook>
+  ): Promise<WorkflowWebhook | undefined> {
     const [updated] = await db
       .update(workflowWebhooks)
       .set(webhook)
@@ -640,11 +666,17 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getWorkflowSchema(workflowId: string): Promise<WorkflowSchemaType | undefined> {
-    const [schema] = await db.select().from(workflowSchemas).where(eq(workflowSchemas.workflowId, workflowId));
+    const [schema] = await db
+      .select()
+      .from(workflowSchemas)
+      .where(eq(workflowSchemas.workflowId, workflowId));
     return schema;
   }
 
-  async updateWorkflowSchema(workflowId: string, schema: Partial<InsertWorkflowSchema>): Promise<WorkflowSchemaType | undefined> {
+  async updateWorkflowSchema(
+    workflowId: string,
+    schema: Partial<InsertWorkflowSchema>
+  ): Promise<WorkflowSchemaType | undefined> {
     const [updated] = await db
       .update(workflowSchemas)
       .set({ ...schema, updatedAt: new Date() })
@@ -667,15 +699,19 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(executionCosts.timestamp));
   }
 
-  async getWorkflowCosts(workflowId: string, startDate?: Date, endDate?: Date): Promise<ExecutionCost[]> {
+  async getWorkflowCosts(
+    workflowId: string,
+    startDate?: Date,
+    endDate?: Date
+  ): Promise<ExecutionCost[]> {
     const workflowExecutions = await db
       .select({ id: executions.id })
       .from(executions)
       .where(eq(executions.workflowId, workflowId));
-    
-    const executionIds = workflowExecutions.map(e => e.id);
+
+    const executionIds = workflowExecutions.map((e) => e.id);
     if (executionIds.length === 0) return [];
-    
+
     return await db
       .select()
       .from(executionCosts)
@@ -688,10 +724,10 @@ export class DatabaseStorage implements IStorage {
       .select({ id: executions.id })
       .from(executions)
       .where(eq(executions.userId, userId));
-    
-    const executionIds = userExecutions.map(e => e.id);
+
+    const executionIds = userExecutions.map((e) => e.id);
     if (executionIds.length === 0) return [];
-    
+
     return await db
       .select()
       .from(executionCosts)
@@ -729,12 +765,9 @@ export class DatabaseStorage implements IStorage {
   }
 
   async removeWorkflowTag(workflowId: string, tagId: string): Promise<void> {
-    await db.delete(workflowTags).where(
-      and(
-        eq(workflowTags.workflowId, workflowId),
-        eq(workflowTags.tagId, tagId)
-      )
-    );
+    await db
+      .delete(workflowTags)
+      .where(and(eq(workflowTags.workflowId, workflowId), eq(workflowTags.tagId, tagId)));
   }
 
   async getWorkflowTags(workflowId: string): Promise<Tag[]> {
@@ -742,14 +775,11 @@ export class DatabaseStorage implements IStorage {
       .select()
       .from(workflowTags)
       .where(eq(workflowTags.workflowId, workflowId));
-    
+
     if (workflowTagRecords.length === 0) return [];
-    
-    const tagIds = workflowTagRecords.map(wt => wt.tagId);
-    return await db
-      .select()
-      .from(tags)
-      .where(inArray(tags.id, tagIds));
+
+    const tagIds = workflowTagRecords.map((wt) => wt.tagId);
+    return await db.select().from(tags).where(inArray(tags.id, tagIds));
   }
 
   async getWorkflowsByTag(tagId: string): Promise<Workflow[]> {
@@ -757,14 +787,11 @@ export class DatabaseStorage implements IStorage {
       .select()
       .from(workflowTags)
       .where(eq(workflowTags.tagId, tagId));
-    
+
     if (workflowTagRecords.length === 0) return [];
-    
-    const workflowIds = workflowTagRecords.map(wt => wt.workflowId);
-    return await db
-      .select()
-      .from(workflows)
-      .where(inArray(workflows.id, workflowIds));
+
+    const workflowIds = workflowTagRecords.map((wt) => wt.workflowId);
+    return await db.select().from(workflows).where(inArray(workflows.id, workflowIds));
   }
 }
 

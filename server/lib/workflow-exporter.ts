@@ -1,6 +1,15 @@
 import { db } from "../db";
-import { workflows, agents, executions, executionLogs, workflowSchedules, workflowWebhooks, knowledgeEntries } from "@shared/schema";
+import {
+  workflows,
+  agents,
+  executions,
+  executionLogs,
+  workflowSchedules,
+  workflowWebhooks,
+  knowledgeEntries,
+} from "@shared/schema";
 import { eq } from "drizzle-orm";
+import type { WorkflowNode, WorkflowEdge } from "../types/workflow";
 
 interface ExportOptions {
   includeExecutionHistory?: boolean;
@@ -27,10 +36,7 @@ export class WorkflowExporter {
   /**
    * Export workflow as JSON
    */
-  async exportWorkflow(
-    workflowId: string,
-    options: ExportOptions = {}
-  ): Promise<WorkflowExport> {
+  async exportWorkflow(workflowId: string, options: ExportOptions = {}): Promise<WorkflowExport> {
     // Get workflow
     const workflow = await db.query.workflows.findFirst({
       where: eq(workflows.id, workflowId),
@@ -49,7 +55,7 @@ export class WorkflowExporter {
       version: this.EXPORT_VERSION,
       exportedAt: new Date().toISOString(),
       workflow: this.sanitizeWorkflow(workflow, options.anonymize),
-      agents: workflowAgents.map(agent => this.sanitizeAgent(agent, options.anonymize)),
+      agents: workflowAgents.map((agent) => this.sanitizeAgent(agent, options.anonymize)),
     };
 
     // Include execution history if requested
@@ -57,7 +63,7 @@ export class WorkflowExporter {
       const workflowExecutions = await db.query.executions.findMany({
         where: eq(executions.workflowId, workflowId),
       });
-      exportData.executions = workflowExecutions.map(exec => 
+      exportData.executions = workflowExecutions.map((exec) =>
         this.sanitizeExecution(exec, options.anonymize)
       );
     }
@@ -67,7 +73,7 @@ export class WorkflowExporter {
       const schedules = await db.query.workflowSchedules.findMany({
         where: eq(workflowSchedules.workflowId, workflowId),
       });
-      exportData.schedules = schedules.map(sched => 
+      exportData.schedules = schedules.map((sched) =>
         this.sanitizeSchedule(sched, options.anonymize)
       );
     }
@@ -77,7 +83,7 @@ export class WorkflowExporter {
       const webhooks = await db.query.workflowWebhooks.findMany({
         where: eq(workflowWebhooks.workflowId, workflowId),
       });
-      exportData.webhooks = webhooks.map(webhook => 
+      exportData.webhooks = webhooks.map((webhook) =>
         this.sanitizeWebhook(webhook, options.anonymize)
       );
     }
@@ -87,7 +93,7 @@ export class WorkflowExporter {
       const knowledge = await db.query.knowledgeEntries.findMany({
         where: eq(knowledgeEntries.sourceAgentId, workflowAgents[0]?.id || ""),
       });
-      exportData.knowledgeBase = knowledge.map(entry => 
+      exportData.knowledgeBase = knowledge.map((entry) =>
         this.sanitizeKnowledge(entry, options.anonymize)
       );
     }
@@ -115,9 +121,7 @@ export class WorkflowExporter {
     workflowIds: string[],
     options: ExportOptions = {}
   ): Promise<{ workflows: WorkflowExport[] }> {
-    const exports = await Promise.all(
-      workflowIds.map(id => this.exportWorkflow(id, options))
-    );
+    const exports = await Promise.all(workflowIds.map((id) => this.exportWorkflow(id, options)));
 
     return { workflows: exports };
   }
@@ -134,7 +138,7 @@ export class WorkflowExporter {
     });
 
     return await this.exportMultipleWorkflows(
-      userWorkflows.map(wf => wf.id),
+      userWorkflows.map((wf) => wf.id),
       options
     );
   }
@@ -241,12 +245,9 @@ export class WorkflowExporter {
    * Generate ZIP file containing workflow and assets
    * (This would require additional libraries like archiver)
    */
-  async exportAsZip(
-    workflowId: string,
-    options: ExportOptions = {}
-  ): Promise<Buffer> {
+  async exportAsZip(workflowId: string, options: ExportOptions = {}): Promise<Buffer> {
     const exportData = await this.exportWorkflow(workflowId, options);
-    
+
     // In a real implementation, use archiver to create ZIP
     // For now, just return JSON as buffer
     const jsonString = JSON.stringify(exportData, null, 2);
@@ -270,13 +271,13 @@ export class WorkflowExporter {
     });
 
     let doc = `# Workflow: ${workflow.name}\n\n`;
-    
+
     if (workflow.description) {
       doc += `## Description\n${workflow.description}\n\n`;
     }
 
     doc += `## Agents (${workflowAgents.length})\n\n`;
-    
+
     for (const agent of workflowAgents) {
       doc += `### ${agent.name} (${agent.role})\n`;
       doc += `- **Provider**: ${agent.provider}\n`;
@@ -291,8 +292,8 @@ export class WorkflowExporter {
     }
 
     doc += `## Workflow Structure\n`;
-    doc += `- **Nodes**: ${(workflow.nodes as any[]).length}\n`;
-    doc += `- **Edges**: ${(workflow.edges as any[]).length}\n`;
+    doc += `- **Nodes**: ${(workflow.nodes as WorkflowNode[]).length}\n`;
+    doc += `- **Edges**: ${(workflow.edges as WorkflowEdge[]).length}\n`;
 
     return doc;
   }

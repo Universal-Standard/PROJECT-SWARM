@@ -1,35 +1,37 @@
-import { storage } from './storage';
+import { storage } from "./storage";
+import { logger } from "./lib/logger";
 
 async function seed() {
-  console.log('Seeding database...');
+  logger.info("Seeding database");
 
   // Create a mock user for templates
   const user = await storage.createUser({
-    replitId: 'template-user-id',
-    username: 'SWARM Templates',
-    email: 'templates@swarm.ai',
+    replitId: "template-user-id",
+    username: "SWARM Templates",
+    email: "templates@swarm.ai",
     avatarUrl: null,
   });
 
-  console.log('Created template user:', user.id);
+  logger.info("Created template user", { userId: user.id });
 
   // Create executable template workflows
   const templates = [
     {
-      name: 'Code Generation Pipeline',
-      description: 'Generate production-ready code from requirements with architecture planning, implementation, and testing',
-      category: 'Development',
+      name: "Code Generation Pipeline",
+      description:
+        "Generate production-ready code from requirements with architecture planning, implementation, and testing",
+      category: "Development",
       nodes: [
         {
-          id: 'coordinator-1',
-          type: 'agent',
+          id: "coordinator-1",
+          type: "agent",
           position: { x: 100, y: 150 },
           data: {
-            label: 'Architecture Planner',
-            role: 'Coordinator',
-            provider: 'openai',
-            model: 'gpt-4o-mini',
-            description: 'Analyzes requirements and creates technical architecture plan',
+            label: "Architecture Planner",
+            role: "Coordinator",
+            provider: "openai",
+            model: "gpt-4o-mini",
+            description: "Analyzes requirements and creates technical architecture plan",
             systemPrompt: `You are an Architecture Planner AI. Analyze the user's feature request and create a detailed technical plan.
 
 Your output should include:
@@ -42,15 +44,15 @@ Be specific and actionable. Focus on practical implementation details.`,
           },
         },
         {
-          id: 'coder-1',
-          type: 'agent',
+          id: "coder-1",
+          type: "agent",
           position: { x: 400, y: 100 },
           data: {
-            label: 'Code Generator',
-            role: 'Coder',
-            provider: 'anthropic',
-            model: 'claude-3-5-sonnet-20241022',
-            description: 'Implements code based on architecture plan',
+            label: "Code Generator",
+            role: "Coder",
+            provider: "anthropic",
+            model: "claude-3-5-sonnet-20241022",
+            description: "Implements code based on architecture plan",
             systemPrompt: `You are a Code Generator AI. Based on the architecture plan provided, generate clean, production-ready code.
 
 Requirements:
@@ -64,15 +66,15 @@ Output working code that can be directly used.`,
           },
         },
         {
-          id: 'qa-1',
-          type: 'agent',
+          id: "qa-1",
+          type: "agent",
           position: { x: 700, y: 150 },
           data: {
-            label: 'QA Reviewer',
-            role: 'QA',
-            provider: 'openai',
-            model: 'gpt-4o-mini',
-            description: 'Reviews code quality and suggests improvements',
+            label: "QA Reviewer",
+            role: "QA",
+            provider: "openai",
+            model: "gpt-4o-mini",
+            description: "Reviews code quality and suggests improvements",
             systemPrompt: `You are a QA Reviewer AI. Review the generated code for:
 
 1. Code quality and best practices
@@ -86,28 +88,29 @@ Provide specific, actionable feedback to improve the code.`,
         },
       ],
       edges: [
-        { id: 'e1', source: 'coordinator-1', target: 'coder-1', animated: true },
-        { id: 'e2', source: 'coder-1', target: 'qa-1', animated: true },
+        { id: "e1", source: "coordinator-1", target: "coder-1", animated: true },
+        { id: "e2", source: "coder-1", target: "qa-1", animated: true },
       ],
       exampleInput: {
-        task: 'Create a user authentication system with JWT tokens, password hashing, and session management for a React + Node.js app'
-      }
+        task: "Create a user authentication system with JWT tokens, password hashing, and session management for a React + Node.js app",
+      },
     },
     {
-      name: 'Research & Summary Pipeline',
-      description: 'Deep research on any topic with data gathering, analysis, and comprehensive summary generation',
-      category: 'Research',
+      name: "Research & Summary Pipeline",
+      description:
+        "Deep research on any topic with data gathering, analysis, and comprehensive summary generation",
+      category: "Research",
       nodes: [
         {
-          id: 'coordinator-1',
-          type: 'agent',
+          id: "coordinator-1",
+          type: "agent",
           position: { x: 100, y: 150 },
           data: {
-            label: 'Research Coordinator',
-            role: 'Coordinator',
-            provider: 'openai',
-            model: 'gpt-4o-mini',
-            description: 'Plans research strategy and defines key questions',
+            label: "Research Coordinator",
+            role: "Coordinator",
+            provider: "openai",
+            model: "gpt-4o-mini",
+            description: "Plans research strategy and defines key questions",
             systemPrompt: `You are a Research Coordinator AI. Analyze the research topic and create a comprehensive research plan.
 
 Your output should include:
@@ -120,15 +123,15 @@ Create a structured plan that guides thorough research.`,
           },
         },
         {
-          id: 'researcher-1',
-          type: 'agent',
+          id: "researcher-1",
+          type: "agent",
           position: { x: 400, y: 100 },
           data: {
-            label: 'Data Researcher',
-            role: 'Researcher',
-            provider: 'gemini',
-            model: 'gemini-1.5-flash',
-            description: 'Conducts deep research and gathers information',
+            label: "Data Researcher",
+            role: "Researcher",
+            provider: "gemini",
+            model: "gemini-1.5-flash",
+            description: "Conducts deep research and gathers information",
             systemPrompt: `You are a Data Researcher AI. Based on the research plan, gather comprehensive information.
 
 Focus on:
@@ -142,15 +145,15 @@ Provide detailed, well-organized research findings.`,
           },
         },
         {
-          id: 'analyst-1',
-          type: 'agent',
+          id: "analyst-1",
+          type: "agent",
           position: { x: 700, y: 150 },
           data: {
-            label: 'Insight Synthesizer',
-            role: 'Analyst',
-            provider: 'anthropic',
-            model: 'claude-3-5-sonnet-20241022',
-            description: 'Synthesizes research into actionable insights',
+            label: "Insight Synthesizer",
+            role: "Analyst",
+            provider: "anthropic",
+            model: "claude-3-5-sonnet-20241022",
+            description: "Synthesizes research into actionable insights",
             systemPrompt: `You are an Insight Synthesizer AI. Analyze the research findings and create a comprehensive summary.
 
 Your summary should include:
@@ -165,28 +168,28 @@ Make it clear, actionable, and valuable for decision-making.`,
         },
       ],
       edges: [
-        { id: 'e1', source: 'coordinator-1', target: 'researcher-1', animated: true },
-        { id: 'e2', source: 'researcher-1', target: 'analyst-1', animated: true },
+        { id: "e1", source: "coordinator-1", target: "researcher-1", animated: true },
+        { id: "e2", source: "researcher-1", target: "analyst-1", animated: true },
       ],
       exampleInput: {
-        topic: 'The impact of AI on software development productivity in 2024-2025'
-      }
+        topic: "The impact of AI on software development productivity in 2024-2025",
+      },
     },
     {
-      name: 'Content Creation Workflow',
-      description: 'Create engaging blog posts with research, writing, and SEO optimization',
-      category: 'Content',
+      name: "Content Creation Workflow",
+      description: "Create engaging blog posts with research, writing, and SEO optimization",
+      category: "Content",
       nodes: [
         {
-          id: 'ideation-1',
-          type: 'agent',
+          id: "ideation-1",
+          type: "agent",
           position: { x: 100, y: 150 },
           data: {
-            label: 'Content Strategist',
-            role: 'Coordinator',
-            provider: 'openai',
-            model: 'gpt-4o-mini',
-            description: 'Creates content outline and strategy',
+            label: "Content Strategist",
+            role: "Coordinator",
+            provider: "openai",
+            model: "gpt-4o-mini",
+            description: "Creates content outline and strategy",
             systemPrompt: `You are a Content Strategist AI. Create a detailed content outline for the given topic.
 
 Include:
@@ -200,15 +203,15 @@ Create an outline that will result in engaging, valuable content.`,
           },
         },
         {
-          id: 'writer-1',
-          type: 'agent',
+          id: "writer-1",
+          type: "agent",
           position: { x: 400, y: 100 },
           data: {
-            label: 'Content Writer',
-            role: 'Coder',
-            provider: 'anthropic',
-            model: 'claude-3-5-sonnet-20241022',
-            description: 'Writes engaging, high-quality content',
+            label: "Content Writer",
+            role: "Coder",
+            provider: "anthropic",
+            model: "claude-3-5-sonnet-20241022",
+            description: "Writes engaging, high-quality content",
             systemPrompt: `You are a Content Writer AI. Based on the content outline, write a complete, engaging article.
 
 Writing guidelines:
@@ -223,15 +226,15 @@ Write content that is both informative and enjoyable to read.`,
           },
         },
         {
-          id: 'seo-1',
-          type: 'agent',
+          id: "seo-1",
+          type: "agent",
           position: { x: 700, y: 150 },
           data: {
-            label: 'SEO Optimizer',
-            role: 'Analyst',
-            provider: 'gemini',
-            model: 'gemini-1.5-flash',
-            description: 'Optimizes content for search engines',
+            label: "SEO Optimizer",
+            role: "Analyst",
+            provider: "gemini",
+            model: "gemini-1.5-flash",
+            description: "Optimizes content for search engines",
             systemPrompt: `You are an SEO Optimizer AI. Review the article and provide SEO optimization suggestions.
 
 Focus on:
@@ -247,13 +250,13 @@ Provide specific, implementable SEO recommendations.`,
         },
       ],
       edges: [
-        { id: 'e1', source: 'ideation-1', target: 'writer-1', animated: true },
-        { id: 'e2', source: 'writer-1', target: 'seo-1', animated: true },
+        { id: "e1", source: "ideation-1", target: "writer-1", animated: true },
+        { id: "e2", source: "writer-1", target: "seo-1", animated: true },
       ],
       exampleInput: {
-        topic: 'How to Build Scalable AI Agent Systems: A Developer\'s Guide',
-        keywords: 'AI agents, multi-agent systems, agent orchestration'
-      }
+        topic: "How to Build Scalable AI Agent Systems: A Developer's Guide",
+        keywords: "AI agents, multi-agent systems, agent orchestration",
+      },
     },
   ];
 
@@ -269,7 +272,7 @@ Provide specific, implementable SEO recommendations.`,
       category: templateData.category,
     });
 
-    console.log('Created workflow:', workflow.id);
+    logger.info("Created workflow", { workflowId: workflow.id });
 
     // Create agents for workflow
     for (const node of templateData.nodes) {
@@ -299,15 +302,17 @@ Provide specific, implementable SEO recommendations.`,
       featured: true,
     });
 
-    console.log(`Created template: ${templateData.name}`);
+    logger.info("Created template", { templateName: templateData.name });
   }
 
-  console.log('\n✅ Seeding complete! Created 3 executable workflow templates.');
-  console.log('Run these templates by creating a workflow from them and executing with appropriate input.');
+  logger.info("Seeding complete! Created 3 executable workflow templates");
+  logger.info(
+    "Run these templates by creating a workflow from them and executing with appropriate input"
+  );
   process.exit(0);
 }
 
 seed().catch((error) => {
-  console.error('Seeding failed:', error);
+  logger.error("Seeding failed", error);
   process.exit(1);
 });

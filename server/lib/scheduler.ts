@@ -1,8 +1,15 @@
 import cron, { type ScheduledTask } from "node-cron";
 import { db } from "../db";
-import { workflowSchedules, executions, workflows, type WorkflowSchedule, type InsertWorkflowSchedule } from "@shared/schema";
+import {
+  workflowSchedules,
+  executions,
+  workflows,
+  type WorkflowSchedule,
+  type InsertWorkflowSchedule,
+} from "@shared/schema";
 import { eq, and } from "drizzle-orm";
 import { orchestrator } from "../ai/orchestrator";
+import { logger } from "./logger";
 
 interface ScheduleJob {
   scheduleId: string;
@@ -19,7 +26,7 @@ export class WorkflowScheduler {
   async initialize(): Promise<void> {
     if (this.initialized) return;
 
-    console.log("[Scheduler] Initializing workflow scheduler...");
+    logger.info("Initializing workflow scheduler");
 
     const schedules = await db.query.workflowSchedules.findMany({
       where: eq(workflowSchedules.enabled, true),
@@ -28,14 +35,17 @@ export class WorkflowScheduler {
     for (const schedule of schedules) {
       try {
         await this.scheduleWorkflow(schedule);
-        console.log(`[Scheduler] Scheduled workflow ${schedule.workflowId} with cron: ${schedule.cronExpression}`);
+        logger.info("Scheduled workflow", {
+          workflowId: schedule.workflowId,
+          cronExpression: schedule.cronExpression,
+        });
       } catch (error) {
-        console.error(`[Scheduler] Error scheduling workflow ${schedule.workflowId}:`, error);
+        logger.error(`Error scheduling workflow ${schedule.workflowId}`, error);
       }
     }
 
     this.initialized = true;
-    console.log(`[Scheduler] Initialized with ${this.jobs.size} active schedules`);
+    logger.info("Scheduler initialized", { activeSchedules: this.jobs.size });
   }
 
   /**
@@ -132,13 +142,10 @@ export class WorkflowScheduler {
    * Schedule a workflow execution
    */
   private async scheduleWorkflow(schedule: WorkflowSchedule): Promise<void> {
-    const task = cron.schedule(
-      schedule.cronExpression,
-      async () => {
-        console.log(`[Scheduler] Executing scheduled workflow ${schedule.workflowId}`);
-        await this.executeScheduledWorkflow(schedule);
-      }
-    );
+    const task = cron.schedule(schedule.cronExpression, async () => {
+      logger.info("Executing scheduled workflow", { workflowId: schedule.workflowId });
+      await this.executeScheduledWorkflow(schedule);
+    });
 
     this.jobs.set(schedule.id, {
       scheduleId: schedule.id,
@@ -154,7 +161,7 @@ export class WorkflowScheduler {
     if (job) {
       job.cronTask.stop();
       this.jobs.delete(scheduleId);
-      console.log(`[Scheduler] Unscheduled workflow schedule ${scheduleId}`);
+      logger.info("Unscheduled workflow", { scheduleId });
     }
   }
 
@@ -169,7 +176,7 @@ export class WorkflowScheduler {
       });
 
       if (!workflow) {
-        console.error(`[Scheduler] Workflow ${schedule.workflowId} not found`);
+        logger.error(`Workflow ${schedule.workflowId} not found`);
         return;
       }
 
@@ -199,10 +206,12 @@ export class WorkflowScheduler {
           })
           .where(eq(workflowSchedules.id, schedule.id));
 
-        console.log(`[Scheduler] Successfully executed workflow ${schedule.workflowId}`);
+        logger.info("Successfully executed scheduled workflow", {
+          workflowId: schedule.workflowId,
+        });
       } catch (error) {
-        console.error(`[Scheduler] Error executing workflow ${schedule.workflowId}:`, error);
-        
+        logger.error(`Error executing workflow ${schedule.workflowId}`, error);
+
         // Update execution with error
         await db
           .update(executions)
@@ -214,7 +223,7 @@ export class WorkflowScheduler {
           .where(eq(executions.id, execution.id));
       }
     } catch (error) {
-      console.error(`[Scheduler] Error in scheduled workflow execution:`, error);
+      logger.error("Error in scheduled workflow execution", error);
     }
   }
 
@@ -225,11 +234,11 @@ export class WorkflowScheduler {
     // Parse cron expression and calculate next execution time
     // This is a simplified version - in production, use a proper cron parser
     const now = new Date();
-    
+
     // For now, just add a reasonable interval based on common patterns
     // In a real implementation, parse the cron expression properly
     const nextRun = new Date(now.getTime() + 60 * 60 * 1000); // 1 hour default
-    
+
     return nextRun;
   }
 
@@ -243,7 +252,7 @@ export class WorkflowScheduler {
 
     const runTimes: Date[] = [];
     const now = new Date();
-    
+
     // This is a simplified implementation
     // In production, use a proper cron parser like cron-parser package
     for (let i = 0; i < count; i++) {
@@ -271,13 +280,13 @@ export class WorkflowScheduler {
    * Shutdown scheduler and stop all jobs
    */
   shutdown(): void {
-    console.log("[Scheduler] Shutting down scheduler...");
+    logger.info("Shutting down scheduler");
     for (const [scheduleId, job] of this.jobs.entries()) {
       job.cronTask.stop();
     }
     this.jobs.clear();
     this.initialized = false;
-    console.log("[Scheduler] Scheduler shut down");
+    logger.info("Scheduler shut down");
   }
 }
 

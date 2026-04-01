@@ -2,13 +2,15 @@ import { Octokit } from "@octokit/rest";
 import { encrypt, decrypt } from "./encryption";
 import { storage } from "../storage";
 import type { User } from "@shared/schema";
+import { logger } from "../lib/logger";
 
 /**
  * GitHub OAuth configuration
  */
 const GITHUB_CLIENT_ID = process.env.GITHUB_CLIENT_ID;
 const GITHUB_CLIENT_SECRET = process.env.GITHUB_CLIENT_SECRET;
-const GITHUB_REDIRECT_URI = process.env.GITHUB_REDIRECT_URI || 'http://localhost:5000/api/auth/github/callback';
+const GITHUB_REDIRECT_URI =
+  process.env.GITHUB_REDIRECT_URI || "http://localhost:5000/api/auth/github/callback";
 
 /**
  * Generate GitHub OAuth authorization URL
@@ -17,12 +19,12 @@ const GITHUB_REDIRECT_URI = process.env.GITHUB_REDIRECT_URI || 'http://localhost
  */
 export function getGitHubAuthUrl(state: string): string {
   const params = new URLSearchParams({
-    client_id: GITHUB_CLIENT_ID || '',
+    client_id: GITHUB_CLIENT_ID || "",
     redirect_uri: GITHUB_REDIRECT_URI,
-    scope: 'repo,user:email,read:org',
+    scope: "repo,user:email,read:org",
     state,
   });
-  
+
   return `https://github.com/login/oauth/authorize?${params.toString()}`;
 }
 
@@ -36,11 +38,11 @@ export async function exchangeCodeForToken(code: string): Promise<{
   refreshToken?: string;
   expiresAt?: Date;
 }> {
-  const response = await fetch('https://github.com/login/oauth/access_token', {
-    method: 'POST',
+  const response = await fetch("https://github.com/login/oauth/access_token", {
+    method: "POST",
     headers: {
-      'Content-Type': 'application/json',
-      Accept: 'application/json',
+      "Content-Type": "application/json",
+      Accept: "application/json",
     },
     body: JSON.stringify({
       client_id: GITHUB_CLIENT_ID,
@@ -103,7 +105,7 @@ export function getGitHubToken(user: User): string | null {
   try {
     return decrypt(user.githubAccessToken);
   } catch (error) {
-    console.error('Error decrypting GitHub token:', error);
+    logger.error("Error decrypting GitHub token", error);
     return null;
   }
 }
@@ -140,7 +142,7 @@ export async function revokeGitHubToken(userId: string): Promise<void> {
  */
 export function getOctokitForUser(user: User): Octokit | null {
   const token = getGitHubToken(user);
-  
+
   if (!token || isGitHubTokenExpired(user)) {
     return null;
   }
