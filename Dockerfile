@@ -1,16 +1,16 @@
 # Stage 1: Dependencies
-FROM node:20-alpine AS deps
+FROM node:22-alpine AS deps
 WORKDIR /app
 
 # Copy package files
 COPY package.json package-lock.json ./
 
-# Install dependencies
-RUN npm ci --only=production && \
+# Install production dependencies without running lifecycle scripts
+RUN npm ci --omit=dev --ignore-scripts && \
     npm cache clean --force
 
 # Stage 2: Builder
-FROM node:20-alpine AS builder
+FROM node:22-alpine AS builder
 WORKDIR /app
 
 # Copy package files
@@ -26,7 +26,7 @@ COPY . .
 RUN npm run build
 
 # Stage 3: Runner (Production)
-FROM node:20-alpine AS runner
+FROM node:22-alpine AS runner
 WORKDIR /app
 
 # Set environment
@@ -61,7 +61,7 @@ HEALTHCHECK --interval=30s --timeout=3s --start-period=40s --retries=3 \
 CMD ["node", "dist/index.js"]
 
 # Stage 4: Development
-FROM node:20-alpine AS development
+FROM node:22-alpine AS development
 WORKDIR /app
 
 # Install dependencies

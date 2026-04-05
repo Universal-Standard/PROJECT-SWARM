@@ -18,10 +18,7 @@ const getAllowedOrigins = (): string[] => {
   // Default allowed origins based on environment
   if (process.env.NODE_ENV === "production") {
     // In production, only allow specific domains
-    return [
-      "https://project-swarm.pages.dev",
-      "https://universal-standard.github.io",
-    ];
+    return ["https://project-swarm.pages.dev", "https://universal-standard.github.io"];
   }
 
   // In development, allow localhost with various ports
@@ -43,26 +40,32 @@ const allowedOrigins = getAllowedOrigins();
  */
 export function corsMiddleware(req: Request, res: Response, next: NextFunction) {
   const origin = req.headers.origin;
+  let allowOrigin: string | null = null;
+  let allowCredentials = false;
 
   // Allow requests with no origin (like mobile apps, curl, Postman)
   if (!origin) {
-    res.setHeader("Access-Control-Allow-Origin", "*");
+    allowOrigin = "*";
   } else if (allowedOrigins.includes(origin) || process.env.NODE_ENV === "development") {
     // Allow if origin is in allowedOrigins or in development mode
-    res.setHeader("Access-Control-Allow-Origin", origin);
+    allowOrigin = origin;
+    allowCredentials = true;
   } else {
     // Origin not allowed
-    res.setHeader("Access-Control-Allow-Origin", "null");
+    allowOrigin = "null";
   }
 
-  // Allow credentials (cookies, authorization headers)
-  res.setHeader("Access-Control-Allow-Credentials", "true");
+  if (allowOrigin) {
+    res.setHeader("Access-Control-Allow-Origin", allowOrigin);
+  }
+
+  if (allowCredentials) {
+    // Allow credentials (cookies, authorization headers) only for specific origins
+    res.setHeader("Access-Control-Allow-Credentials", "true");
+  }
 
   // Allowed methods
-  res.setHeader(
-    "Access-Control-Allow-Methods",
-    "GET, POST, PUT, PATCH, DELETE, OPTIONS"
-  );
+  res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS");
 
   // Allowed headers
   res.setHeader(

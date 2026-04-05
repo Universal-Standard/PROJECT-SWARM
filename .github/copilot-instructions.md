@@ -353,7 +353,7 @@ docs/789-api-reference-update
 6. Write tests
 
 ### Adding a New Feature
-1. Check PROJECT_BOARD.md for requirements
+1. Check docs/project-management/PROJECT_BOARD.md for requirements
 2. Create feature branch
 3. Implement with tests
 4. Update documentation
@@ -369,21 +369,51 @@ npm run build           # Build for production
 npm run check           # TypeScript check
 npm run db:push         # Push schema to database
 
-# Testing
-npm test                # Run tests
-npm run test:watch      # Watch mode
-npm run test:coverage   # Coverage report
-
 # Database
 npm run db:studio       # Open Drizzle Studio
 npm run db:generate     # Generate migrations
 ```
 
+**Note**: Unit testing infrastructure is not yet implemented. Test changes manually for now.
+
+## Environment Setup
+
+### Required Environment Variables
+
+Copy `.env.example` to `.env` and configure:
+
+```bash
+cp .env.example .env
+```
+
+**Essential variables:**
+- `DATABASE_URL` - PostgreSQL connection string (required)
+- `SESSION_SECRET` - Secret for session encryption (required)
+- `ENCRYPTION_KEY` - For encrypting sensitive data (required)
+- `ENCRYPTION_SALT` - Salt for encryption (required)
+
+**AI Provider API Keys (at least one required):**
+- `OPENAI_API_KEY` - OpenAI API key
+- `ANTHROPIC_API_KEY` - Anthropic API key  
+- `GEMINI_API_KEY` - Google Gemini API key
+
+**GitHub OAuth (optional):**
+- `GITHUB_CLIENT_ID` - GitHub OAuth app client ID
+- `GITHUB_CLIENT_SECRET` - GitHub OAuth app secret
+- `GITHUB_REDIRECT_URI` - OAuth callback URL
+
+**Best practices:**
+- Never commit `.env` files (already in `.gitignore`)
+- Use strong random strings for secrets
+- Rotate keys regularly
+- Use different keys for dev/staging/production
+
 ## Resources
 
-- [PROJECT_BOARD.md](../PROJECT_BOARD.md) - Feature roadmap
+- [CONTRIBUTING.md](../CONTRIBUTING.md) - Contribution guidelines
+- [PROJECT_BOARD.md](../docs/project-management/PROJECT_BOARD.md) - Feature roadmap
 - [README.md](../README.md) - Project overview
-- [FEATURES_ROADMAP.md](../FEATURES_ROADMAP.md) - Detailed features
+- [FEATURES_ROADMAP.md](../docs/architecture/FEATURES_ROADMAP.md) - Detailed features
 - [docs/](../docs/) - Additional documentation
 
 ## When Suggesting Code

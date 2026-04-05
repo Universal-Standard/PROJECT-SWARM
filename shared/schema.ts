@@ -330,8 +330,6 @@ export type Tag = typeof tags.$inferSelect;
 
 export type InsertWorkflowTag = z.infer<typeof insertWorkflowTagSchema>;
 export type WorkflowTag = typeof workflowTags.$inferSelect;
-export type InsertExecutionCost = z.infer<typeof insertExecutionCostSchema>;
-export type ExecutionCost = typeof executionCosts.$inferSelect;
 
 export type InsertProviderPricing = z.infer<typeof insertProviderPricingSchema>;
 export type ProviderPricing = typeof providerPricing.$inferSelect;

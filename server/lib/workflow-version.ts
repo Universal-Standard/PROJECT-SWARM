@@ -95,7 +95,7 @@ export class WorkflowVersionManager {
         version: newVersionNumber,
         commitMessage: commitMessage || `Version ${newVersionNumber}`,
         createdBy: userId,
-        workflowData: workflowData as unknown as Record<string, unknown>,
+        workflowData: workflowData as unknown,
         parentVersionId: latestVersion?.id || null,
       })
       .returning();
@@ -141,8 +141,8 @@ export class WorkflowVersionManager {
     await db
       .update(workflows)
       .set({
-        nodes: workflowData.nodes as unknown as Record<string, unknown>,
-        edges: workflowData.edges as unknown as Record<string, unknown>,
+        nodes: workflowData.nodes as unknown,
+        edges: workflowData.edges as unknown,
         name: workflowData.name,
         description: workflowData.description,
         updatedAt: new Date(),

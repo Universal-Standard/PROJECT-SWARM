@@ -1,28 +1,28 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { CostTracker } from "../cost-tracker";
 
-// Mock dependencies
+// Mock dependencies - echo back the computed estimatedCost from values()
 vi.mock("../../db", () => ({
   db: {
-    insert: vi.fn().mockReturnValue({
-      values: vi.fn().mockReturnValue({
+    insert: vi.fn().mockImplementation(() => ({
+      values: vi.fn().mockImplementation((data: Record<string, unknown>) => ({
         returning: vi.fn().mockResolvedValue([
           {
             id: 1,
-            executionId: "exec_123",
-            agentId: "agent_1",
-            provider: "openai",
-            model: "gpt-4",
-            inputTokens: 1000,
-            outputTokens: 500,
-            totalTokens: 1500,
-            estimatedCost: 450,
-            currency: "USD",
+            executionId: data.executionId,
+            agentId: data.agentId,
+            provider: data.provider,
+            model: data.model,
+            inputTokens: data.inputTokens,
+            outputTokens: data.outputTokens,
+            totalTokens: data.totalTokens,
+            estimatedCost: data.estimatedCost, // Echo back computed value
+            currency: data.currency || "USD",
             calculatedAt: new Date(),
           },
         ]),
-      }),
-    }),
+      })),
+    })),
     query: {
       providerPricing: {
         findFirst: vi.fn().mockResolvedValue({
@@ -61,7 +61,8 @@ describe("CostTracker", () => {
       );
 
       expect(result).toBeDefined();
-      expect(result.estimatedCost).toBe(450); // (1000/1M * 3000) + (500/1M * 6000) = 3 + 30 = 33 cents
+      // (1000/1M * 3000) + (500/1M * 6000) = 3 + 3 = 6 cents
+      expect(result.estimatedCost).toBe(6);
       expect(result.provider).toBe("openai");
       expect(result.model).toBe("gpt-4");
     });
@@ -138,7 +139,7 @@ describe("CostTracker", () => {
         }
       );
 
-      // (2000/1M * 1500) + (1000/1M * 7500) = 3 + 7.5 = 10.5 cents
+      // (2000/1M * 1500) + (1000/1M * 7500) = 3 + 7.5 = 10.5 cents, rounded to 11
       expect(result.estimatedCost).toBeGreaterThan(0);
     });
 
@@ -165,7 +166,7 @@ describe("CostTracker", () => {
         }
       );
 
-      // (10000/1M * 125) + (5000/1M * 500) = 1.25 + 2.5 = 3.75 cents
+      // (10000/1M * 125) + (5000/1M * 500) = 1.25 + 2.5 = 3.75 cents, rounded to 4
       expect(result.estimatedCost).toBeGreaterThan(0);
     });
   });

@@ -254,27 +254,27 @@ Or add group labels to issues to trigger automatically.
 
 Must read before starting:
 
-1. **[README_PROJECT_MANAGEMENT.md](./README_PROJECT_MANAGEMENT.md)**
+1. **[README_PROJECT_MANAGEMENT.md](./docs/project-management/README_PROJECT_MANAGEMENT.md)**
    - Quick reference for everything
    - Common commands
    - Best practices
 
-2. **[PROJECT_BOARD.md](./PROJECT_BOARD.md)**
+2. **[PROJECT_BOARD.md](./docs/project-management/PROJECT_BOARD.md)**
    - Complete breakdown of all 32 issues
    - Detailed task lists
    - Dependencies and estimates
 
-3. **[PROJECT_BOARD_SETUP.md](./PROJECT_BOARD_SETUP.md)**
+3. **[PROJECT_BOARD_SETUP.md](./docs/project-management/PROJECT_BOARD_SETUP.md)**
    - Detailed setup instructions
    - Troubleshooting guide
    - Configuration options
 
-4. **[design_guidelines.md](./design_guidelines.md)**
+4. **[design_guidelines.md](./docs/architecture/design_guidelines.md)**
    - UI/UX standards
    - Component library
    - Design patterns
 
-5. **[replit.md](./replit.md)**
+5. **[replit.md](./docs/deployment/replit.md)**
    - System architecture
    - Tech stack
    - Core features
@@ -394,8 +394,8 @@ gh api rate_limit
 
 ### Understanding the Codebase
 
-1. Start with **replit.md** for architecture overview
-2. Read **design_guidelines.md** for UI patterns
+1. Start with **replit.md** (./docs/deployment/replit.md) for architecture overview
+2. Read **design_guidelines.md** (./docs/architecture/design_guidelines.md) for UI patterns
 3. Look at **shared/schema.ts** for database structure
 4. Review **server/routes.ts** for API endpoints
 
@@ -452,8 +452,8 @@ Pick your first issue:
 
 ## 💬 Questions?
 
-- Check **PROJECT_BOARD_SETUP.md** for detailed setup help
-- Review **README_PROJECT_MANAGEMENT.md** for workflow questions
+- Check **PROJECT_BOARD_SETUP.md** (./docs/project-management/PROJECT_BOARD_SETUP.md) for detailed setup help
+- Review **README_PROJECT_MANAGEMENT.md** (./docs/project-management/README_PROJECT_MANAGEMENT.md) for workflow questions
 - Open a discussion on GitHub for support
 - Ask in team chat or standup
 

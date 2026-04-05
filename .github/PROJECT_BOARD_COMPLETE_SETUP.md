@@ -526,7 +526,7 @@ gh auth login
 
 ## Support
 
-- 📖 Read [PROJECT_BOARD.md](../PROJECT_BOARD.md) for detailed issue list
+- 📖 Read [PROJECT_BOARD.md](../docs/project-management/PROJECT_BOARD.md) for detailed issue list
 - 📖 Read [PROJECT_BOARD_SETUP.md](../PROJECT_BOARD_SETUP.md) for original setup
 - 📖 Read [README_PROJECT_MANAGEMENT.md](../README_PROJECT_MANAGEMENT.md) for management guide
 - 💬 Ask in [Discussions](https://github.com/Universal-Standard/PROJECT-SWARM/discussions)

@@ -8,27 +8,27 @@
 
 ## Executive Summary
 
-| What we have | Status |
-|---|---|
-| Production codebase (Express + React) | ✅ |
-| 92 passing tests | ✅ |
-| Structured logging & type safety | ✅ |
-| GitHub-centric architecture docs | ✅ |
-| SQLite schema (`schema.sql`) | ✅ |
-| API endpoints (GitHub Actions workflows) | ✅ |
-| GitHub Pages frontend POC (`docs/index.html`) | ✅ |
+| What we have                                  | Status |
+| --------------------------------------------- | ------ |
+| Production codebase (Express + React)         | ✅     |
+| Testing infrastructure (Vitest + Playwright)  | ✅     |
+| Structured logging & type safety              | ✅     |
+| GitHub-centric architecture docs              | ✅     |
+| SQLite schema (`schema.sql`)                  | ✅     |
+| API endpoints (GitHub Actions workflows)      | ✅     |
+| GitHub Pages frontend POC (`docs/index.html`) | ✅     |
 
 ---
 
 ## Architecture Comparison
 
-| | Path A — GitHub Only | Path B — GitHub + Azure | Path C — Hybrid ★ |
-|---|---|---|---|
-| **Cost** | $0 / month | $25–227 / month | $0 → $25+ when needed |
-| **Timeline** | 5 weeks | 8 weeks | 5 weeks + scale when ready |
-| **API latency** | 10–30 s | < 200 ms | Starts slow, goes fast |
-| **Concurrent writes** | Limited (WAL) | Unlimited | Grows with you |
-| **Best for** | MVP / side projects | Enterprise / high volume | Most startups ★ |
+|                       | Path A — GitHub Only | Path B — GitHub + Azure  | Path C — Hybrid ★          |
+| --------------------- | -------------------- | ------------------------ | -------------------------- |
+| **Cost**              | $0 / month           | $25–227 / month          | $0 → $25+ when needed      |
+| **Timeline**          | 5 weeks              | 8 weeks                  | 5 weeks + scale when ready |
+| **API latency**       | 10–30 s              | < 200 ms                 | Starts slow, goes fast     |
+| **Concurrent writes** | Limited (WAL)        | Unlimited                | Grows with you             |
+| **Best for**          | MVP / side projects  | Enterprise / high volume | Most startups ★            |
 
 ---
 
@@ -47,14 +47,14 @@
 
 Extend the GitHub Actions API layer with the remaining endpoints:
 
-| Endpoint | Workflow file |
-|---|---|
-| GET  executions       | `api-list-executions.yml` ✅ |
-| POST execution        | `api-create-execution.yml` ✅ |
-| PATCH execution       | `api-update-execution.yml` |
-| GET  costs summary    | `api-cost-report.yml` |
-| POST agent message    | `api-log-message.yml` |
-| GET  workflow stats   | `api-workflow-stats.yml` |
+| Endpoint           | Workflow file                 |
+| ------------------ | ----------------------------- |
+| GET executions     | `api-list-executions.yml` ✅  |
+| POST execution     | `api-create-execution.yml` ✅ |
+| PATCH execution    | `api-update-execution.yml`    |
+| GET costs summary  | `api-cost-report.yml`         |
+| POST agent message | `api-log-message.yml`         |
+| GET workflow stats | `api-workflow-stats.yml`      |
 
 ---
 
@@ -107,7 +107,7 @@ agents:
     focus: code style, naming, readability
 
 output:
-  format: github_review   # Posts review comments on the PR
+  format: github_review # Posts review comments on the PR
   post_summary: true
 ```
 
@@ -126,6 +126,7 @@ docs/
 ```
 
 Key pages:
+
 - **Dashboard** — live execution list (polls GitHub API)
 - **Workflow editor** — visual YAML editor for `.swarm/` files
 - **Cost report** — charts from `execution_costs` table
@@ -158,11 +159,11 @@ See `docs/AZURE-SETUP-GUIDE.md` for the full walkthrough.
 
 ## Database Size Management
 
-| When | Action |
-|---|---|
+| When     | Action                                                 |
+| -------- | ------------------------------------------------------ |
 | > 500 MB | Archive executions older than 90 days to separate repo |
-| > 1 GB   | Enable Git LFS for `swarm.db` |
-| > 1.5 GB | Migrate to Azure PostgreSQL |
+| > 1 GB   | Enable Git LFS for `swarm.db`                          |
+| > 1.5 GB | Migrate to Azure PostgreSQL                            |
 
 Archiving script: `.github/workflows/db-archive.yml` (runs on a cron).
 
@@ -179,6 +180,7 @@ VALUES (…)
 ```
 
 Monthly report workflow (`.github/workflows/api-cost-report.yml`):
+
 - Aggregates `execution_costs` by provider/model
 - Posts results as a GitHub Actions summary
 - Optionally opens a GitHub Issue with the monthly bill
