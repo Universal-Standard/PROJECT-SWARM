@@ -2,7 +2,6 @@ import crypto from "crypto";
 import { db } from "../db";
 import {
   workflowWebhooks,
-  executions,
   workflows,
   type WorkflowWebhook,
   type InsertWorkflowWebhook,
@@ -27,24 +26,24 @@ export class WebhookManager {
   /**
    * Generate a unique webhook URL
    */
-  generateWebhookUrl(workflowId: string, baseUrl: string = ""): { url: string; secretKey: string } {
-    const secretKey = crypto.randomBytes(32).toString("hex");
-    const url = `${baseUrl}/api/webhooks/trigger/${workflowId}/${secretKey}`;
-    return { url, secretKey };
+  generateWebhookUrl(workflowId: string, baseUrl: string = ""): { url: string; secret: string } {
+    const secret = crypto.randomBytes(32).toString("hex");
+    const url = `${baseUrl}/api/webhooks/trigger/${workflowId}/${secret}`;
+    return { url, secret };
   }
 
   /**
    * Create a new webhook
    */
   async createWebhook(workflowId: string, baseUrl: string = ""): Promise<WorkflowWebhook> {
-    const { url, secretKey } = this.generateWebhookUrl(workflowId, baseUrl);
+    const { url, secret } = this.generateWebhookUrl(workflowId, baseUrl);
 
     const [webhook] = await db
       .insert(workflowWebhooks)
       .values({
         workflowId,
-        webhookUrl: url,
-        secretKey,
+        url,
+        secret,
         enabled: true,
       })
       .returning();
@@ -66,10 +65,10 @@ export class WebhookManager {
    */
   async getWebhookBySecret(
     workflowId: string,
-    secretKey: string
+    secret: string
   ): Promise<WorkflowWebhook | undefined> {
     const webhooks = await db.query.workflowWebhooks.findMany({
-      where: eq(workflowWebhooks.secretKey, secretKey),
+      where: eq(workflowWebhooks.secret, secret),
     });
     return webhooks[0];
   }
@@ -86,14 +85,13 @@ export class WebhookManager {
       throw new Error("Webhook not found");
     }
 
-    const { url, secretKey } = this.generateWebhookUrl(webhook.workflowId, baseUrl);
+    const { url, secret } = this.generateWebhookUrl(webhook.workflowId, baseUrl);
 
     const [updated] = await db
       .update(workflowWebhooks)
       .set({
-        webhookUrl: url,
-        secretKey,
-        updatedAt: new Date(),
+        url,
+        secret,
       })
       .where(eq(workflowWebhooks.id, webhookId))
       .returning();
@@ -110,10 +108,7 @@ export class WebhookManager {
   ): Promise<WorkflowWebhook> {
     const [updated] = await db
       .update(workflowWebhooks)
-      .set({
-        ...updates,
-        updatedAt: new Date(),
-      })
+      .set(updates)
       .where(eq(workflowWebhooks.id, webhookId))
       .returning();
 
@@ -134,25 +129,17 @@ export class WebhookManager {
    */
   validateWebhook(
     webhook: WorkflowWebhook,
-    secretKey: string,
-    ipAddress?: string
+    secret: string,
+    _ipAddress?: string
   ): { valid: boolean; error?: string } {
     // Check if webhook is enabled
     if (!webhook.enabled) {
       return { valid: false, error: "Webhook is disabled" };
     }
 
-    // Validate secret key
-    if (webhook.secretKey !== secretKey) {
+    // Validate secret
+    if (webhook.secret !== secret) {
       return { valid: false, error: "Invalid secret key" };
-    }
-
-    // Check IP whitelist if configured
-    if (webhook.ipWhitelist && Array.isArray(webhook.ipWhitelist)) {
-      const whitelist = webhook.ipWhitelist as string[];
-      if (whitelist.length > 0 && ipAddress && !whitelist.includes(ipAddress)) {
-        return { valid: false, error: "IP address not whitelisted" };
-      }
     }
 
     // Check rate limit
@@ -191,23 +178,9 @@ export class WebhookManager {
   /**
    * Transform webhook payload to workflow input
    */
-  transformPayload(webhook: WorkflowWebhook, payload: any): any {
-    // If no transformer configured, pass payload as-is
-    if (!webhook.payloadTransformer) {
-      return payload;
-    }
-
-    const transformer = webhook.payloadTransformer as Record<string, string>;
-    const input: Record<string, any> = {};
-
-    // Apply transformations
-    for (const [key, path] of Object.entries(transformer)) {
-      // Simple path resolution (e.g., "user.email" -> payload.user.email)
-      const value = this.getValueByPath(payload, path);
-      input[key] = value;
-    }
-
-    return input;
+  transformPayload(_webhook: WorkflowWebhook, payload: any): any {
+    // Pass payload as-is; custom transformation can be added in future
+    return payload;
   }
 
   /**
@@ -253,31 +226,12 @@ export class WebhookManager {
       // Transform payload
       const input = this.transformPayload(webhook, payload);
 
-      // Create execution
-      const [execution] = await db
-        .insert(executions)
-        .values({
-          workflowId,
-          userId: workflow.userId,
-          status: "pending",
-          input: { ...input, webhook: true, webhookId: webhook.id },
-        })
-        .returning();
-
-      // Queue workflow execution (async)
-      orchestrator.executeWorkflow(execution.id).catch((error) => {
-        logger.error(`Error executing workflow ${workflowId}`, error);
+      // Execute workflow (orchestrator creates the execution internally)
+      const execution = await orchestrator.executeWorkflow(workflowId, {
+        ...input,
+        webhook: true,
+        webhookId: webhook.id,
       });
-
-      // Update webhook statistics
-      await db
-        .update(workflowWebhooks)
-        .set({
-          triggerCount: (webhook.triggerCount || 0) + 1,
-          lastTriggeredAt: new Date(),
-          updatedAt: new Date(),
-        })
-        .where(eq(workflowWebhooks.id, webhook.id));
 
       // Log successful call
       this.logWebhookCall(webhook.id, payload, true, execution.id);

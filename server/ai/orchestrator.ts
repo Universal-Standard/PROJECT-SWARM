@@ -120,6 +120,9 @@ export class WorkflowOrchestrator {
           }
         }
 
+        // Declare result before try so it's accessible after the catch block
+        let result: Awaited<ReturnType<typeof this.executeAgentWithRetry>>;
+
         try {
           // Debug: Log agent details
           await this.logExecution(
@@ -130,7 +133,7 @@ export class WorkflowOrchestrator {
           );
 
           // Execute agent with retry logic for transient failures
-          const result = await this.executeAgentWithRetry(
+          result = await this.executeAgentWithRetry(
             execution.id,
             agent,
             {
@@ -173,8 +176,6 @@ export class WorkflowOrchestrator {
             tokenCount: result.tokenCount,
           });
 
-          // Extract and store new knowledge from agent response
-          await this.extractAndStoreKnowledge(workflow.userId, agent, result.content, execution.id);
           // Log if fallback was used
           if (result.fallbackUsed) {
             await this.logExecution(
@@ -229,12 +230,12 @@ export class WorkflowOrchestrator {
           throw stepError;
         }
         // Emit agent completed event
-        wsManager.emitAgentCompleted(execution.id, agent.id, agent.name, result);
+        wsManager.emitAgentCompleted(execution.id, agent.id, agent.name, result!);
 
         await this.logExecution(
           execution.id,
           "info",
-          `Agent ${agent.name} completed with ${result.tokenCount} tokens`,
+          `Agent ${agent.name} completed with ${result!.tokenCount} tokens`,
           agent.id
         );
       }

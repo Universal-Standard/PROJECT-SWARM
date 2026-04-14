@@ -1,13 +1,13 @@
-import { useQuery } from '@tanstack/react-query';
-import { useParams, Link } from 'wouter';
-import { Button } from '@/components/ui/button';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Loader2, ArrowLeft } from 'lucide-react';
-import { ExecutionMetrics } from '@/components/execution/execution-metrics';
-import { ExecutionTimeline } from '@/components/execution/execution-timeline';
-import { LogViewer } from '@/components/execution/log-viewer';
-import { AgentMessageFlow } from '@/components/execution/agent-message-flow';
-import type { Execution, ExecutionLog, AgentMessage, Agent } from '@shared/schema';
+import { useQuery } from "@tanstack/react-query";
+import { useParams, Link } from "wouter";
+import { Button } from "@/components/ui/button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Loader2, ArrowLeft } from "lucide-react";
+import { ExecutionMetrics } from "@/components/execution/execution-metrics";
+import { ExecutionTimeline } from "@/components/execution/execution-timeline";
+import { LogViewer } from "@/components/execution/log-viewer";
+import { AgentMessageFlow } from "@/components/execution/agent-message-flow";
+import type { Execution, ExecutionLog, AgentMessage, Agent } from "@shared/schema";
 
 interface TimelineResponse {
   execution: Execution;
@@ -17,8 +17,8 @@ interface TimelineResponse {
 }
 
 const formatOutput = (data: any): string => {
-  if (typeof data === 'string') return data;
-  if (data === null || data === undefined) return '';
+  if (typeof data === "string") return data;
+  if (data === null || data === undefined) return "";
   try {
     return JSON.stringify(data, null, 2);
   } catch {
@@ -30,22 +30,22 @@ export default function AppExecutionDetail() {
   const { id } = useParams<{ id: string }>();
 
   const { data: execution, isLoading: executionLoading } = useQuery<Execution>({
-    queryKey: ['/api/executions', id],
+    queryKey: ["/api/executions", id],
   });
 
   const { data: logs, isLoading: logsLoading } = useQuery<ExecutionLog[]>({
     queryKey: [`/api/executions/${id}/logs`],
-    refetchInterval: execution?.status === 'running' ? 2000 : false,
+    refetchInterval: execution?.status === "running" ? 2000 : false,
   });
 
   const { data: messages, isLoading: messagesLoading } = useQuery<AgentMessage[]>({
     queryKey: [`/api/executions/${id}/messages`],
-    refetchInterval: execution?.status === 'running' ? 2000 : false,
+    refetchInterval: execution?.status === "running" ? 2000 : false,
   });
 
   const { data: timelineData } = useQuery<TimelineResponse>({
     queryKey: [`/api/executions/${id}/timeline`],
-    refetchInterval: execution?.status === 'running' ? 2000 : false,
+    refetchInterval: execution?.status === "running" ? 2000 : false,
   });
 
   const { data: agents } = useQuery<Agent[]>({
@@ -129,7 +129,7 @@ export default function AppExecutionDetail() {
               <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
             </div>
           ) : (
-            <LogViewer logs={logs || []} autoScroll={execution.status === 'running'} />
+            <LogViewer logs={logs || []} autoScroll={execution.status === "running"} />
           )}
         </TabsContent>
 
@@ -142,14 +142,14 @@ export default function AppExecutionDetail() {
             <AgentMessageFlow
               messages={messages || []}
               agents={agents}
-              autoScroll={execution.status === 'running'}
+              autoScroll={execution.status === "running"}
             />
           )}
         </TabsContent>
 
         <TabsContent value="output" className="flex-1 overflow-auto mt-4">
           <div className="grid gap-4">
-            {execution.output && (
+            {!!execution.output && (
               <div className="bg-muted rounded-lg p-4">
                 <h3 className="text-sm font-medium mb-2">Output</h3>
                 <pre className="text-sm whitespace-pre-wrap break-words">
@@ -158,7 +158,7 @@ export default function AppExecutionDetail() {
               </div>
             )}
 
-            {execution.input && (
+            {!!execution.input && (
               <div className="bg-muted rounded-lg p-4">
                 <h3 className="text-sm font-medium mb-2">Input</h3>
                 <pre className="text-sm whitespace-pre-wrap break-words">

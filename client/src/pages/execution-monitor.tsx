@@ -1,18 +1,18 @@
-import { useQuery } from '@tanstack/react-query';
-import { useParams, Link } from 'wouter';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { Separator } from '@/components/ui/separator';
-import { Loader2, CheckCircle2, XCircle, Clock, ArrowRight, ExternalLink } from 'lucide-react';
-import type { Execution, ExecutionLog, AgentMessage } from '@shared/schema';
+import { useQuery } from "@tanstack/react-query";
+import { useParams, Link } from "wouter";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Separator } from "@/components/ui/separator";
+import { Loader2, CheckCircle2, XCircle, Clock, ArrowRight, ExternalLink } from "lucide-react";
+import type { Execution, ExecutionLog, AgentMessage } from "@shared/schema";
 
 export default function ExecutionMonitor() {
   const { id } = useParams<{ id: string }>();
 
   const { data: execution, isLoading: executionLoading } = useQuery<Execution>({
-    queryKey: ['/api/executions', id],
+    queryKey: ["/api/executions", id],
   });
 
   const { data: logs, isLoading: logsLoading } = useQuery<ExecutionLog[]>({
@@ -42,13 +42,14 @@ export default function ExecutionMonitor() {
   }
 
   const statusConfig = {
-    pending: { icon: Clock, color: 'text-amber-500', bg: 'bg-amber-500/10' },
-    running: { icon: Loader2, color: 'text-primary', bg: 'bg-primary/10' },
-    completed: { icon: CheckCircle2, color: 'text-green-500', bg: 'bg-green-500/10' },
-    error: { icon: XCircle, color: 'text-destructive', bg: 'bg-destructive/10' },
+    pending: { icon: Clock, color: "text-amber-500", bg: "bg-amber-500/10" },
+    running: { icon: Loader2, color: "text-primary", bg: "bg-primary/10" },
+    completed: { icon: CheckCircle2, color: "text-green-500", bg: "bg-green-500/10" },
+    error: { icon: XCircle, color: "text-destructive", bg: "bg-destructive/10" },
   };
 
-  const config = statusConfig[execution.status as keyof typeof statusConfig] || statusConfig.pending;
+  const config =
+    statusConfig[execution.status as keyof typeof statusConfig] || statusConfig.pending;
   const StatusIcon = config.icon;
 
   return (
@@ -65,8 +66,13 @@ export default function ExecutionMonitor() {
               Detailed View
             </Button>
           </Link>
-          <Badge className={`gap-2 ${config.bg} ${config.color} border-0`} data-testid="badge-execution-status">
-            <StatusIcon className={`w-4 h-4 ${execution.status === 'running' ? 'animate-spin' : ''}`} />
+          <Badge
+            className={`gap-2 ${config.bg} ${config.color} border-0`}
+            data-testid="badge-execution-status"
+          >
+            <StatusIcon
+              className={`w-4 h-4 ${execution.status === "running" ? "animate-spin" : ""}`}
+            />
             {execution.status.toUpperCase()}
           </Badge>
         </div>
@@ -87,16 +93,18 @@ export default function ExecutionMonitor() {
                 <div className="space-y-2 font-mono text-sm">
                   {logs.map((log) => {
                     const levelColors = {
-                      info: 'text-muted-foreground',
-                      warning: 'text-amber-500',
-                      error: 'text-destructive',
+                      info: "text-muted-foreground",
+                      warning: "text-amber-500",
+                      error: "text-destructive",
                     };
                     return (
                       <div key={log.id} className="flex gap-3" data-testid={`log-${log.id}`}>
                         <span className="text-muted-foreground shrink-0">
                           {new Date(log.timestamp).toLocaleTimeString()}
                         </span>
-                        <span className={`font-medium shrink-0 uppercase ${levelColors[log.level as keyof typeof levelColors]}`}>
+                        <span
+                          className={`font-medium shrink-0 uppercase ${levelColors[log.level as keyof typeof levelColors]}`}
+                        >
                           [{log.level}]
                         </span>
                         <span className="break-all">{log.message}</span>
@@ -135,7 +143,7 @@ export default function ExecutionMonitor() {
                             {message.role}
                           </Badge>
                           <span className="text-xs text-muted-foreground">
-                            {message.tokenCount ? `${message.tokenCount} tokens` : ''}
+                            {message.tokenCount ? `${message.tokenCount} tokens` : ""}
                           </span>
                         </div>
                         <p className="text-sm bg-muted p-3 rounded-lg whitespace-pre-wrap">
@@ -155,7 +163,7 @@ export default function ExecutionMonitor() {
         </Card>
       </div>
 
-      {execution.output && (
+      {!!execution.output && (
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-lg">Output</CardTitle>

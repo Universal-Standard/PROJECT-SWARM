@@ -200,7 +200,7 @@ export class AIExecutor {
   }
 
   private buildSystemPromptWithKnowledge(
-    basePrompt: string | undefined,
+    basePrompt: string | null | undefined,
     knowledge: KnowledgeEntry[]
   ): string {
     const knowledgeContext = this.formatKnowledgeContext(knowledge);
@@ -327,32 +327,31 @@ export class AIExecutor {
     // Ensure model is defined
     const modelToUse = agent.model || "gemini-1.5-flash";
 
-    const model = this.gemini.getGenerativeModel({
+    // Use the @google/genai v1.x chats API
+    const chat = this.gemini.chats.create({
       model: modelToUse,
-      systemInstruction: enhancedSystemPrompt,
-    });
-
-    const chat = model.startChat({
+      config: {
+        systemInstruction: enhancedSystemPrompt,
+        temperature: context.temperature / 100,
+        maxOutputTokens: context.maxTokens,
+      },
       history: context.messages.slice(0, -1).map((msg) => ({
         role: msg.role === "user" ? "user" : "model",
         parts: [{ text: msg.content }],
       })),
-      generationConfig: {
-        temperature: context.temperature / 100,
-        maxOutputTokens: context.maxTokens,
-      },
     });
 
     const lastMessage = context.messages[context.messages.length - 1];
-    const result = await chat.sendMessage(lastMessage.content);
-    const response = result.response;
+    const response = await chat.sendMessage({ message: lastMessage.content });
+
+    const responseText = response.text ?? "";
 
     // Estimate token counts for Gemini (rough estimation)
     const promptTokens = Math.ceil(enhancedSystemPrompt.length / 4);
-    const completionTokens = Math.ceil(response.text().length / 4);
+    const completionTokens = Math.ceil(responseText.length / 4);
 
     return {
-      content: response.text(),
+      content: responseText,
       tokenCount: promptTokens + completionTokens,
       finishReason: "stop",
       promptTokens,

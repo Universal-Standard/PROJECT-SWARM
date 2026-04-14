@@ -1,4 +1,4 @@
-import express, { type Request, Response, NextFunction } from "express";
+import express from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { scheduler } from "./scheduler";
@@ -6,11 +6,20 @@ import { errorHandler } from "./middleware/error-handler";
 import { wsManager } from "./websocket";
 import { createServer } from "http";
 import { configureHelmet } from "./middleware/helmet";
+import { corsMiddleware } from "./middleware/cors";
+import { globalRateLimiter } from "./middleware/rate-limiter";
+import { registerHealthRoutes } from "./routes/health";
 
 const app = express();
 
 // Security headers (must be first)
 configureHelmet(app);
+
+// CORS must be applied early, before routes
+app.use(corsMiddleware);
+
+// Global rate limiting
+app.use(globalRateLimiter);
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
@@ -46,53 +55,46 @@ app.use((req, res, next) => {
 });
 
 (async () => {
+  // Register health check routes early (before auth, so load balancers can reach them)
+  registerHealthRoutes(app);
+
   await registerRoutes(app);
 
   // Start workflow scheduler
   await scheduler.start();
   log("Workflow scheduler started");
   // Initialize Phase 3A features
-  const { scheduler } = await import("./lib/scheduler");
+  const { scheduler: libScheduler } = await import("./lib/scheduler");
   const { costTracker } = await import("./lib/cost-tracker");
 
-  await scheduler.initialize();
+  await libScheduler.initialize();
   await costTracker.initializePricing();
 
-  // Graceful shutdown
-  process.on("SIGTERM", () => {
-    log("SIGTERM signal received: closing HTTP server");
-    scheduler.shutdown();
-    process.exit(0);
-  });
-
-  app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
-    const status = err.status || err.statusCode || 500;
-    const message = err.message || "Internal Server Error";
-
-    res.status(status).json({ message });
-    throw err;
-  });
-  // Use enhanced error handler
+  // Use enhanced error handler (must be registered after all routes)
   app.use(errorHandler);
 
-  // importantly only setup vite in development and after
+  // Create HTTP server and initialize WebSocket before serving static/vite
+  const port = parseInt(process.env.PORT || "5000", 10);
+  const server = createServer(app);
+  wsManager.initialize(server);
+
+  // Importantly only setup vite in development and after
   // setting up all the other routes so the catch-all route
   // doesn't interfere with the other routes
   if (app.get("env") === "development") {
-    await setupVite(app, app);
+    await setupVite(app, server);
   } else {
     serveStatic(app);
   }
 
-  // ALWAYS serve the app on the port specified in the environment variable PORT
-  // Other ports are firewalled. Default to 5000 if not specified.
-  // this serves both the API and the client.
-  // It is the only port that is not firewalled.
-  const port = parseInt(process.env.PORT || "5000", 10);
-
-  // Create HTTP server and initialize WebSocket
-  const server = createServer(app);
-  wsManager.initialize(server);
+  // Graceful shutdown
+  process.on("SIGTERM", () => {
+    log("SIGTERM signal received: closing HTTP server");
+    libScheduler.shutdown();
+    server.close(() => {
+      process.exit(0);
+    });
+  });
 
   server.listen(port, "0.0.0.0", () => {
     log(`serving on port ${port}`);
