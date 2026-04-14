@@ -219,6 +219,16 @@ export class WorkflowOrchestrator {
             agent.id,
             stepIndex
           );
+
+          // Emit agent completed event (inside try so result is guaranteed assigned)
+          wsManager.emitAgentCompleted(execution.id, agent.id, agent.name, result);
+
+          await this.logExecution(
+            execution.id,
+            "info",
+            `Agent ${agent.name} completed with ${result.tokenCount} tokens`,
+            agent.id
+          );
         } catch (stepError: any) {
           await this.logExecution(
             execution.id,
@@ -229,15 +239,6 @@ export class WorkflowOrchestrator {
           );
           throw stepError;
         }
-        // Emit agent completed event
-        wsManager.emitAgentCompleted(execution.id, agent.id, agent.name, result!);
-
-        await this.logExecution(
-          execution.id,
-          "info",
-          `Agent ${agent.name} completed with ${result!.tokenCount} tokens`,
-          agent.id
-        );
       }
 
       const lastNodeId = executionOrder[executionOrder.length - 1];

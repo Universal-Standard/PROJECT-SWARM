@@ -412,9 +412,16 @@ function WorkflowBuilderContent() {
         .then((layoutedNodes) => {
           setNodes(layoutedNodes);
         })
-        .catch(console.error);
+        .catch((err) => {
+          console.error(err);
+          toast({
+            title: "Layout Failed",
+            description: "Could not apply layout. Please try again.",
+            variant: "destructive",
+          });
+        });
     },
-    [nodes, edges]
+    [nodes, edges, toast]
   );
 
   const handleZoomIn = useCallback(() => {
