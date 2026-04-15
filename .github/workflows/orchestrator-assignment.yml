@@ -38,7 +38,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Find unassigned tasks
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         id: find-tasks
         with:
           script: |
@@ -61,7 +61,7 @@ jobs:
             return unassigned;
 
       - name: Assign tasks by priority, group, AI agent, and provider
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           script: |
             const tasks = ${{ steps.find-tasks.outputs.result }};
@@ -403,7 +403,7 @@ jobs:
             }
 
       - name: Report assignment summary
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           script: |
             const tasks = ${{ steps.find-tasks.outputs.result }};
