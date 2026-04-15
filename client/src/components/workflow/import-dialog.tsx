@@ -12,6 +12,7 @@ import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Upload } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { apiRequest } from "@/lib/queryClient";
 
 interface ImportDialogProps {
   open: boolean;
@@ -21,7 +22,9 @@ interface ImportDialogProps {
 
 export function ImportDialog({ open, onOpenChange, onSuccess }: ImportDialogProps) {
   const [file, setFile] = useState<File | null>(null);
-  const [conflictResolution, setConflictResolution] = useState<"skip" | "rename" | "overwrite">("rename");
+  const [conflictResolution, setConflictResolution] = useState<"skip" | "rename" | "overwrite">(
+    "rename"
+  );
   const [isImporting, setIsImporting] = useState(false);
   const { toast } = useToast();
 
@@ -46,13 +49,9 @@ export function ImportDialog({ open, onOpenChange, onSuccess }: ImportDialogProp
       const fileContent = await file.text();
       const workflowData = JSON.parse(fileContent);
 
-      const response = await fetch("/api/workflows/import", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          workflow: workflowData,
-          conflictResolution,
-        }),
+      const response = await apiRequest("POST", "/api/workflows/import", {
+        workflow: workflowData,
+        conflictResolution,
       });
 
       if (!response.ok) throw new Error("Failed to import workflow");
@@ -101,13 +100,14 @@ export function ImportDialog({ open, onOpenChange, onSuccess }: ImportDialogProp
               onChange={handleFileChange}
               className="w-full text-sm file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-primary file:text-primary-foreground hover:file:bg-primary/90"
             />
-            {file && (
-              <p className="text-xs text-muted-foreground">Selected: {file.name}</p>
-            )}
+            {file && <p className="text-xs text-muted-foreground">Selected: {file.name}</p>}
           </div>
           <div className="space-y-2">
             <Label>Conflict Resolution</Label>
-            <RadioGroup value={conflictResolution} onValueChange={(value: any) => setConflictResolution(value)}>
+            <RadioGroup
+              value={conflictResolution}
+              onValueChange={(value: any) => setConflictResolution(value)}
+            >
               <div className="flex items-center space-x-2">
                 <RadioGroupItem value="skip" id="skip" />
                 <Label htmlFor="skip" className="cursor-pointer font-normal">

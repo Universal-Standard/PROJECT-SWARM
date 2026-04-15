@@ -53,6 +53,7 @@ import {
 } from "@/components/workflow/workflow-canvas";
 import { useToast } from "@/hooks/use-toast";
 import { useGridSnapping } from "@/hooks/useGridSnapping";
+import { useUndoRedo } from "@/hooks/useUndoRedo";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useParams, useLocation } from "wouter";
@@ -110,6 +111,9 @@ function WorkflowBuilderContent() {
   const [gridSize] = useState(20);
   const [highlightedNodes, setHighlightedNodes] = useState<string[]>([]);
   const { copy, paste, canPaste } = useNodeClipboard();
+
+  // Undo/redo history
+  const { pushHistory, undo, redo, canUndo, canRedo } = useUndoRedo();
 
   // Get zoom controls (only works inside ReactFlowProvider)
   const zoomControls = useZoomControls();
@@ -205,18 +209,16 @@ function WorkflowBuilderContent() {
         return;
       }
 
-      setEdges((eds) =>
-        addEdge(
-          {
-            ...connection,
-            animated: true,
-            style: { stroke: "#06b6d4" },
-          },
-          eds
-        )
-      );
+      const newEdge = {
+        ...connection,
+        animated: true,
+        style: { stroke: "#06b6d4" },
+      };
+      const updatedEdges = addEdge(newEdge, edges);
+      setEdges(updatedEdges);
+      pushHistory(nodes, updatedEdges);
     },
-    [nodes, edges, toast]
+    [nodes, edges, toast, pushHistory]
   );
 
   // Connection validation visual feedback
@@ -287,6 +289,9 @@ function WorkflowBuilderContent() {
       // Update local state AND save to workflow
       const updatedNodes = [...nodes, newNode];
       setNodes(updatedNodes);
+
+      // Record in undo history
+      pushHistory(updatedNodes, edges);
 
       // Save workflow with new node to persist it
       await apiRequest("PATCH", `/api/workflows/${workflowId}`, {
@@ -607,7 +612,9 @@ function WorkflowBuilderContent() {
             if (!isInputField && canPaste) {
               e.preventDefault();
               const pastedNodes = paste();
-              setNodes([...nodes, ...(pastedNodes as Node[])]);
+              const afterPasteNodes = [...nodes, ...(pastedNodes as Node[])];
+              setNodes(afterPasteNodes);
+              pushHistory(afterPasteNodes, edges);
               toast({ title: "Pasted", description: `${pastedNodes.length} node(s) pasted` });
             }
             break;
@@ -626,13 +633,31 @@ function WorkflowBuilderContent() {
           case "z":
             if (!isInputField) {
               e.preventDefault();
-              // TODO: Implement undo
+              if (e.shiftKey) {
+                // Ctrl+Shift+Z = redo
+                const redoState = redo();
+                if (redoState) {
+                  setNodes(redoState.nodes);
+                  setEdges(redoState.edges);
+                }
+              } else {
+                // Ctrl+Z = undo
+                const undoState = undo();
+                if (undoState) {
+                  setNodes(undoState.nodes);
+                  setEdges(undoState.edges);
+                }
+              }
             }
             break;
           case "y":
             if (!isInputField) {
               e.preventDefault();
-              // TODO: Implement redo
+              const redoState = redo();
+              if (redoState) {
+                setNodes(redoState.nodes);
+                setEdges(redoState.edges);
+              }
             }
             break;
         }
@@ -644,12 +669,13 @@ function WorkflowBuilderContent() {
             if (!isInputField && selectedNodes.length > 0) {
               e.preventDefault();
               const idsToDelete = selectedNodes.map((n) => n.id);
-              setNodes(nodes.filter((n) => !idsToDelete.includes(n.id)));
-              setEdges(
-                edges.filter(
-                  (e) => !idsToDelete.includes(e.source) && !idsToDelete.includes(e.target)
-                )
+              const remainingNodes = nodes.filter((n) => !idsToDelete.includes(n.id));
+              const remainingEdges = edges.filter(
+                (e) => !idsToDelete.includes(e.source) && !idsToDelete.includes(e.target)
               );
+              setNodes(remainingNodes);
+              setEdges(remainingEdges);
+              pushHistory(remainingNodes, remainingEdges);
               toast({ title: "Deleted", description: `${selectedNodes.length} node(s) deleted` });
             }
             break;
@@ -727,10 +753,13 @@ function WorkflowBuilderContent() {
 
   const handleNodeDelete = useCallback(
     (node: Node) => {
-      setNodes(nodes.filter((n) => n.id !== node.id));
-      setEdges(edges.filter((e) => e.source !== node.id && e.target !== node.id));
+      const updatedNodes = nodes.filter((n) => n.id !== node.id);
+      const updatedEdges = edges.filter((e) => e.source !== node.id && e.target !== node.id);
+      setNodes(updatedNodes);
+      setEdges(updatedEdges);
+      pushHistory(updatedNodes, updatedEdges);
     },
-    [nodes, edges]
+    [nodes, edges, pushHistory]
   );
 
   const handleNodeLock = useCallback(
@@ -781,8 +810,8 @@ function WorkflowBuilderContent() {
         workflowStatus={
           executeWorkflowMutation.isPending ? "running" : workflowId ? "saved" : "draft"
         }
-        canUndo={false} // TODO: Implement undo/redo
-        canRedo={false}
+        canUndo={canUndo}
+        canRedo={canRedo}
         canCopy={selectedNodes.length > 0}
         canPaste={canPaste}
         canDelete={selectedNodes.length > 0}
@@ -799,6 +828,20 @@ function WorkflowBuilderContent() {
           a.href = url;
           a.download = `${workflowName}.json`;
           a.click();
+        }}
+        onUndo={() => {
+          const undoState = undo();
+          if (undoState) {
+            setNodes(undoState.nodes);
+            setEdges(undoState.edges);
+          }
+        }}
+        onRedo={() => {
+          const redoState = redo();
+          if (redoState) {
+            setNodes(redoState.nodes);
+            setEdges(redoState.edges);
+          }
         }}
         onZoomIn={() => zoomControls.zoomIn()}
         onZoomOut={() => zoomControls.zoomOut()}

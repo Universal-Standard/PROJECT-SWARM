@@ -8,6 +8,7 @@ import {
 } from "@shared/schema";
 import { eq, desc, and } from "drizzle-orm";
 import type { WorkflowNode, WorkflowEdge } from "../types/workflow";
+import { logger } from "./logger";
 
 interface AgentData {
   id: string;
@@ -271,7 +272,8 @@ export class WorkflowVersionManager {
     _duration: number
   ): Promise<void> {
     // Statistics tracking is not currently persisted in the workflow_versions schema.
-    // This is a no-op placeholder for future implementation.
+    // This method is intentionally a no-op; implement by adding stats columns to the schema.
+    logger.debug("updateVersionStats called but not implemented — stats not persisted in schema");
   }
 
   /**

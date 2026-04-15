@@ -11,7 +11,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 
 type Message = {
-  role: 'user' | 'assistant';
+  role: "user" | "assistant";
   content: string;
   timestamp: string;
 };
@@ -33,26 +33,18 @@ export default function AppAssistant() {
 
   // Fetch or create chat session
   const { data: chat, isLoading } = useQuery<AssistantChat>({
-    queryKey: ['/api/assistant/chat'],
+    queryKey: ["/api/assistant/chat"],
     enabled: isAuthenticated,
   });
 
   // Send message mutation
   const sendMutation = useMutation({
     mutationFn: async (message: string) => {
-      const response = await fetch('/api/assistant/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message }),
-      });
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Failed to send message');
-      }
+      const response = await apiRequest("POST", "/api/assistant/chat", { message });
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/assistant/chat'] });
+      queryClient.invalidateQueries({ queryKey: ["/api/assistant/chat"] });
       setInput("");
     },
     onError: (error: any) => {
@@ -61,7 +53,7 @@ export default function AppAssistant() {
         description: error.message || "Failed to send message",
         variant: "destructive",
       });
-    }
+    },
   });
 
   // Auto-scroll to bottom when messages change
@@ -105,7 +97,9 @@ export default function AppAssistant() {
           </div>
           AI Assistant
         </h1>
-        <p className="text-muted-foreground mt-2">Get help building and optimizing your workflows</p>
+        <p className="text-muted-foreground mt-2">
+          Get help building and optimizing your workflows
+        </p>
       </div>
 
       <Card className="flex-1 flex flex-col overflow-hidden">
@@ -135,7 +129,8 @@ export default function AppAssistant() {
               <div>
                 <h3 className="text-xl font-semibold mb-2">How can I help you today?</h3>
                 <p className="text-muted-foreground">
-                  Ask me about workflow design, agent configuration, best practices, or troubleshooting.
+                  Ask me about workflow design, agent configuration, best practices, or
+                  troubleshooting.
                 </p>
               </div>
               <div className="grid gap-2 text-left">
@@ -169,10 +164,10 @@ export default function AppAssistant() {
               {messages.map((message, i) => (
                 <div
                   key={i}
-                  className={`flex gap-4 ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                  className={`flex gap-4 ${message.role === "user" ? "justify-end" : "justify-start"}`}
                   data-testid={`message-${message.role}-${i}`}
                 >
-                  {message.role === 'assistant' && (
+                  {message.role === "assistant" && (
                     <div className="p-2 rounded-lg bg-gradient-to-br from-primary to-blue-500 h-fit">
                       <Bot className="w-5 h-5 text-primary-foreground" />
                     </div>
@@ -180,9 +175,7 @@ export default function AppAssistant() {
                   <div className={`flex flex-col gap-1 max-w-[70%]`}>
                     <div
                       className={`p-4 rounded-lg ${
-                        message.role === 'user'
-                          ? 'bg-primary text-primary-foreground'
-                          : 'bg-muted'
+                        message.role === "user" ? "bg-primary text-primary-foreground" : "bg-muted"
                       }`}
                     >
                       <p className="whitespace-pre-wrap">{message.content}</p>
@@ -191,7 +184,7 @@ export default function AppAssistant() {
                       {new Date(message.timestamp).toLocaleTimeString()}
                     </span>
                   </div>
-                  {message.role === 'user' && (
+                  {message.role === "user" && (
                     <div className="p-2 rounded-lg bg-primary/10 h-fit">
                       <User className="w-5 h-5 text-primary" />
                     </div>
@@ -222,7 +215,7 @@ export default function AppAssistant() {
               placeholder="Ask me anything about workflows, agents, or best practices..."
               className="min-h-[60px] max-h-[120px] resize-none"
               onKeyDown={(e) => {
-                if (e.key === 'Enter' && !e.shiftKey) {
+                if (e.key === "Enter" && !e.shiftKey) {
                   e.preventDefault();
                   handleSubmit(e);
                 }
