@@ -8,6 +8,21 @@
 
 ---
 
+## 🆕 GitHub-Only Architecture (Zero Cost!)
+
+**NEW:** Run PROJECT-SWARM entirely on GitHub infrastructure with **$0/month cost**:
+
+- 💾 **Database:** SQLite in repository (< 2 GB free)
+- 🔌 **API Layer:** GitHub Actions as serverless endpoints
+- 🌐 **Frontend:** GitHub Pages static hosting
+- 🔒 **Auth:** GitHub OAuth (Personal Access Token)
+
+**[📖 Setup Guide](./docs/SETUP-GUIDE.md)** | **[🏗️ Architecture](./docs/GITHUB-ONLY-ARCHITECTURE.md)** | **[📋 Implementation Plan](./docs/IMPLEMENTATION-PLAN.md)**
+
+> **Trade-off:** 10–30s API latency (vs < 200ms with Azure). Perfect for MVPs, side projects, and learning. Migrate to Azure when you need production performance — see [Azure Setup Guide](./docs/AZURE-SETUP-GUIDE.md).
+
+---
+
 ## 🚀 Quick Start
 
 ```bash
