@@ -128,12 +128,12 @@ export class CostTracker {
       where: and(eq(providerPricing.provider, provider), eq(providerPricing.model, model)),
     });
 
-    let estimatedCost = 0;
+    let costUsd = 0;
     if (pricing) {
       // Calculate cost in cents
       const inputCost = (tokenUsage.inputTokens / 1_000_000) * pricing.inputTokenPrice;
       const outputCost = (tokenUsage.outputTokens / 1_000_000) * pricing.outputTokenPrice;
-      estimatedCost = Math.round(inputCost + outputCost);
+      costUsd = Math.round(inputCost + outputCost);
     }
 
     // Store cost record
@@ -144,11 +144,10 @@ export class CostTracker {
         agentId,
         provider,
         model,
-        inputTokens: tokenUsage.inputTokens,
-        outputTokens: tokenUsage.outputTokens,
+        promptTokens: tokenUsage.inputTokens,
+        completionTokens: tokenUsage.outputTokens,
         totalTokens: tokenUsage.totalTokens,
-        estimatedCost,
-        currency: pricing?.currency || "USD",
+        costUsd,
       })
       .returning();
 
@@ -172,13 +171,13 @@ export class CostTracker {
       .where(
         and(
           eq(executions.userId, userId),
-          gte(executionCosts.calculatedAt, startDate),
-          lte(executionCosts.calculatedAt, endDate)
+          gte(executionCosts.timestamp, startDate),
+          lte(executionCosts.timestamp, endDate)
         )
       );
 
     // Calculate total cost
-    const totalCost = costs.reduce((sum, record) => sum + (record.cost.estimatedCost || 0), 0);
+    const totalCost = costs.reduce((sum, record) => sum + (record.cost.costUsd || 0), 0);
 
     // Breakdown by workflow
     const workflowCosts = new Map<string, { name: string; cost: number }>();
@@ -188,24 +187,21 @@ export class CostTracker {
         workflowCosts.set(wfId, { name: "Unknown", cost: 0 });
       }
       const wf = workflowCosts.get(wfId)!;
-      wf.cost += record.cost.estimatedCost || 0;
+      wf.cost += record.cost.costUsd || 0;
     });
 
     // Breakdown by provider
     const providerCosts = new Map<string, number>();
     costs.forEach((record) => {
       const provider = record.cost.provider;
-      providerCosts.set(
-        provider,
-        (providerCosts.get(provider) || 0) + (record.cost.estimatedCost || 0)
-      );
+      providerCosts.set(provider, (providerCosts.get(provider) || 0) + (record.cost.costUsd || 0));
     });
 
     // Breakdown by model
     const modelCosts = new Map<string, number>();
     costs.forEach((record) => {
       const model = record.cost.model;
-      modelCosts.set(model, (modelCosts.get(model) || 0) + (record.cost.estimatedCost || 0));
+      modelCosts.set(model, (modelCosts.get(model) || 0) + (record.cost.costUsd || 0));
     });
 
     // Breakdown by agent
@@ -216,7 +212,7 @@ export class CostTracker {
         agentCosts.set(agentId, { name: record.agent.name, cost: 0 });
       }
       const agent = agentCosts.get(agentId)!;
-      agent.cost += record.cost.estimatedCost || 0;
+      agent.cost += record.cost.costUsd || 0;
     });
 
     const period = `${startDate.toISOString().split("T")[0]} to ${endDate.toISOString().split("T")[0]}`;
@@ -272,14 +268,14 @@ export class CostTracker {
       .where(
         and(
           eq(executions.userId, userId),
-          gte(executionCosts.calculatedAt, startDate),
-          lte(executionCosts.calculatedAt, endDate)
+          gte(executionCosts.timestamp, startDate),
+          lte(executionCosts.timestamp, endDate)
         )
       );
 
     const totalTokens = costs.reduce((sum, r) => sum + (r.cost.totalTokens || 0), 0);
-    const inputTokens = costs.reduce((sum, r) => sum + (r.cost.inputTokens || 0), 0);
-    const outputTokens = costs.reduce((sum, r) => sum + (r.cost.outputTokens || 0), 0);
+    const inputTokens = costs.reduce((sum, r) => sum + (r.cost.promptTokens || 0), 0);
+    const outputTokens = costs.reduce((sum, r) => sum + (r.cost.completionTokens || 0), 0);
 
     const providerTokens = new Map<string, number>();
     costs.forEach((record) => {
@@ -318,17 +314,17 @@ export class CostTracker {
       .where(
         and(
           eq(executions.userId, userId),
-          gte(executionCosts.calculatedAt, startDate),
-          lte(executionCosts.calculatedAt, endDate)
+          gte(executionCosts.timestamp, startDate),
+          lte(executionCosts.timestamp, endDate)
         )
       )
-      .orderBy(executionCosts.calculatedAt);
+      .orderBy(executionCosts.timestamp);
 
     // Group by date
     const dailyCosts = new Map<string, number>();
     costs.forEach((record) => {
-      const date = record.cost.calculatedAt.toISOString().split("T")[0];
-      dailyCosts.set(date, (dailyCosts.get(date) || 0) + (record.cost.estimatedCost || 0));
+      const date = record.cost.timestamp.toISOString().split("T")[0];
+      dailyCosts.set(date, (dailyCosts.get(date) || 0) + (record.cost.costUsd || 0));
     });
 
     return Array.from(dailyCosts.entries())
@@ -365,7 +361,7 @@ export class CostTracker {
         workflowStats.set(wfId, { name: "Unknown", totalCost: 0, executionCount: 0 });
       }
       const stats = workflowStats.get(wfId)!;
-      stats.totalCost += record.cost.estimatedCost || 0;
+      stats.totalCost += record.cost.costUsd || 0;
       stats.executionCount++;
     });
 
@@ -396,8 +392,8 @@ export class CostTracker {
       .where(
         and(
           eq(executions.userId, userId),
-          gte(executionCosts.calculatedAt, startDate),
-          lte(executionCosts.calculatedAt, endDate)
+          gte(executionCosts.timestamp, startDate),
+          lte(executionCosts.timestamp, endDate)
         )
       );
 
@@ -409,25 +405,23 @@ export class CostTracker {
       "Agent",
       "Provider",
       "Model",
-      "Input Tokens",
-      "Output Tokens",
+      "Prompt Tokens",
+      "Completion Tokens",
       "Total Tokens",
-      "Cost (cents)",
-      "Currency",
+      "Cost (micro-cents)",
     ];
 
     const rows = costs.map((record) => [
-      record.cost.calculatedAt.toISOString(),
+      record.cost.timestamp.toISOString(),
       record.execution.id,
       record.execution.workflowId,
       record.agent.name,
       record.cost.provider,
       record.cost.model,
-      record.cost.inputTokens,
-      record.cost.outputTokens,
+      record.cost.promptTokens,
+      record.cost.completionTokens,
       record.cost.totalTokens,
-      record.cost.estimatedCost,
-      record.cost.currency,
+      record.cost.costUsd,
     ]);
 
     const csv = [

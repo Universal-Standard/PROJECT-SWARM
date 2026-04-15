@@ -1,13 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -29,6 +23,7 @@ import {
 } from "@/components/ui/dialog";
 import { Clock, Play, Pause, Trash2, Plus } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { apiRequest } from "@/lib/queryClient";
 
 interface WorkflowSchedule {
   id: string;
@@ -69,12 +64,7 @@ export function ScheduleConfig({ workflowId }: ScheduleConfigProps) {
 
   const createScheduleMutation = useMutation({
     mutationFn: async (data: { cronExpression: string; timezone: string }) => {
-      const response = await fetch(`/api/workflows/${workflowId}/schedules`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
-      });
-      if (!response.ok) throw new Error("Failed to create schedule");
+      const response = await apiRequest("POST", `/api/workflows/${workflowId}/schedules`, data);
       return response.json();
     },
     onSuccess: () => {
@@ -98,10 +88,10 @@ export function ScheduleConfig({ workflowId }: ScheduleConfigProps) {
 
   const toggleScheduleMutation = useMutation({
     mutationFn: async ({ id, enabled }: { id: string; enabled: boolean }) => {
-      const response = await fetch(`/api/schedules/${id}/${enabled ? "resume" : "pause"}`, {
-        method: "POST",
-      });
-      if (!response.ok) throw new Error("Failed to update schedule");
+      const response = await apiRequest(
+        "POST",
+        `/api/schedules/${id}/${enabled ? "resume" : "pause"}`
+      );
       return response.json();
     },
     onSuccess: () => {
@@ -118,10 +108,7 @@ export function ScheduleConfig({ workflowId }: ScheduleConfigProps) {
 
   const deleteScheduleMutation = useMutation({
     mutationFn: async (id: string) => {
-      const response = await fetch(`/api/schedules/${id}`, {
-        method: "DELETE",
-      });
-      if (!response.ok) throw new Error("Failed to delete schedule");
+      const response = await apiRequest("DELETE", `/api/schedules/${id}`);
       return response.json();
     },
     onSuccess: () => {
@@ -173,9 +160,7 @@ export function ScheduleConfig({ workflowId }: ScheduleConfigProps) {
                 <Clock className="h-5 w-5" />
                 Scheduled Executions
               </CardTitle>
-              <CardDescription>
-                Automate workflow execution on a recurring schedule
-              </CardDescription>
+              <CardDescription>Automate workflow execution on a recurring schedule</CardDescription>
             </div>
             <Button onClick={() => setShowCreateDialog(true)} size="sm">
               <Plus className="h-4 w-4 mr-2" />
@@ -216,11 +201,7 @@ export function ScheduleConfig({ workflowId }: ScheduleConfigProps) {
                       </div>
                     </div>
                     <div className="flex gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleToggle(schedule)}
-                      >
+                      <Button variant="outline" size="sm" onClick={() => handleToggle(schedule)}>
                         {schedule.enabled ? (
                           <>
                             <Pause className="h-4 w-4 mr-2" />
@@ -233,11 +214,7 @@ export function ScheduleConfig({ workflowId }: ScheduleConfigProps) {
                           </>
                         )}
                       </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleDelete(schedule.id)}
-                      >
+                      <Button variant="outline" size="sm" onClick={() => handleDelete(schedule.id)}>
                         <Trash2 className="h-4 w-4" />
                       </Button>
                     </div>
@@ -307,10 +284,7 @@ export function ScheduleConfig({ workflowId }: ScheduleConfigProps) {
             <Button variant="outline" onClick={() => setShowCreateDialog(false)}>
               Cancel
             </Button>
-            <Button
-              onClick={handleCreateSchedule}
-              disabled={createScheduleMutation.isPending}
-            >
+            <Button onClick={handleCreateSchedule} disabled={createScheduleMutation.isPending}>
               {createScheduleMutation.isPending ? "Creating..." : "Create Schedule"}
             </Button>
           </DialogFooter>

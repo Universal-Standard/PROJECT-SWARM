@@ -8,6 +8,7 @@ import memoize from "memoizee";
 import connectPg from "connect-pg-simple";
 import { storage } from "./storage";
 import type { ReplitAuthUser } from "./types/auth";
+import { csrfProtection, generateToken } from "./middleware/csrf";
 
 if (!process.env.REPLIT_DOMAINS) {
   throw new Error("Environment variable REPLIT_DOMAINS not provided");
@@ -39,7 +40,8 @@ export function getSession() {
     saveUninitialized: false,
     cookie: {
       httpOnly: true,
-      secure: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax", // Mitigates CSRF attacks: cookie only sent on same-site requests and top-level navigations
       maxAge: sessionTtl,
     },
   });
@@ -50,17 +52,18 @@ function updateUserSession(
   tokens: client.TokenEndpointResponse & client.TokenEndpointResponseHelpers
 ): void {
   const claims = tokens.claims();
+  if (!claims) return;
   user.claims = {
-    sub: claims.sub,
-    email: claims.email,
-    first_name: claims.first_name,
-    last_name: claims.last_name,
-    profile_image_url: claims.profile_image_url,
-    exp: claims.exp,
+    sub: claims["sub"] as string,
+    email: (claims["email"] as string | undefined) ?? "",
+    first_name: claims["first_name"] as string | undefined,
+    last_name: claims["last_name"] as string | undefined,
+    profile_image_url: claims["profile_image_url"] as string | undefined,
+    exp: claims["exp"] as number | undefined,
   };
   user.access_token = tokens.access_token;
   user.refresh_token = tokens.refresh_token;
-  user.expires_at = claims.exp;
+  user.expires_at = claims["exp"] as number | undefined;
 }
 
 async function upsertUser(claims: Record<string, unknown>): Promise<void> {
@@ -79,6 +82,14 @@ export async function setupAuth(app: Express) {
   app.use(passport.initialize());
   app.use(passport.session());
 
+  // Apply CSRF protection immediately after session/passport setup.
+  // The /api/csrf-token endpoint and OAuth callback routes are exempted automatically.
+  app.get("/api/csrf-token", (req, res) => {
+    const token = generateToken(req, res);
+    res.json({ csrfToken: token });
+  });
+  app.use(csrfProtection);
+
   const config = await getOidcConfig();
 
   const verify: VerifyFunction = async (
@@ -87,7 +98,7 @@ export async function setupAuth(app: Express) {
   ) => {
     const user: Partial<ReplitAuthUser> = {};
     updateUserSession(user, tokens);
-    await upsertUser(tokens.claims());
+    await upsertUser(tokens.claims() as Record<string, unknown>);
     verified(null, user);
   };
 

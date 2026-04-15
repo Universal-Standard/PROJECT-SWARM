@@ -8,6 +8,7 @@ import {
 } from "@shared/schema";
 import { eq, desc, and } from "drizzle-orm";
 import type { WorkflowNode, WorkflowEdge } from "../types/workflow";
+import { logger } from "./logger";
 
 interface AgentData {
   id: string;
@@ -17,8 +18,8 @@ interface AgentData {
   provider: string;
   model: string;
   systemPrompt: string | null;
-  temperature: number;
-  maxTokens: number;
+  temperature: number | null;
+  maxTokens: number | null;
   capabilities: unknown;
   nodeId: string;
   position: unknown;
@@ -92,11 +93,10 @@ export class WorkflowVersionManager {
       .insert(workflowVersions)
       .values({
         workflowId,
+        userId,
         version: newVersionNumber,
         commitMessage: commitMessage || `Version ${newVersionNumber}`,
-        createdBy: userId,
-        workflowData: workflowData as unknown,
-        parentVersionId: latestVersion?.id || null,
+        data: workflowData as unknown,
       })
       .returning();
 
@@ -135,7 +135,7 @@ export class WorkflowVersionManager {
       throw new Error("Version does not belong to this workflow");
     }
 
-    const workflowData = version.workflowData as WorkflowData;
+    const workflowData = version.data as WorkflowData;
 
     // Update workflow
     await db
@@ -203,8 +203,8 @@ export class WorkflowVersionManager {
       throw new Error("One or both versions not found");
     }
 
-    const data1 = version1.workflowData as WorkflowData;
-    const data2 = version2.workflowData as WorkflowData;
+    const data1 = version1.data as WorkflowData;
+    const data2 = version2.data as WorkflowData;
 
     // Calculate differences
     const nodes1Ids = new Set(data1.nodes.map((n) => n.id));
@@ -252,42 +252,28 @@ export class WorkflowVersionManager {
   }
 
   /**
-   * Tag a version (e.g., "production", "v1.0", "stable")
+   * Tag a version (e.g., "production", "v1.0", "stable") via commit message update
    */
   async tagVersion(versionId: string, tag: string): Promise<void> {
-    await db.update(workflowVersions).set({ tag }).where(eq(workflowVersions.id, versionId));
+    const version = await this.getVersion(versionId);
+    if (!version) throw new Error("Version not found");
+    await db
+      .update(workflowVersions)
+      .set({ commitMessage: tag })
+      .where(eq(workflowVersions.id, versionId));
   }
 
   /**
-   * Update version statistics after execution
+   * Update version statistics after execution (no-op: stats not stored in schema)
    */
-  async updateVersionStats(workflowId: string, success: boolean, duration: number): Promise<void> {
-    const latestVersion = await db.query.workflowVersions.findFirst({
-      where: eq(workflowVersions.workflowId, workflowId),
-      orderBy: [desc(workflowVersions.version)],
-    });
-
-    if (!latestVersion) return;
-
-    const newExecutionCount = (latestVersion.executionCount || 0) + 1;
-    const currentSuccessRate = latestVersion.successRate || 0;
-    const newSuccessRate = Math.round(
-      (currentSuccessRate * (newExecutionCount - 1) + (success ? 100 : 0)) / newExecutionCount
-    );
-
-    const currentAvgDuration = latestVersion.avgDuration || 0;
-    const newAvgDuration = Math.round(
-      (currentAvgDuration * (newExecutionCount - 1) + duration) / newExecutionCount
-    );
-
-    await db
-      .update(workflowVersions)
-      .set({
-        executionCount: newExecutionCount,
-        successRate: newSuccessRate,
-        avgDuration: newAvgDuration,
-      })
-      .where(eq(workflowVersions.id, latestVersion.id));
+  async updateVersionStats(
+    _workflowId: string,
+    _success: boolean,
+    _duration: number
+  ): Promise<void> {
+    // Statistics tracking is not currently persisted in the workflow_versions schema.
+    // This method is intentionally a no-op; implement by adding stats columns to the schema.
+    logger.debug("updateVersionStats called but not implemented — stats not persisted in schema");
   }
 
   /**
@@ -299,7 +285,7 @@ export class WorkflowVersionManager {
       throw new Error("Version not found");
     }
 
-    return version.workflowData as WorkflowData;
+    return version.data as WorkflowData;
   }
 }
 

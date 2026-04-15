@@ -2,12 +2,10 @@ import cron, { type ScheduledTask } from "node-cron";
 import { db } from "../db";
 import {
   workflowSchedules,
-  executions,
-  workflows,
   type WorkflowSchedule,
   type InsertWorkflowSchedule,
 } from "@shared/schema";
-import { eq, and } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { orchestrator } from "../ai/orchestrator";
 import { logger } from "./logger";
 
@@ -58,13 +56,13 @@ export class WorkflowScheduler {
     }
 
     // Calculate next run time
-    const nextRunAt = this.getNextRunTime(data.cronExpression, data.timezone || "UTC");
+    const nextRun = this.getNextRunTime(data.cronExpression, data.timezone || "UTC");
 
     const [schedule] = await db
       .insert(workflowSchedules)
       .values({
         ...data,
-        nextRunAt,
+        nextRun,
       })
       .returning();
 
@@ -89,13 +87,13 @@ export class WorkflowScheduler {
     }
 
     // Calculate new next run time if cron or timezone changed
-    let nextRunAt: Date | undefined;
+    let nextRun: Date | undefined;
     if (updates.cronExpression || updates.timezone) {
       const schedule = await db.query.workflowSchedules.findFirst({
         where: eq(workflowSchedules.id, scheduleId),
       });
       if (schedule) {
-        nextRunAt = this.getNextRunTime(
+        nextRun = this.getNextRunTime(
           updates.cronExpression || schedule.cronExpression,
           updates.timezone || schedule.timezone
         );
@@ -106,7 +104,7 @@ export class WorkflowScheduler {
       .update(workflowSchedules)
       .set({
         ...updates,
-        ...(nextRunAt && { nextRunAt }),
+        ...(nextRun && { nextRun }),
         updatedAt: new Date(),
       })
       .where(eq(workflowSchedules.id, scheduleId))
@@ -170,58 +168,25 @@ export class WorkflowScheduler {
    */
   private async executeScheduledWorkflow(schedule: WorkflowSchedule): Promise<void> {
     try {
-      // Get workflow
-      const workflow = await db.query.workflows.findFirst({
-        where: eq(workflows.id, schedule.workflowId),
+      // Execute workflow (orchestrator handles execution creation internally)
+      await orchestrator.executeWorkflow(schedule.workflowId, {
+        scheduled: true,
+        scheduleId: schedule.id,
       });
 
-      if (!workflow) {
-        logger.error(`Workflow ${schedule.workflowId} not found`);
-        return;
-      }
-
-      // Create execution record
-      const [execution] = await db
-        .insert(executions)
-        .values({
-          workflowId: schedule.workflowId,
-          userId: workflow.userId,
-          status: "pending",
-          input: { scheduled: true, scheduleId: schedule.id },
+      // Update schedule last run and next run times
+      await db
+        .update(workflowSchedules)
+        .set({
+          lastRun: new Date(),
+          nextRun: this.getNextRunTime(schedule.cronExpression, schedule.timezone),
+          updatedAt: new Date(),
         })
-        .returning();
+        .where(eq(workflowSchedules.id, schedule.id));
 
-      // Execute workflow
-      try {
-        await orchestrator.executeWorkflow(execution.id);
-
-        // Update schedule statistics
-        await db
-          .update(workflowSchedules)
-          .set({
-            lastRunAt: new Date(),
-            nextRunAt: this.getNextRunTime(schedule.cronExpression, schedule.timezone),
-            executionCount: (schedule.executionCount || 0) + 1,
-            updatedAt: new Date(),
-          })
-          .where(eq(workflowSchedules.id, schedule.id));
-
-        logger.info("Successfully executed scheduled workflow", {
-          workflowId: schedule.workflowId,
-        });
-      } catch (error) {
-        logger.error(`Error executing workflow ${schedule.workflowId}`, error);
-
-        // Update execution with error
-        await db
-          .update(executions)
-          .set({
-            status: "failed",
-            error: error instanceof Error ? error.message : "Unknown error",
-            completedAt: new Date(),
-          })
-          .where(eq(executions.id, execution.id));
-      }
+      logger.info("Successfully executed scheduled workflow", {
+        workflowId: schedule.workflowId,
+      });
     } catch (error) {
       logger.error("Error in scheduled workflow execution", error);
     }

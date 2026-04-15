@@ -37,7 +37,7 @@ export function validate(schema: ZodSchema, target: ValidationTarget = "body") {
       const validated = await schema.parseAsync(data);
 
       // Replace the original data with validated data
-      (req as Record<string, unknown>)[target] = validated;
+      (req as unknown as Record<string, unknown>)[target] = validated;
 
       next();
     } catch (error) {
@@ -93,7 +93,7 @@ export function validateMultiple(schemas: Partial<Record<ValidationTarget, ZodSc
         try {
           const data = req[target as ValidationTarget];
           const validated = await schema.parseAsync(data);
-          (req as Record<string, unknown>)[target as ValidationTarget] = validated;
+          (req as unknown as Record<string, unknown>)[target as ValidationTarget] = validated;
         } catch (error) {
           if (error && typeof error === "object" && "issues" in error) {
             const zodError = error as ZodError;

@@ -2,15 +2,44 @@ import { useAuth } from "@/hooks/useAuth";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Settings, User, LogOut, Key, Trash2, Download, Github, Check, X, Eye, EyeOff } from "lucide-react";
+import {
+  Settings,
+  User,
+  LogOut,
+  Key,
+  Trash2,
+  Download,
+  Github,
+  Check,
+  X,
+  Eye,
+  EyeOff,
+} from "lucide-react";
 import { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
 
 export default function AppSettings() {
   const { user, isLoading: authLoading, isAuthenticated } = useAuth();
@@ -18,9 +47,9 @@ export default function AppSettings() {
   const queryClient = useQueryClient();
 
   const [apiKeys, setApiKeys] = useState({
-    openai: '',
-    anthropic: '',
-    gemini: '',
+    openai: "",
+    anthropic: "",
+    gemini: "",
   });
   const [showKeys, setShowKeys] = useState({
     openai: false,
@@ -30,37 +59,31 @@ export default function AppSettings() {
 
   // Fetch settings
   const { data: settings, isLoading: settingsLoading } = useQuery({
-    queryKey: ['/api/settings'],
+    queryKey: ["/api/settings"],
     enabled: isAuthenticated,
   });
 
   // Fetch GitHub status
   const { data: githubStatus } = useQuery({
-    queryKey: ['/api/auth/github/status'],
+    queryKey: ["/api/auth/github/status"],
     enabled: isAuthenticated,
   });
 
   // Update settings mutation
   const updateSettingsMutation = useMutation({
     mutationFn: async (data: any) => {
-      const res = await fetch('/api/settings', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
-        credentials: 'include',
-      });
-      if (!res.ok) throw new Error('Failed to update settings');
+      const res = await apiRequest("PATCH", "/api/settings", data);
       return res.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/settings'] });
-      toast({ title: 'Settings updated successfully' });
+      queryClient.invalidateQueries({ queryKey: ["/api/settings"] });
+      toast({ title: "Settings updated successfully" });
     },
     onError: (error: any) => {
-      toast({ 
-        title: 'Failed to update settings', 
+      toast({
+        title: "Failed to update settings",
         description: error.message,
-        variant: 'destructive' 
+        variant: "destructive",
       });
     },
   });
@@ -68,25 +91,19 @@ export default function AppSettings() {
   // Save API key mutation
   const saveApiKeyMutation = useMutation({
     mutationFn: async ({ provider, apiKey }: { provider: string; apiKey: string }) => {
-      const res = await fetch('/api/settings/api-keys', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ provider, apiKey }),
-        credentials: 'include',
-      });
-      if (!res.ok) throw new Error('Failed to save API key');
+      const res = await apiRequest("POST", "/api/settings/api-keys", { provider, apiKey });
       return res.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/settings'] });
-      toast({ title: 'API key saved successfully' });
-      setApiKeys({ openai: '', anthropic: '', gemini: '' });
+      queryClient.invalidateQueries({ queryKey: ["/api/settings"] });
+      toast({ title: "API key saved successfully" });
+      setApiKeys({ openai: "", anthropic: "", gemini: "" });
     },
     onError: (error: any) => {
-      toast({ 
-        title: 'Failed to save API key', 
+      toast({
+        title: "Failed to save API key",
         description: error.message,
-        variant: 'destructive' 
+        variant: "destructive",
       });
     },
   });
@@ -94,86 +111,73 @@ export default function AppSettings() {
   // Test API key mutation
   const testApiKeyMutation = useMutation({
     mutationFn: async ({ provider, apiKey }: { provider: string; apiKey: string }) => {
-      const res = await fetch('/api/settings/test-api-key', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ provider, apiKey }),
-        credentials: 'include',
-      });
+      const res = await apiRequest("POST", "/api/settings/test-api-key", { provider, apiKey });
       const data = await res.json();
-      if (!data.valid) throw new Error(data.error || 'API key is invalid');
+      if (!data.valid) throw new Error(data.error || "API key is invalid");
       return data;
     },
     onSuccess: () => {
-      toast({ title: 'API key is valid!', description: 'Connection successful' });
+      toast({ title: "API key is valid!", description: "Connection successful" });
     },
     onError: (error: any) => {
-      toast({ 
-        title: 'API key is invalid', 
+      toast({
+        title: "API key is invalid",
         description: error.message,
-        variant: 'destructive' 
+        variant: "destructive",
       });
     },
   });
 
-  // Connect GitHub
+  // Connect GitHub (GET - reads authUrl, no CSRF needed)
   const handleConnectGitHub = async () => {
     try {
-      const res = await fetch('/api/auth/github/authorize', { credentials: 'include' });
+      const res = await fetch("/api/auth/github/authorize", { credentials: "include" });
       const { authUrl } = await res.json();
       window.location.href = authUrl;
     } catch (error: any) {
-      toast({ title: 'Failed to start GitHub OAuth', variant: 'destructive' });
+      toast({ title: "Failed to start GitHub OAuth", variant: "destructive" });
     }
   };
 
   // Disconnect GitHub
   const disconnectGitHubMutation = useMutation({
     mutationFn: async () => {
-      const res = await fetch('/api/auth/github/disconnect', {
-        method: 'POST',
-        credentials: 'include',
-      });
-      if (!res.ok) throw new Error('Failed to disconnect GitHub');
+      const res = await apiRequest("POST", "/api/auth/github/disconnect");
       return res.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/auth/github/status'] });
-      toast({ title: 'GitHub disconnected successfully' });
+      queryClient.invalidateQueries({ queryKey: ["/api/auth/github/status"] });
+      toast({ title: "GitHub disconnected successfully" });
     },
   });
 
   // Delete all workflows
   const deleteWorkflowsMutation = useMutation({
     mutationFn: async () => {
-      const res = await fetch('/api/settings/workflows', {
-        method: 'DELETE',
-        credentials: 'include',
-      });
-      if (!res.ok) throw new Error('Failed to delete workflows');
+      const res = await apiRequest("DELETE", "/api/settings/workflows");
       return res.json();
     },
     onSuccess: () => {
-      toast({ title: 'All workflows deleted' });
+      toast({ title: "All workflows deleted" });
     },
   });
 
-  // Export data
+  // Export data (GET - no CSRF needed)
   const handleExportData = async () => {
     try {
-      const res = await fetch('/api/settings/export', { credentials: 'include' });
+      const res = await fetch("/api/settings/export", { credentials: "include" });
       const blob = await res.blob();
       const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
+      const a = document.createElement("a");
       a.href = url;
       a.download = `swarm-data-${Date.now()}.json`;
       document.body.appendChild(a);
       a.click();
       window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
-      toast({ title: 'Data exported successfully' });
+      toast({ title: "Data exported successfully" });
     } catch (error: any) {
-      toast({ title: 'Failed to export data', variant: 'destructive' });
+      toast({ title: "Failed to export data", variant: "destructive" });
     }
   };
 
@@ -212,19 +216,21 @@ export default function AppSettings() {
             <User className="w-5 h-5 text-primary" />
             <h2 className="text-xl font-semibold">Profile</h2>
           </div>
-          
+
           <div className="flex items-center gap-6">
             <Avatar className="w-20 h-20">
-              {(user as any)?.profileImageUrl && <AvatarImage src={(user as any).profileImageUrl} />}
+              {(user as any)?.profileImageUrl && (
+                <AvatarImage src={(user as any).profileImageUrl} />
+              )}
               <AvatarFallback className="bg-primary text-primary-foreground text-2xl">
                 {(user as any)?.firstName?.[0] || (user as any)?.email?.[0]?.toUpperCase() || "U"}
               </AvatarFallback>
             </Avatar>
-            
+
             <div className="flex-1">
               <div className="font-semibold text-lg">
-                {(user as any)?.firstName && (user as any)?.lastName 
-                  ? `${(user as any).firstName} ${(user as any).lastName}` 
+                {(user as any)?.firstName && (user as any)?.lastName
+                  ? `${(user as any).firstName} ${(user as any).lastName}`
                   : (user as any)?.email}
               </div>
               {(user as any)?.email && (
@@ -240,7 +246,7 @@ export default function AppSettings() {
             <Github className="w-5 h-5 text-primary" />
             <h2 className="text-xl font-semibold">GitHub Integration</h2>
           </div>
-          
+
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <div>
@@ -248,7 +254,9 @@ export default function AppSettings() {
                 <div className="text-sm text-muted-foreground mt-1">
                   {(githubStatus as any)?.connected ? (
                     <span className="flex items-center gap-2 text-green-600">
-                      <Check className="w-4 h-4" /> Connected {(githubStatus as any).tokenPreview && `(${(githubStatus as any).tokenPreview})`}
+                      <Check className="w-4 h-4" /> Connected{" "}
+                      {(githubStatus as any).tokenPreview &&
+                        `(${(githubStatus as any).tokenPreview})`}
                     </span>
                   ) : (
                     <span className="flex items-center gap-2 text-muted-foreground">
@@ -267,11 +275,7 @@ export default function AppSettings() {
                   Disconnect
                 </Button>
               ) : (
-                <Button
-                  variant="default"
-                  size="sm"
-                  onClick={handleConnectGitHub}
-                >
+                <Button variant="default" size="sm" onClick={handleConnectGitHub}>
                   <Github className="w-4 h-4 mr-2" />
                   Connect GitHub
                 </Button>
@@ -286,19 +290,25 @@ export default function AppSettings() {
             <Key className="w-5 h-5 text-primary" />
             <h2 className="text-xl font-semibold">API Keys</h2>
           </div>
-          
+
           <div className="space-y-6">
-            {(['openai', 'anthropic', 'gemini'] as const).map((provider) => (
+            {(["openai", "anthropic", "gemini"] as const).map((provider) => (
               <div key={provider} className="space-y-2">
                 <Label htmlFor={`${provider}-key`} className="capitalize">
-                  {provider === 'gemini' ? 'Google Gemini' : provider} API Key
+                  {provider === "gemini" ? "Google Gemini" : provider} API Key
                 </Label>
                 <div className="flex gap-2">
                   <div className="relative flex-1">
                     <Input
                       id={`${provider}-key`}
-                      type={showKeys[provider] ? 'text' : 'password'}
-                      placeholder={(settings as any)?.[`has${provider.charAt(0).toUpperCase() + provider.slice(1)}Key`] ? '••••••••••••••••' : 'Enter API key'}
+                      type={showKeys[provider] ? "text" : "password"}
+                      placeholder={
+                        (settings as any)?.[
+                          `has${provider.charAt(0).toUpperCase() + provider.slice(1)}Key`
+                        ]
+                          ? "••••••••••••••••"
+                          : "Enter API key"
+                      }
                       value={apiKeys[provider]}
                       onChange={(e) => setApiKeys({ ...apiKeys, [provider]: e.target.value })}
                     />
@@ -308,13 +318,19 @@ export default function AppSettings() {
                       className="absolute right-0 top-0 h-full"
                       onClick={() => setShowKeys({ ...showKeys, [provider]: !showKeys[provider] })}
                     >
-                      {showKeys[provider] ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      {showKeys[provider] ? (
+                        <EyeOff className="w-4 h-4" />
+                      ) : (
+                        <Eye className="w-4 h-4" />
+                      )}
                     </Button>
                   </div>
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => testApiKeyMutation.mutate({ provider, apiKey: apiKeys[provider] })}
+                    onClick={() =>
+                      testApiKeyMutation.mutate({ provider, apiKey: apiKeys[provider] })
+                    }
                     disabled={!apiKeys[provider] || testApiKeyMutation.isPending}
                   >
                     Test
@@ -322,7 +338,9 @@ export default function AppSettings() {
                   <Button
                     variant="default"
                     size="sm"
-                    onClick={() => saveApiKeyMutation.mutate({ provider, apiKey: apiKeys[provider] })}
+                    onClick={() =>
+                      saveApiKeyMutation.mutate({ provider, apiKey: apiKeys[provider] })
+                    }
                     disabled={!apiKeys[provider] || saveApiKeyMutation.isPending}
                   >
                     Save
@@ -339,12 +357,12 @@ export default function AppSettings() {
             <Settings className="w-5 h-5 text-primary" />
             <h2 className="text-xl font-semibold">Preferences</h2>
           </div>
-          
+
           <div className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="default-provider">Default AI Provider</Label>
               <Select
-                value={(settings as any)?.defaultProvider || 'openai'}
+                value={(settings as any)?.defaultProvider || "openai"}
                 onValueChange={(value) => updateSettingsMutation.mutate({ defaultProvider: value })}
               >
                 <SelectTrigger id="default-provider">
@@ -361,7 +379,7 @@ export default function AppSettings() {
             <div className="space-y-2">
               <Label htmlFor="theme">Theme</Label>
               <Select
-                value={(settings as any)?.theme || 'system'}
+                value={(settings as any)?.theme || "system"}
                 onValueChange={(value) => updateSettingsMutation.mutate({ theme: value })}
               >
                 <SelectTrigger id="theme">
@@ -378,11 +396,15 @@ export default function AppSettings() {
             <div className="flex items-center justify-between py-3 border-b">
               <div>
                 <div className="font-medium">Email Notifications</div>
-                <div className="text-sm text-muted-foreground">Receive email updates about your workflows</div>
+                <div className="text-sm text-muted-foreground">
+                  Receive email updates about your workflows
+                </div>
               </div>
               <Switch
                 checked={(settings as any)?.emailNotifications ?? true}
-                onCheckedChange={(checked) => updateSettingsMutation.mutate({ emailNotifications: checked })}
+                onCheckedChange={(checked) =>
+                  updateSettingsMutation.mutate({ emailNotifications: checked })
+                }
               />
             </div>
 
@@ -393,7 +415,9 @@ export default function AppSettings() {
               </div>
               <Switch
                 checked={(settings as any)?.inAppNotifications ?? true}
-                onCheckedChange={(checked) => updateSettingsMutation.mutate({ inAppNotifications: checked })}
+                onCheckedChange={(checked) =>
+                  updateSettingsMutation.mutate({ inAppNotifications: checked })
+                }
               />
             </div>
 
@@ -439,12 +463,14 @@ export default function AppSettings() {
             <Trash2 className="w-5 h-5 text-destructive" />
             <h2 className="text-xl font-semibold text-destructive">Danger Zone</h2>
           </div>
-          
+
           <div className="space-y-4">
             <div className="flex items-center justify-between py-3 border-b">
               <div>
                 <div className="font-medium">Export All Data</div>
-                <div className="text-sm text-muted-foreground">Download all your workflows and executions</div>
+                <div className="text-sm text-muted-foreground">
+                  Download all your workflows and executions
+                </div>
               </div>
               <Button variant="outline" size="sm" onClick={handleExportData}>
                 <Download className="w-4 h-4 mr-2" />
@@ -455,7 +481,9 @@ export default function AppSettings() {
             <div className="flex items-center justify-between py-3 border-b">
               <div>
                 <div className="font-medium">Delete All Workflows</div>
-                <div className="text-sm text-muted-foreground">Permanently delete all your workflows</div>
+                <div className="text-sm text-muted-foreground">
+                  Permanently delete all your workflows
+                </div>
               </div>
               <AlertDialog>
                 <AlertDialogTrigger asChild>
@@ -467,7 +495,8 @@ export default function AppSettings() {
                   <AlertDialogHeader>
                     <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
                     <AlertDialogDescription>
-                      This action cannot be undone. This will permanently delete all your workflows and their associated data.
+                      This action cannot be undone. This will permanently delete all your workflows
+                      and their associated data.
                     </AlertDialogDescription>
                   </AlertDialogHeader>
                   <AlertDialogFooter>

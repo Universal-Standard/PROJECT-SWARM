@@ -1,12 +1,13 @@
-import { useState } from 'react';
-import { useParams, useLocation } from 'wouter';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
-import { GitBranch, Clock, User, RotateCcw, Save } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
+import { useState } from "react";
+import { useParams, useLocation } from "wouter";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import { GitBranch, Clock, User, RotateCcw, Save } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import { apiRequest } from "@/lib/queryClient";
 
 interface WorkflowVersion {
   id: string;
@@ -25,7 +26,7 @@ export default function WorkflowVersionsPage() {
   const [, navigate] = useLocation();
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const [commitMessage, setCommitMessage] = useState('');
+  const [commitMessage, setCommitMessage] = useState("");
 
   const { data: versions = [], isLoading } = useQuery<WorkflowVersion[]>({
     queryKey: [`/api/workflows/${workflowId}/versions`],
@@ -34,52 +35,49 @@ export default function WorkflowVersionsPage() {
 
   const createVersion = useMutation({
     mutationFn: async (message: string) => {
-      const response = await fetch(`/api/workflows/${workflowId}/versions`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ commitMessage: message }),
+      const response = await apiRequest("POST", `/api/workflows/${workflowId}/versions`, {
+        commitMessage: message,
       });
-      if (!response.ok) throw new Error('Failed to create version');
       return response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/workflows/${workflowId}/versions`] });
-      setCommitMessage('');
+      setCommitMessage("");
       toast({
-        title: 'Version created',
-        description: 'Workflow version saved successfully',
+        title: "Version created",
+        description: "Workflow version saved successfully",
       });
     },
     onError: (error: Error) => {
       toast({
-        title: 'Error',
+        title: "Error",
         description: error.message,
-        variant: 'destructive',
+        variant: "destructive",
       });
     },
   });
 
   const restoreVersion = useMutation({
     mutationFn: async (versionId: string) => {
-      const response = await fetch(`/api/workflows/${workflowId}/versions/${versionId}/restore`, {
-        method: 'POST',
-      });
-      if (!response.ok) throw new Error('Failed to restore version');
+      const response = await apiRequest(
+        "POST",
+        `/api/workflows/${workflowId}/versions/${versionId}/restore`
+      );
       return response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/workflows/${workflowId}`] });
       queryClient.invalidateQueries({ queryKey: [`/api/workflows/${workflowId}/versions`] });
       toast({
-        title: 'Version restored',
-        description: 'Workflow has been restored to the selected version',
+        title: "Version restored",
+        description: "Workflow has been restored to the selected version",
       });
     },
     onError: (error: Error) => {
       toast({
-        title: 'Error',
+        title: "Error",
         description: error.message,
-        variant: 'destructive',
+        variant: "destructive",
       });
     },
   });
@@ -121,7 +119,7 @@ export default function WorkflowVersionsPage() {
               value={commitMessage}
               onChange={(e) => setCommitMessage(e.target.value)}
             />
-            <Button 
+            <Button
               onClick={() => createVersion.mutate(commitMessage)}
               disabled={!commitMessage || createVersion.isPending}
             >
@@ -136,7 +134,7 @@ export default function WorkflowVersionsPage() {
         <CardHeader>
           <CardTitle>Version History</CardTitle>
           <CardDescription>
-            {versions.length} version{versions.length !== 1 ? 's' : ''} saved
+            {versions.length} version{versions.length !== 1 ? "s" : ""} saved
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -148,13 +146,13 @@ export default function WorkflowVersionsPage() {
           ) : (
             <div className="space-y-4">
               {versions.map((version) => (
-                <div 
+                <div
                   key={version.id}
                   className="flex items-center justify-between border rounded-lg p-4 hover:bg-muted/50 transition-colors"
                 >
                   <div className="flex-1 space-y-2">
                     <div className="flex items-center gap-2">
-                      <Badge variant={version.isActive ? 'default' : 'secondary'}>
+                      <Badge variant={version.isActive ? "default" : "secondary"}>
                         v{version.version}
                       </Badge>
                       {version.isActive && (

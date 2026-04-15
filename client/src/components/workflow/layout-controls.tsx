@@ -1,27 +1,33 @@
-import { useState } from 'react';
-import { Button } from '@/components/ui/button';
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
   DropdownMenuSeparator,
-} from '@/components/ui/dropdown-menu';
-import { 
-  Layout, 
-  GitBranch, 
-  Circle, 
-  Grid3x3, 
+} from "@/components/ui/dropdown-menu";
+import {
+  Layout,
+  GitBranch,
+  Circle,
+  Grid3x3,
   Zap,
   AlignHorizontalJustifyCenter,
   AlignVerticalJustifyCenter,
   AlignHorizontalSpaceAround,
   AlignVerticalSpaceAround,
   RotateCcw,
-} from 'lucide-react';
-import { Node, Edge } from '@xyflow/react';
-import { applyLayout, LayoutType, LayoutDirection, alignNodes, distributeNodes } from '@/lib/workflow-layout';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+} from "lucide-react";
+import { Node, Edge } from "@xyflow/react";
+import {
+  applyLayout,
+  type LayoutAlgorithm,
+  type LayoutDirection,
+  alignNodes,
+  distributeNodes,
+} from "@/lib/workflow-layout";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface LayoutControlsProps {
   nodes: Node[];
@@ -40,39 +46,41 @@ export function LayoutControls({
 }: LayoutControlsProps) {
   const [isApplying, setIsApplying] = useState(false);
 
-  const handleAutoArrange = async (type: LayoutType, direction?: LayoutDirection) => {
+  const handleAutoArrange = async (algorithm: LayoutAlgorithm, direction?: LayoutDirection) => {
     setIsApplying(true);
     try {
-      const layoutedNodes = await applyLayout(nodes, edges, { type, direction });
+      const layoutedNodes = await applyLayout(nodes, edges, { algorithm, direction });
       onNodesChange(layoutedNodes);
     } catch (error) {
-      console.error('Layout failed:', error);
+      console.error("Layout failed:", error);
     } finally {
       setIsApplying(false);
     }
   };
 
-  const handleAlign = (alignment: 'left' | 'right' | 'top' | 'bottom' | 'center-h' | 'center-v') => {
+  const handleAlign = (
+    alignment: "left" | "right" | "top" | "bottom" | "center-h" | "center-v"
+  ) => {
     if (selectedNodes.length < 2) return;
-    
+
     const alignedNodes = alignNodes(selectedNodes, alignment);
-    const updatedNodes = nodes.map(n => {
-      const aligned = alignedNodes.find(an => an.id === n.id);
+    const updatedNodes = nodes.map((n) => {
+      const aligned = alignedNodes.find((an) => an.id === n.id);
       return aligned || n;
     });
-    
+
     onNodesChange(updatedNodes);
   };
 
-  const handleDistribute = (direction: 'horizontal' | 'vertical') => {
+  const handleDistribute = (direction: "horizontal" | "vertical") => {
     if (selectedNodes.length < 3) return;
-    
+
     const distributedNodes = distributeNodes(selectedNodes, direction);
-    const updatedNodes = nodes.map(n => {
-      const distributed = distributedNodes.find(dn => dn.id === n.id);
+    const updatedNodes = nodes.map((n) => {
+      const distributed = distributedNodes.find((dn) => dn.id === n.id);
       return distributed || n;
     });
-    
+
     onNodesChange(updatedNodes);
   };
 
@@ -92,7 +100,7 @@ export function LayoutControls({
                   data-testid="button-auto-arrange"
                 >
                   <Layout className="w-4 h-4" />
-                  {isApplying ? 'Arranging...' : 'Auto-Arrange'}
+                  {isApplying ? "Arranging..." : "Auto-Arrange"}
                 </Button>
               </DropdownMenuTrigger>
             </TooltipTrigger>
@@ -101,23 +109,23 @@ export function LayoutControls({
             </TooltipContent>
           </Tooltip>
           <DropdownMenuContent align="start">
-            <DropdownMenuItem onClick={() => handleAutoArrange('hierarchical', 'TB')}>
+            <DropdownMenuItem onClick={() => handleAutoArrange("hierarchical", "TB")}>
               <GitBranch className="w-4 h-4 mr-2" />
               Vertical Flow
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => handleAutoArrange('hierarchical', 'LR')}>
+            <DropdownMenuItem onClick={() => handleAutoArrange("hierarchical", "LR")}>
               <GitBranch className="w-4 h-4 mr-2 rotate-90" />
               Horizontal Flow
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => handleAutoArrange('force')}>
+            <DropdownMenuItem onClick={() => handleAutoArrange("force")}>
               <Zap className="w-4 h-4 mr-2" />
               Force-Directed
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => handleAutoArrange('circular')}>
+            <DropdownMenuItem onClick={() => handleAutoArrange("circular")}>
               <Circle className="w-4 h-4 mr-2" />
               Radial
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => handleAutoArrange('grid')}>
+            <DropdownMenuItem onClick={() => handleAutoArrange("grid")}>
               <Grid3x3 className="w-4 h-4 mr-2" />
               Grid
             </DropdownMenuItem>
@@ -141,23 +149,17 @@ export function LayoutControls({
               </TooltipContent>
             </Tooltip>
             <DropdownMenuContent align="start">
-              <DropdownMenuItem onClick={() => handleAlign('left')}>
-                Align Left
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => handleAlign('right')}>
-                Align Right
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => handleAlign('top')}>
-                Align Top
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => handleAlign('bottom')}>
+              <DropdownMenuItem onClick={() => handleAlign("left")}>Align Left</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleAlign("right")}>Align Right</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleAlign("top")}>Align Top</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleAlign("bottom")}>
                 Align Bottom
               </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => handleAlign('center-h')}>
+              <DropdownMenuItem onClick={() => handleAlign("center-h")}>
                 Center Horizontally
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => handleAlign('center-v')}>
+              <DropdownMenuItem onClick={() => handleAlign("center-v")}>
                 Center Vertically
               </DropdownMenuItem>
             </DropdownMenuContent>
@@ -181,11 +183,11 @@ export function LayoutControls({
               </TooltipContent>
             </Tooltip>
             <DropdownMenuContent align="start">
-              <DropdownMenuItem onClick={() => handleDistribute('horizontal')}>
+              <DropdownMenuItem onClick={() => handleDistribute("horizontal")}>
                 <AlignHorizontalSpaceAround className="w-4 h-4 mr-2" />
                 Horizontally
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => handleDistribute('vertical')}>
+              <DropdownMenuItem onClick={() => handleDistribute("vertical")}>
                 <AlignVerticalSpaceAround className="w-4 h-4 mr-2" />
                 Vertically
               </DropdownMenuItem>
