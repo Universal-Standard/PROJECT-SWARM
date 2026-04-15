@@ -2,7 +2,7 @@ import express from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { scheduler } from "./scheduler";
-import { errorHandler } from "./middleware/error-handler";
+import { errorHandler, notFoundHandler } from "./middleware/error-handler";
 import { wsManager } from "./websocket";
 import { createServer } from "http";
 import { configureHelmet } from "./middleware/helmet";
@@ -71,6 +71,8 @@ app.use((req, res, next) => {
   await costTracker.initializePricing();
 
   // Use enhanced error handler (must be registered after all routes)
+  // Register 404 handler for undefined API routes (must be before error handler, after all routes)
+  app.use("/api", notFoundHandler);
   app.use(errorHandler);
 
   // Create HTTP server and initialize WebSocket before serving static/vite
