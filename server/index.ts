@@ -9,6 +9,7 @@ import { configureHelmet } from "./middleware/helmet";
 import { corsMiddleware } from "./middleware/cors";
 import { globalRateLimiter } from "./middleware/rate-limiter";
 import { registerHealthRoutes } from "./routes/health";
+import { csrfProtection, generateToken } from "./middleware/csrf";
 
 const app = express();
 
@@ -57,6 +58,17 @@ app.use((req, res, next) => {
 (async () => {
   // Register health check routes early (before auth, so load balancers can reach them)
   registerHealthRoutes(app);
+
+  // CSRF token endpoint — must be registered before CSRF protection middleware
+  // so the frontend can fetch the token on page load
+  app.get("/api/csrf-token", (req, res) => {
+    const token = generateToken(req, res);
+    res.json({ csrfToken: token });
+  });
+
+  // CSRF protection for all state-mutating API routes
+  // (webhook trigger endpoints are exempted inside the middleware itself)
+  app.use(csrfProtection);
 
   await registerRoutes(app);
 
