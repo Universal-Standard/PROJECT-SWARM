@@ -8,6 +8,7 @@ import memoize from "memoizee";
 import connectPg from "connect-pg-simple";
 import { storage } from "./storage";
 import type { ReplitAuthUser } from "./types/auth";
+import { csrfProtection, generateToken } from "./middleware/csrf";
 
 if (!process.env.REPLIT_DOMAINS) {
   throw new Error("Environment variable REPLIT_DOMAINS not provided");
@@ -80,6 +81,14 @@ export async function setupAuth(app: Express) {
   app.use(getSession());
   app.use(passport.initialize());
   app.use(passport.session());
+
+  // Apply CSRF protection immediately after session/passport setup.
+  // The /api/csrf-token endpoint and OAuth callback routes are exempted automatically.
+  app.get("/api/csrf-token", (req, res) => {
+    const token = generateToken(req, res);
+    res.json({ csrfToken: token });
+  });
+  app.use(csrfProtection);
 
   const config = await getOidcConfig();
 

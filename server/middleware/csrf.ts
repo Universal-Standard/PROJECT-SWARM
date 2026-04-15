@@ -19,7 +19,9 @@ const { generateCsrfToken, doubleCsrfProtection } = doubleCsrf({
     const session = (req as any).session;
     return session?.id || req.ip || "anonymous";
   },
-  cookieName: "__Host-csrf",
+  // Use __Host- prefix in production (requires secure:true + no domain attribute).
+  // Use a plain name in development to avoid __Host- requirements with HTTP.
+  cookieName: process.env.NODE_ENV === "production" ? "__Host-csrf" : "csrf",
   cookieOptions: {
     httpOnly: true,
     sameSite: "lax",
@@ -33,11 +35,20 @@ const { generateCsrfToken, doubleCsrfProtection } = doubleCsrf({
 export { generateCsrfToken as generateToken };
 
 /**
- * CSRF guard middleware — skip for public webhook endpoints.
+ * CSRF guard middleware — skip for public webhook endpoints and OAuth flows.
  */
 export function csrfProtection(req: Request, res: Response, next: NextFunction): void {
-  // Webhook endpoints authenticate via HMAC and should not require CSRF tokens
-  if (req.path.startsWith("/webhooks/") || req.path.startsWith("/api/webhooks/trigger/")) {
+  // Webhook endpoints authenticate via HMAC and should not require CSRF tokens.
+  // OAuth login/callback use the `state` parameter for CSRF protection (RFC 6749 §10.12).
+  // The CSRF token endpoint itself is always safe (GET, returns the token).
+  if (
+    req.path.startsWith("/webhooks/") ||
+    req.path.startsWith("/api/webhooks/trigger/") ||
+    req.path === "/api/login" ||
+    req.path === "/api/callback" ||
+    req.path === "/api/logout" ||
+    req.path === "/api/csrf-token"
+  ) {
     return next();
   }
 
