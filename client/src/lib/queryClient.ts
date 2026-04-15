@@ -15,11 +15,19 @@ let _csrfToken: string | null = null;
 
 async function getCsrfToken(): Promise<string> {
   if (_csrfToken) return _csrfToken;
-  const res = await fetch("/api/csrf-token", { credentials: "include" });
-  if (!res.ok) return "";
-  const data = await res.json();
-  _csrfToken = data.csrfToken ?? "";
-  return _csrfToken ?? "";
+  try {
+    const res = await fetch("/api/csrf-token", { credentials: "include" });
+    if (!res.ok) {
+      console.error("[CSRF] Failed to fetch token:", res.status, res.statusText);
+      return "";
+    }
+    const data = await res.json();
+    _csrfToken = data.csrfToken ?? "";
+    return _csrfToken ?? "";
+  } catch (err) {
+    console.error("[CSRF] Error fetching token:", err);
+    return "";
+  }
 }
 
 /** Reset cached token (e.g. after logout) */

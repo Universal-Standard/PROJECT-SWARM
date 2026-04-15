@@ -13,8 +13,13 @@ import { logger } from "../lib/logger";
  * Frontend usage: fetch the token from GET /api/csrf-token, then include it
  * as the `X-CSRF-Token` request header on all mutating requests.
  */
+const CSRF_SECRET = process.env.SESSION_SECRET;
+if (!CSRF_SECRET && process.env.NODE_ENV === "production") {
+  throw new Error("SESSION_SECRET must be set in production for CSRF protection");
+}
+
 const { generateCsrfToken, doubleCsrfProtection } = doubleCsrf({
-  getSecret: () => process.env.SESSION_SECRET || "dev-csrf-secret-not-for-production",
+  getSecret: () => CSRF_SECRET || "dev-csrf-secret-not-for-production",
   getSessionIdentifier: (req: Request) => {
     const session = (req as any).session;
     return session?.id || req.ip || "anonymous";

@@ -204,10 +204,8 @@ export const AgentNode = memo(({ data, selected, id }: NodeProps) => {
               )}
             </div>
 
-            {!!data.description && (
-              <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
-                {String(data.description)}
-              </p>
+            {typeof data.description === "string" && data.description && (
+              <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{data.description}</p>
             )}
 
             <div className="flex items-center gap-2 mt-2 flex-wrap">
