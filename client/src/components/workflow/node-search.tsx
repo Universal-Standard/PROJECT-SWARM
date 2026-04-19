@@ -1,24 +1,20 @@
-import { useState, useMemo } from 'react';
-import { Node } from '@xyflow/react';
-import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { ScrollArea } from '@/components/ui/scroll-area';
+import { useState, useMemo } from "react";
+import { Node } from "@xyflow/react";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select';
-import { Search, X, Filter, ChevronRight } from 'lucide-react';
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from '@/components/ui/collapsible';
-import { Label } from '@/components/ui/label';
-import { Checkbox } from '@/components/ui/checkbox';
+} from "@/components/ui/select";
+import { Search, X, Filter, ChevronRight } from "lucide-react";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 
 interface NodeSearchProps {
   nodes: Node[];
@@ -27,16 +23,16 @@ interface NodeSearchProps {
 }
 
 export function NodeSearch({ nodes, onNodeSelect, onNodesHighlight }: NodeSearchProps) {
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState("");
   const [selectedRoles, setSelectedRoles] = useState<string[]>([]);
   const [selectedProviders, setSelectedProviders] = useState<string[]>([]);
-  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [statusFilter, setStatusFilter] = useState<string>("all");
   const [isFiltersOpen, setIsFiltersOpen] = useState(false);
 
   // Extract unique roles and providers
   const roles = useMemo(() => {
     const roleSet = new Set<string>();
-    nodes.forEach(node => {
+    nodes.forEach((node) => {
       if (node.data?.role) roleSet.add(node.data.role as string);
     });
     return Array.from(roleSet).sort();
@@ -44,7 +40,7 @@ export function NodeSearch({ nodes, onNodeSelect, onNodesHighlight }: NodeSearch
 
   const providers = useMemo(() => {
     const providerSet = new Set<string>();
-    nodes.forEach(node => {
+    nodes.forEach((node) => {
       if (node.data?.provider) providerSet.add(node.data.provider as string);
     });
     return Array.from(providerSet).sort();
@@ -57,12 +53,12 @@ export function NodeSearch({ nodes, onNodeSelect, onNodesHighlight }: NodeSearch
     // Text search
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
-      results = results.filter(node => {
-        const label = (node.data?.label as string || '').toLowerCase();
-        const role = (node.data?.role as string || '').toLowerCase();
-        const provider = (node.data?.provider as string || '').toLowerCase();
-        const description = (node.data?.description as string || '').toLowerCase();
-        const systemPrompt = (node.data?.systemPrompt as string || '').toLowerCase();
+      results = results.filter((node) => {
+        const label = ((node.data?.label as string) || "").toLowerCase();
+        const role = ((node.data?.role as string) || "").toLowerCase();
+        const provider = ((node.data?.provider as string) || "").toLowerCase();
+        const description = ((node.data?.description as string) || "").toLowerCase();
+        const systemPrompt = ((node.data?.systemPrompt as string) || "").toLowerCase();
 
         return (
           label.includes(query) ||
@@ -76,20 +72,16 @@ export function NodeSearch({ nodes, onNodeSelect, onNodesHighlight }: NodeSearch
 
     // Role filter
     if (selectedRoles.length > 0) {
-      results = results.filter(node =>
-        selectedRoles.includes(node.data?.role as string)
-      );
+      results = results.filter((node) => selectedRoles.includes(node.data?.role as string));
     }
 
     // Provider filter
     if (selectedProviders.length > 0) {
-      results = results.filter(node =>
-        selectedProviders.includes(node.data?.provider as string)
-      );
+      results = results.filter((node) => selectedProviders.includes(node.data?.provider as string));
     }
 
     // Status filter
-    if (statusFilter !== 'all') {
+    if (statusFilter !== "all") {
       // This would need edge data to determine connected/orphan status
       // For now, we'll implement a simple check
     }
@@ -100,34 +92,34 @@ export function NodeSearch({ nodes, onNodeSelect, onNodesHighlight }: NodeSearch
   // Highlight filtered nodes
   useMemo(() => {
     if (onNodesHighlight) {
-      onNodesHighlight(filteredNodes.map(n => n.id));
+      onNodesHighlight(filteredNodes.map((n) => n.id));
     }
   }, [filteredNodes, onNodesHighlight]);
 
   const handleRoleToggle = (role: string) => {
-    setSelectedRoles(prev =>
-      prev.includes(role) ? prev.filter(r => r !== role) : [...prev, role]
+    setSelectedRoles((prev) =>
+      prev.includes(role) ? prev.filter((r) => r !== role) : [...prev, role]
     );
   };
 
   const handleProviderToggle = (provider: string) => {
-    setSelectedProviders(prev =>
-      prev.includes(provider) ? prev.filter(p => p !== provider) : [...prev, provider]
+    setSelectedProviders((prev) =>
+      prev.includes(provider) ? prev.filter((p) => p !== provider) : [...prev, provider]
     );
   };
 
   const clearFilters = () => {
-    setSearchQuery('');
+    setSearchQuery("");
     setSelectedRoles([]);
     setSelectedProviders([]);
-    setStatusFilter('all');
+    setStatusFilter("all");
   };
 
   const hasActiveFilters =
-    searchQuery.trim() !== '' ||
+    searchQuery.trim() !== "" ||
     selectedRoles.length > 0 ||
     selectedProviders.length > 0 ||
-    statusFilter !== 'all';
+    statusFilter !== "all";
 
   return (
     <div className="space-y-4">
@@ -136,7 +128,7 @@ export function NodeSearch({ nodes, onNodeSelect, onNodesHighlight }: NodeSearch
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
         <Input
           value={searchQuery}
-          onChange={e => setSearchQuery(e.target.value)}
+          onChange={(e) => setSearchQuery(e.target.value)}
           placeholder="Search nodes..."
           className="pl-10 pr-10"
           data-testid="input-node-search"
@@ -145,7 +137,7 @@ export function NodeSearch({ nodes, onNodeSelect, onNodesHighlight }: NodeSearch
           <Button
             variant="ghost"
             size="sm"
-            onClick={() => setSearchQuery('')}
+            onClick={() => setSearchQuery("")}
             className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 p-0"
           >
             <X className="w-4 h-4" />
@@ -166,21 +158,18 @@ export function NodeSearch({ nodes, onNodeSelect, onNodesHighlight }: NodeSearch
                     {[
                       selectedRoles.length,
                       selectedProviders.length,
-                      statusFilter !== 'all' ? 1 : 0,
+                      statusFilter !== "all" ? 1 : 0,
                     ].reduce((a, b) => a + b, 0)}
                   </Badge>
                 )}
               </div>
-              <ChevronRight className={`w-4 h-4 transition-transform ${isFiltersOpen ? 'rotate-90' : ''}`} />
+              <ChevronRight
+                className={`w-4 h-4 transition-transform ${isFiltersOpen ? "rotate-90" : ""}`}
+              />
             </Button>
           </CollapsibleTrigger>
           {hasActiveFilters && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={clearFilters}
-              className="ml-2"
-            >
+            <Button variant="ghost" size="sm" onClick={clearFilters} className="ml-2">
               Clear
             </Button>
           )}
@@ -192,17 +181,14 @@ export function NodeSearch({ nodes, onNodeSelect, onNodesHighlight }: NodeSearch
             <div className="space-y-2">
               <Label className="text-xs font-medium">Role</Label>
               <div className="space-y-2">
-                {roles.map(role => (
+                {roles.map((role) => (
                   <div key={role} className="flex items-center space-x-2">
                     <Checkbox
                       id={`role-${role}`}
                       checked={selectedRoles.includes(role)}
                       onCheckedChange={() => handleRoleToggle(role)}
                     />
-                    <label
-                      htmlFor={`role-${role}`}
-                      className="text-sm cursor-pointer flex-1"
-                    >
+                    <label htmlFor={`role-${role}`} className="text-sm cursor-pointer flex-1">
                       {role}
                     </label>
                   </div>
@@ -216,7 +202,7 @@ export function NodeSearch({ nodes, onNodeSelect, onNodesHighlight }: NodeSearch
             <div className="space-y-2">
               <Label className="text-xs font-medium">Provider</Label>
               <div className="space-y-2">
-                {providers.map(provider => (
+                {providers.map((provider) => (
                   <div key={provider} className="flex items-center space-x-2">
                     <Checkbox
                       id={`provider-${provider}`}
@@ -255,18 +241,20 @@ export function NodeSearch({ nodes, onNodeSelect, onNodesHighlight }: NodeSearch
       {/* Results */}
       <div>
         <div className="text-xs text-muted-foreground mb-2">
-          {filteredNodes.length} {filteredNodes.length === 1 ? 'result' : 'results'}
+          {filteredNodes.length} {filteredNodes.length === 1 ? "result" : "results"}
         </div>
         <ScrollArea className="h-[300px]">
           <div className="space-y-2">
-            {filteredNodes.map(node => (
+            {filteredNodes.map((node) => (
               <button
                 key={node.id}
                 onClick={() => onNodeSelect?.(node.id)}
                 className="w-full text-left p-3 rounded-lg border hover:bg-accent transition-colors"
                 data-testid={`search-result-${node.id}`}
               >
-                <div className="font-medium text-sm">{String(node.data?.label || 'Unnamed Node')}</div>
+                <div className="font-medium text-sm">
+                  {String(node.data?.label || "Unnamed Node")}
+                </div>
                 <div className="flex items-center gap-2 mt-1">
                   <Badge variant="outline" className="text-xs">
                     {node.data?.role as string}
@@ -275,9 +263,9 @@ export function NodeSearch({ nodes, onNodeSelect, onNodesHighlight }: NodeSearch
                     {node.data?.provider as string}
                   </Badge>
                 </div>
-                {node.data?.description && (
+                {!!node.data?.description && (
                   <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
-                    {node.data.description as string}
+                    {String(node.data.description)}
                   </p>
                 )}
               </button>
