@@ -1085,7 +1085,7 @@ export async function registerRoutes(app: Express) {
   app.post("/api/assistant/chat", isAuthenticated, async (req: any, res) => {
     try {
       const userId = getUserId(req);
-      const { message } = z.object({ message: z.string() }).parse(req.body);
+      const { message } = z.object({ message: z.string().min(1).max(10000) }).parse(req.body);
 
       // Get or create chat session
       const chats = await storage.getAssistantChatsByUserId(userId);
@@ -1170,41 +1170,6 @@ Be concise, practical, and provide actionable guidance. When relevant, suggest s
   // ==================== PHASE 3A ROUTES ====================
 
   // Workflow Versioning
-  app.post("/api/workflows/:id/versions", isAuthenticated, async (req: any, res) => {
-    try {
-      const userId = getUserId(req);
-      const workflow = await storage.getWorkflowById(req.params.id);
-
-      if (!workflow || workflow.userId !== userId) {
-        return res.status(403).json({ error: "Forbidden" });
-      }
-
-      // Get current version number
-      const versions = await storage.getWorkflowVersions(req.params.id);
-      const nextVersion = versions.length > 0 ? Math.max(...versions.map((v) => v.version)) + 1 : 1;
-
-      const { commitMessage } = req.body;
-
-      const version = await storage.createWorkflowVersion({
-        workflowId: req.params.id,
-        version: nextVersion,
-        data: {
-          nodes: workflow.nodes,
-          edges: workflow.edges,
-          name: workflow.name,
-          description: workflow.description,
-          category: workflow.category,
-        },
-        commitMessage: commitMessage || `Version ${nextVersion}`,
-        userId,
-        isActive: false,
-      });
-
-      res.json(version);
-    } catch (error: any) {
-      res.status(500).json({ error: error.message });
-    }
-  });
   // Settings routes
   app.get("/api/settings", isAuthenticated, async (req: any, res) => {
     try {
@@ -1981,57 +1946,6 @@ Be concise, practical, and provide actionable guidance. When relevant, suggest s
 
       const usage = await costTracker.getTokenUsageStats(userId, startDate, endDate);
       res.json(usage);
-    } catch (error: any) {
-      res.status(500).json({ error: error.message });
-    }
-  });
-
-  // Cost Analytics
-  app.get("/api/analytics/costs", isAuthenticated, async (req: any, res) => {
-    try {
-      const userId = getUserId(req);
-      const { workflowId, startDate, endDate } = req.query;
-
-      let costs;
-      if (workflowId) {
-        // Verify workflow ownership
-        const workflow = await storage.getWorkflowById(workflowId as string);
-        if (!workflow || workflow.userId !== userId) {
-          return res.status(403).json({ error: "Forbidden" });
-        }
-        costs = await storage.getWorkflowCosts(
-          workflowId as string,
-          startDate ? new Date(startDate as string) : undefined,
-          endDate ? new Date(endDate as string) : undefined
-        );
-      } else {
-        costs = await storage.getUserCosts(
-          userId,
-          startDate ? new Date(startDate as string) : undefined,
-          endDate ? new Date(endDate as string) : undefined
-        );
-      }
-
-      // Aggregate costs
-      const totalCost = costs.reduce((sum, cost) => sum + cost.costUsd, 0);
-      const totalTokens = costs.reduce((sum, cost) => sum + cost.totalTokens, 0);
-
-      const byProvider = costs.reduce((acc: any, cost) => {
-        if (!acc[cost.provider]) {
-          acc[cost.provider] = { cost: 0, tokens: 0, count: 0 };
-        }
-        acc[cost.provider].cost += cost.costUsd;
-        acc[cost.provider].tokens += cost.totalTokens;
-        acc[cost.provider].count += 1;
-        return acc;
-      }, {});
-
-      res.json({
-        totalCost: totalCost / 1000000, // Convert micro-cents to dollars
-        totalTokens,
-        byProvider,
-        details: costs,
-      });
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }

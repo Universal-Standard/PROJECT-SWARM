@@ -4,6 +4,7 @@ import {
   providerPricing,
   executions,
   agents,
+  workflows,
   type ExecutionCost,
   type ProviderPricing,
 } from "@shared/schema";
@@ -158,16 +159,18 @@ export class CostTracker {
    * Get cost analytics for a time period
    */
   async getCostAnalytics(userId: string, startDate: Date, endDate: Date): Promise<CostAnalytics> {
-    // Get all execution costs in the period
+    // Get all execution costs in the period, joining workflows to get their names
     const costs = await db
       .select({
         cost: executionCosts,
         execution: executions,
         agent: agents,
+        workflowName: workflows.name,
       })
       .from(executionCosts)
       .innerJoin(executions, eq(executionCosts.executionId, executions.id))
       .innerJoin(agents, eq(executionCosts.agentId, agents.id))
+      .innerJoin(workflows, eq(executions.workflowId, workflows.id))
       .where(
         and(
           eq(executions.userId, userId),
@@ -184,10 +187,9 @@ export class CostTracker {
     costs.forEach((record) => {
       const wfId = record.execution.workflowId;
       if (!workflowCosts.has(wfId)) {
-        workflowCosts.set(wfId, { name: "Unknown", cost: 0 });
+        workflowCosts.set(wfId, { name: record.workflowName, cost: 0 });
       }
-      const wf = workflowCosts.get(wfId)!;
-      wf.cost += record.cost.costUsd || 0;
+      workflowCosts.get(wfId)!.cost += record.cost.costUsd || 0;
     });
 
     // Breakdown by provider
@@ -345,9 +347,11 @@ export class CostTracker {
       .select({
         cost: executionCosts,
         execution: executions,
+        workflowName: workflows.name,
       })
       .from(executionCosts)
       .innerJoin(executions, eq(executionCosts.executionId, executions.id))
+      .innerJoin(workflows, eq(executions.workflowId, workflows.id))
       .where(eq(executions.userId, userId));
 
     // Group by workflow
@@ -358,7 +362,11 @@ export class CostTracker {
     costs.forEach((record) => {
       const wfId = record.execution.workflowId;
       if (!workflowStats.has(wfId)) {
-        workflowStats.set(wfId, { name: "Unknown", totalCost: 0, executionCount: 0 });
+        workflowStats.set(wfId, {
+          name: record.workflowName,
+          totalCost: 0,
+          executionCount: 0,
+        });
       }
       const stats = workflowStats.get(wfId)!;
       stats.totalCost += record.cost.costUsd || 0;

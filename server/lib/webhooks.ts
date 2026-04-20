@@ -137,8 +137,12 @@ export class WebhookManager {
       return { valid: false, error: "Webhook is disabled" };
     }
 
-    // Validate secret
-    if (webhook.secret !== secret) {
+    // Validate secret using constant-time comparison to prevent timing attacks
+    const expectedBuf = Buffer.from(webhook.secret ?? "", "utf8");
+    const actualBuf = Buffer.from(secret, "utf8");
+    const secretValid =
+      expectedBuf.length === actualBuf.length && crypto.timingSafeEqual(expectedBuf, actualBuf);
+    if (!secretValid) {
       return { valid: false, error: "Invalid secret key" };
     }
 

@@ -1,7 +1,6 @@
 import express from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
-import { scheduler } from "./scheduler";
 import { errorHandler } from "./middleware/error-handler";
 import { wsManager } from "./websocket";
 import { createServer } from "http";
@@ -60,14 +59,12 @@ app.use((req, res, next) => {
 
   await registerRoutes(app);
 
-  // Start workflow scheduler
-  await scheduler.start();
-  log("Workflow scheduler started");
-  // Initialize Phase 3A features
+  // Initialize Phase 3A features (single scheduler instance)
   const { scheduler: libScheduler } = await import("./lib/scheduler");
   const { costTracker } = await import("./lib/cost-tracker");
 
   await libScheduler.initialize();
+  log("Workflow scheduler started");
   await costTracker.initializePricing();
 
   // Use enhanced error handler (must be registered after all routes)

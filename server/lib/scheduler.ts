@@ -193,18 +193,132 @@ export class WorkflowScheduler {
   }
 
   /**
-   * Calculate next run time for a cron expression
+   * Parse a single cron field into a sorted array of valid values.
+   * Supports: * (wildcard), *\/n (step), n (literal), n-m (range), and comma-separated combos.
    */
-  private getNextRunTime(cronExpression: string, timezone: string): Date {
-    // Parse cron expression and calculate next execution time
-    // This is a simplified version - in production, use a proper cron parser
-    const now = new Date();
+  private parseCronField(field: string, min: number, max: number): number[] {
+    const values = new Set<number>();
 
-    // For now, just add a reasonable interval based on common patterns
-    // In a real implementation, parse the cron expression properly
-    const nextRun = new Date(now.getTime() + 60 * 60 * 1000); // 1 hour default
+    for (const part of field.split(",")) {
+      if (part === "*") {
+        for (let i = min; i <= max; i++) values.add(i);
+      } else if (part.startsWith("*/")) {
+        const step = parseInt(part.slice(2), 10);
+        if (step > 0) {
+          for (let i = min; i <= max; i += step) values.add(i);
+        }
+      } else if (part.includes("-")) {
+        const [startStr, endStr] = part.split("-");
+        const start = parseInt(startStr, 10);
+        const end = parseInt(endStr, 10);
+        for (let i = Math.max(start, min); i <= Math.min(end, max); i++) values.add(i);
+      } else {
+        const v = parseInt(part, 10);
+        if (v >= min && v <= max) values.add(v);
+      }
+    }
 
-    return nextRun;
+    return Array.from(values).sort((a, b) => a - b);
+  }
+
+  /**
+   * Calculate the next run time for a cron expression.
+   * Supports standard 5-field cron: minute hour dom month dow
+   * @param cronExpression - the cron expression
+   * @param _timezone - timezone (reserved for future use)
+   * @param after - search for next run after this date (defaults to now)
+   */
+  private getNextRunTime(cronExpression: string, _timezone: string, after?: Date): Date {
+    const fields = cronExpression.trim().split(/\s+/);
+    if (fields.length !== 5) {
+      return new Date(Date.now() + 60 * 60 * 1000);
+    }
+
+    const [minuteField, hourField, domField, monthField, dowField] = fields;
+    const validMinutes = this.parseCronField(minuteField, 0, 59);
+    const validHours = this.parseCronField(hourField, 0, 23);
+    const validMonths = this.parseCronField(monthField, 1, 12);
+    // Normalise day-of-week: node-cron treats 7 as Sunday (same as 0)
+    const validDows = this.parseCronField(dowField, 0, 7).map((d) => (d === 7 ? 0 : d));
+    const hasDomRestriction = domField !== "*";
+    const hasDowRestriction = dowField !== "*";
+    const validDoms = this.parseCronField(domField, 1, 31);
+
+    // Start searching from the next minute after `after`
+    const base = after ?? new Date();
+    const candidate = new Date(base);
+    candidate.setSeconds(0);
+    candidate.setMilliseconds(0);
+    candidate.setMinutes(candidate.getMinutes() + 1);
+
+    const limit = new Date(candidate.getTime() + 366 * 24 * 60 * 60 * 1000);
+
+    while (candidate < limit) {
+      const month = candidate.getMonth() + 1; // 1–12
+      const dom = candidate.getDate();
+      const dow = candidate.getDay();
+      const hour = candidate.getHours();
+      const minute = candidate.getMinutes();
+
+      // Advance past invalid months
+      if (!validMonths.includes(month)) {
+        candidate.setDate(1);
+        candidate.setHours(0);
+        candidate.setMinutes(0);
+        candidate.setMonth(candidate.getMonth() + 1);
+        continue;
+      }
+
+      // When both dom and dow are restricted, cron matches if either is satisfied
+      const domOk = !hasDomRestriction || validDoms.includes(dom);
+      const dowOk = !hasDowRestriction || validDows.includes(dow);
+      const dayOk = hasDomRestriction && hasDowRestriction ? domOk || dowOk : domOk && dowOk;
+
+      if (!dayOk) {
+        candidate.setDate(candidate.getDate() + 1);
+        candidate.setHours(0);
+        candidate.setMinutes(0);
+        continue;
+      }
+
+      // Advance to the next valid hour within the current day
+      if (!validHours.includes(hour)) {
+        const nextHour = validHours.find((h) => h > hour);
+        if (nextHour !== undefined) {
+          candidate.setHours(nextHour);
+          candidate.setMinutes(validMinutes[0]);
+        } else {
+          candidate.setDate(candidate.getDate() + 1);
+          candidate.setHours(validHours[0]);
+          candidate.setMinutes(validMinutes[0]);
+        }
+        continue;
+      }
+
+      // Advance to the next valid minute within the current hour
+      if (!validMinutes.includes(minute)) {
+        const nextMinute = validMinutes.find((m) => m > minute);
+        if (nextMinute !== undefined) {
+          candidate.setMinutes(nextMinute);
+        } else {
+          const nextHour = validHours.find((h) => h > hour);
+          if (nextHour !== undefined) {
+            candidate.setHours(nextHour);
+            candidate.setMinutes(validMinutes[0]);
+          } else {
+            candidate.setDate(candidate.getDate() + 1);
+            candidate.setHours(validHours[0]);
+            candidate.setMinutes(validMinutes[0]);
+          }
+        }
+        continue;
+      }
+
+      return new Date(candidate);
+    }
+
+    // Fallback: should not be reached for valid expressions
+    return new Date(Date.now() + 60 * 60 * 1000);
   }
 
   /**
@@ -216,12 +330,12 @@ export class WorkflowScheduler {
     }
 
     const runTimes: Date[] = [];
-    const now = new Date();
+    let after: Date | undefined;
 
-    // This is a simplified implementation
-    // In production, use a proper cron parser like cron-parser package
     for (let i = 0; i < count; i++) {
-      runTimes.push(new Date(now.getTime() + (i + 1) * 60 * 60 * 1000));
+      const next = this.getNextRunTime(cronExpression, timezone, after);
+      runTimes.push(next);
+      after = next;
     }
 
     return runTimes;

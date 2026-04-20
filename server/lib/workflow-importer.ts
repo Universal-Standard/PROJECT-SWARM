@@ -1,6 +1,14 @@
 import { db } from "../db";
-import { workflows, agents, workflowSchedules, workflowWebhooks, knowledgeEntries, type InsertWorkflow, type InsertAgent } from "@shared/schema";
-import { eq } from "drizzle-orm";
+import {
+  workflows,
+  agents,
+  workflowSchedules,
+  workflowWebhooks,
+  knowledgeEntries,
+  type InsertWorkflow,
+  type InsertAgent,
+} from "@shared/schema";
+import { eq, and } from "drizzle-orm";
 import { webhookManager } from "./webhooks";
 
 interface ImportOptions {
@@ -57,10 +65,7 @@ export class WorkflowImporter {
   /**
    * Import workflow from export data
    */
-  async importWorkflow(
-    exportData: any,
-    options: ImportOptions
-  ): Promise<ImportResult> {
+  async importWorkflow(exportData: any, options: ImportOptions): Promise<ImportResult> {
     const warnings: string[] = [];
 
     // Validate export structure
@@ -75,9 +80,9 @@ export class WorkflowImporter {
     try {
       const workflowData = exportData.workflow;
 
-      // Check for name conflicts
+      // Check for name conflicts scoped to this user's workflows only
       const existingWorkflow = await db.query.workflows.findFirst({
-        where: eq(workflows.name, workflowData.name),
+        where: and(eq(workflows.userId, options.userId), eq(workflows.name, workflowData.name)),
       });
 
       let workflowName = workflowData.name;
@@ -114,10 +119,10 @@ export class WorkflowImporter {
 
       // Map old node IDs to new node IDs if needed
       const nodeIdMap = new Map<string, string>();
-      
+
       // Import agents
       const agentIdMap = new Map<string, string>();
-      
+
       for (const agentData of exportData.agents) {
         const [newAgent] = await db
           .insert(agents)
@@ -153,7 +158,9 @@ export class WorkflowImporter {
               timezone: scheduleData.timezone || "UTC",
             });
           } catch (error) {
-            warnings.push(`Failed to import schedule: ${error instanceof Error ? error.message : "Unknown error"}`);
+            warnings.push(
+              `Failed to import schedule: ${error instanceof Error ? error.message : "Unknown error"}`
+            );
           }
         }
       }
@@ -165,9 +172,13 @@ export class WorkflowImporter {
             // Generate new webhook with new secret
             // Note: baseUrl will be empty string, webhook URL will be generated when accessed through API
             await webhookManager.createWebhook(newWorkflow.id, "");
-            warnings.push("Webhook imported with new secret key (old key not preserved for security)");
+            warnings.push(
+              "Webhook imported with new secret key (old key not preserved for security)"
+            );
           } catch (error) {
-            warnings.push(`Failed to import webhook: ${error instanceof Error ? error.message : "Unknown error"}`);
+            warnings.push(
+              `Failed to import webhook: ${error instanceof Error ? error.message : "Unknown error"}`
+            );
           }
         }
       }
@@ -185,7 +196,9 @@ export class WorkflowImporter {
               confidence: knowledgeData.confidence || 80,
             });
           } catch (error) {
-            warnings.push(`Failed to import knowledge entry: ${error instanceof Error ? error.message : "Unknown error"}`);
+            warnings.push(
+              `Failed to import knowledge entry: ${error instanceof Error ? error.message : "Unknown error"}`
+            );
           }
         }
       }
@@ -225,8 +238,8 @@ export class WorkflowImporter {
       results.push(result);
     }
 
-    const successful = results.filter(r => r.success).length;
-    const failed = results.filter(r => !r.success).length;
+    const successful = results.filter((r) => r.success).length;
+    const failed = results.filter((r) => !r.success).length;
 
     return {
       success: failed === 0,
@@ -242,10 +255,7 @@ export class WorkflowImporter {
   /**
    * Import workflow from JSON string
    */
-  async importFromJson(
-    jsonString: string,
-    options: ImportOptions
-  ): Promise<ImportResult> {
+  async importFromJson(jsonString: string, options: ImportOptions): Promise<ImportResult> {
     try {
       const data = JSON.parse(jsonString);
       return await this.importWorkflow(data, options);
@@ -261,10 +271,7 @@ export class WorkflowImporter {
    * Import workflow from ZIP file
    * (This would require additional libraries like unzipper)
    */
-  async importFromZip(
-    zipBuffer: Buffer,
-    options: ImportOptions
-  ): Promise<ImportResult> {
+  async importFromZip(zipBuffer: Buffer, options: ImportOptions): Promise<ImportResult> {
     try {
       // In a real implementation, extract and parse ZIP
       // For now, assume it's JSON
@@ -281,11 +288,7 @@ export class WorkflowImporter {
   /**
    * Clone an existing workflow
    */
-  async cloneWorkflow(
-    workflowId: string,
-    userId: string,
-    newName?: string
-  ): Promise<ImportResult> {
+  async cloneWorkflow(workflowId: string, userId: string, newName?: string): Promise<ImportResult> {
     try {
       const workflow = await db.query.workflows.findFirst({
         where: eq(workflows.id, workflowId),
