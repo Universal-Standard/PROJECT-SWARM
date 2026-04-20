@@ -2,7 +2,7 @@ import { PublicHeader } from "@/components/public-header";
 import { Card } from "@/components/ui/card";
 import { Monitor, Palette, Gauge, ShieldCheck } from "lucide-react";
 
-export default function Frontend() {
+export function Frontend() {
   const sections = [
     {
       icon: Monitor,
