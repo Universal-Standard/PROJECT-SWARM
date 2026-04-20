@@ -85,99 +85,101 @@ jobs:
           const fs = require('fs');
           const https = require('https');
 
-          const execId = fs.readFileSync(process.env.EXEC_ID_FILE, 'utf8').trim();
-          const workflowPath = `.swarm-data/workflows/${process.env.WORKFLOW_ID}.json`;
+          (async () => {
+            const execId = fs.readFileSync(process.env.EXEC_ID_FILE, 'utf8').trim();
+            const workflowPath = `.swarm-data/workflows/${process.env.WORKFLOW_ID}.json`;
 
-          // Load workflow definition
-          let workflow;
-          try {
-            workflow = JSON.parse(fs.readFileSync(workflowPath, 'utf8'));
-          } catch (e) {
-            console.error('Workflow not found:', workflowPath);
-            process.exit(1);
-          }
-
-          const input = JSON.parse(process.env.INPUT_DATA || '{}');
-          const nodes = workflow.nodes || [];
-          const agentNodes = nodes.filter(n => n.type === 'agent');
-
-          const results = [];
-          for (const node of agentNodes) {
-            const provider = node.data?.provider || 'openai';
-            const model = node.data?.model || 'gpt-4o-mini';
-            const systemPrompt = node.data?.systemPrompt || 'You are a helpful AI agent.';
-            const userMessage = JSON.stringify(input);
-
-            console.log(`Running agent: ${node.data?.label || node.id} (${provider}/${model})`);
-
-            let response;
-            if (provider === 'openai' && process.env.OPENAI_API_KEY) {
-              const body = JSON.stringify({
-                model,
-                messages: [
-                  { role: 'system', content: systemPrompt },
-                  { role: 'user', content: userMessage },
-                ],
-                max_tokens: node.data?.maxTokens || 1000,
-              });
-              const data = await new Promise((resolve, reject) => {
-                const req = https.request({
-                  hostname: 'api.openai.com',
-                  path: '/v1/chat/completions',
-                  method: 'POST',
-                  headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
-                    'Content-Length': Buffer.byteLength(body),
-                  },
-                }, res => {
-                  let raw = '';
-                  res.on('data', c => raw += c);
-                  res.on('end', () => resolve(JSON.parse(raw)));
-                });
-                req.on('error', reject);
-                req.write(body);
-                req.end();
-              });
-              response = data.choices?.[0]?.message?.content || '';
-            } else if (provider === 'anthropic' && process.env.ANTHROPIC_API_KEY) {
-              const body = JSON.stringify({
-                model: model || 'claude-3-haiku-20240307',
-                max_tokens: node.data?.maxTokens || 1000,
-                system: systemPrompt,
-                messages: [{ role: 'user', content: userMessage }],
-              });
-              const data = await new Promise((resolve, reject) => {
-                const req = https.request({
-                  hostname: 'api.anthropic.com',
-                  path: '/v1/messages',
-                  method: 'POST',
-                  headers: {
-                    'Content-Type': 'application/json',
-                    'x-api-key': process.env.ANTHROPIC_API_KEY,
-                    'anthropic-version': '2023-06-01',
-                    'Content-Length': Buffer.byteLength(body),
-                  },
-                }, res => {
-                  let raw = '';
-                  res.on('data', c => raw += c);
-                  res.on('end', () => resolve(JSON.parse(raw)));
-                });
-                req.on('error', reject);
-                req.write(body);
-                req.end();
-              });
-              response = data.content?.[0]?.text || '';
-            } else {
-              response = `[Simulated response from ${provider}/${model}]`;
+            // Load workflow definition
+            let workflow;
+            try {
+              workflow = JSON.parse(fs.readFileSync(workflowPath, 'utf8'));
+            } catch (e) {
+              console.error('Workflow not found:', workflowPath);
+              process.exit(1);
             }
 
-            results.push({ nodeId: node.id, agentName: node.data?.label || node.id, provider, model, response });
-          }
+            const input = JSON.parse(process.env.INPUT_DATA || '{}');
+            const nodes = workflow.nodes || [];
+            const agentNodes = nodes.filter(n => n.type === 'agent');
 
-          const output = { results, completedAt: new Date().toISOString() };
-          fs.writeFileSync('api-output/execution-output.json', JSON.stringify(output, null, 2));
-          console.log('Execution complete. Results:', results.length, 'agents');
+            const results = [];
+            for (const node of agentNodes) {
+              const provider = node.data?.provider || 'openai';
+              const model = node.data?.model || 'gpt-4o-mini';
+              const systemPrompt = node.data?.systemPrompt || 'You are a helpful AI agent.';
+              const userMessage = JSON.stringify(input);
+
+              console.log(`Running agent: ${node.data?.label || node.id} (${provider}/${model})`);
+
+              let response;
+              if (provider === 'openai' && process.env.OPENAI_API_KEY) {
+                const body = JSON.stringify({
+                  model,
+                  messages: [
+                    { role: 'system', content: systemPrompt },
+                    { role: 'user', content: userMessage },
+                  ],
+                  max_tokens: node.data?.maxTokens || 1000,
+                });
+                const data = await new Promise((resolve, reject) => {
+                  const req = https.request({
+                    hostname: 'api.openai.com',
+                    path: '/v1/chat/completions',
+                    method: 'POST',
+                    headers: {
+                      'Content-Type': 'application/json',
+                      'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
+                      'Content-Length': Buffer.byteLength(body),
+                    },
+                  }, res => {
+                    let raw = '';
+                    res.on('data', c => raw += c);
+                    res.on('end', () => resolve(JSON.parse(raw)));
+                  });
+                  req.on('error', reject);
+                  req.write(body);
+                  req.end();
+                });
+                response = data.choices?.[0]?.message?.content || '';
+              } else if (provider === 'anthropic' && process.env.ANTHROPIC_API_KEY) {
+                const body = JSON.stringify({
+                  model: model || 'claude-3-haiku-20240307',
+                  max_tokens: node.data?.maxTokens || 1000,
+                  system: systemPrompt,
+                  messages: [{ role: 'user', content: userMessage }],
+                });
+                const data = await new Promise((resolve, reject) => {
+                  const req = https.request({
+                    hostname: 'api.anthropic.com',
+                    path: '/v1/messages',
+                    method: 'POST',
+                    headers: {
+                      'Content-Type': 'application/json',
+                      'x-api-key': process.env.ANTHROPIC_API_KEY,
+                      'anthropic-version': '2023-06-01',
+                      'Content-Length': Buffer.byteLength(body),
+                    },
+                  }, res => {
+                    let raw = '';
+                    res.on('data', c => raw += c);
+                    res.on('end', () => resolve(JSON.parse(raw)));
+                  });
+                  req.on('error', reject);
+                  req.write(body);
+                  req.end();
+                });
+                response = data.content?.[0]?.text || '';
+              } else {
+                response = `[Simulated response from ${provider}/${model}]`;
+              }
+
+              results.push({ nodeId: node.id, agentName: node.data?.label || node.id, provider, model, response });
+            }
+
+            const output = { results, completedAt: new Date().toISOString() };
+            fs.writeFileSync('api-output/execution-output.json', JSON.stringify(output, null, 2));
+            console.log('Execution complete. Results:', results.length, 'agents');
+          })();
           EOF
 
       - name: Finalize execution record
