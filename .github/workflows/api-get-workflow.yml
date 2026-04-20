@@ -1,0 +1,58 @@
+name: "API: Get Workflow"
+
+on:
+  workflow_dispatch:
+    inputs:
+      workflow_id:
+        description: "Workflow ID"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  actions: write
+
+jobs:
+  get:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: Install deps
+        run: npm ci --omit=dev --ignore-scripts || npm install better-sqlite3
+
+      - name: Get workflow record
+        env:
+          WORKFLOW_ID: ${{ inputs.workflow_id }}
+        run: |
+          mkdir -p api-output
+          node - << 'EOF'
+          const Database = require('better-sqlite3');
+          const fs = require('fs');
+
+          const db = new Database('swarm.db', { readonly: true });
+          const id = process.env.WORKFLOW_ID;
+          const record = db.prepare('SELECT * FROM workflow_defs WHERE id = ?').get(id);
+          db.close();
+
+          if (!record) {
+            fs.writeFileSync('api-output/result.json', JSON.stringify({ success: false, error: `Workflow ${id} not found` }));
+          } else {
+            const data = { ...record, nodes: JSON.parse(record.nodes), edges: JSON.parse(record.edges), createdAt: new Date(record.created_at * 1000).toISOString(), updatedAt: new Date(record.updated_at * 1000).toISOString() };
+            fs.writeFileSync('api-output/result.json', JSON.stringify({ success: true, data }));
+          }
+          EOF
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: api-get-workflow-${{ github.run_id }}
+          path: api-output/result.json
+          retention-days: 1

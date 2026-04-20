@@ -1,0 +1,52 @@
+name: "DB: Weekly Vacuum"
+
+on:
+  schedule:
+    - cron: "0 3 * * 0"   # 3am UTC every Sunday
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  vacuum:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: Install deps
+        run: npm ci --omit=dev --ignore-scripts || npm install better-sqlite3
+
+      - name: Vacuum database
+        run: |
+          node - << 'EOF'
+          const Database = require('better-sqlite3');
+          const fs = require('fs');
+
+          const before = fs.statSync('swarm.db').size;
+          const db = new Database('swarm.db');
+          db.pragma('journal_mode = DELETE');
+          db.exec('VACUUM');
+          db.close();
+          const after = fs.statSync('swarm.db').size;
+
+          console.log(`VACUUM complete: ${before} → ${after} bytes (saved ${before - after} bytes)`);
+
+          const summary = `## DB Vacuum\n| Metric | Value |\n|--------|-------|\n| Before | ${(before / 1024).toFixed(1)} KB |\n| After | ${(after / 1024).toFixed(1)} KB |\n| Saved | ${((before - after) / 1024).toFixed(1)} KB |`;
+          require('fs').appendFileSync(process.env.GITHUB_STEP_SUMMARY, summary);
+          EOF
+
+      - name: Commit
+        run: |
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git config user.name "github-actions[bot]"
+          git add swarm.db
+          git diff --staged --quiet || (git commit -m "chore: weekly database vacuum" && git push)

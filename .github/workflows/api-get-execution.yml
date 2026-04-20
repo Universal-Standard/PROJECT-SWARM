@@ -1,0 +1,65 @@
+name: "API: Get Execution"
+
+on:
+  workflow_dispatch:
+    inputs:
+      execution_id:
+        description: "Execution ID"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  actions: write
+
+jobs:
+  get:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: Install deps
+        run: npm ci --omit=dev --ignore-scripts || npm install better-sqlite3
+
+      - name: Query execution
+        env:
+          EXECUTION_ID: ${{ inputs.execution_id }}
+        run: |
+          mkdir -p api-output
+          node - << 'EOF'
+          const Database = require('better-sqlite3');
+          const fs = require('fs');
+
+          const db = new Database('swarm.db', { readonly: true });
+          const record = db.prepare('SELECT * FROM execution_runs WHERE id = ?').get(process.env.EXECUTION_ID);
+          const costs = db.prepare('SELECT * FROM execution_costs WHERE execution_id = ?').all(process.env.EXECUTION_ID);
+          db.close();
+
+          if (!record) {
+            fs.writeFileSync('api-output/result.json', JSON.stringify({ success: false, error: 'Execution not found' }));
+          } else {
+            fs.writeFileSync('api-output/result.json', JSON.stringify({
+              success: true,
+              data: {
+                ...record,
+                costs,
+                startedAt: new Date(record.started_at * 1000).toISOString(),
+                completedAt: record.completed_at ? new Date(record.completed_at * 1000).toISOString() : null,
+              }
+            }));
+          }
+          EOF
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: api-get-execution-${{ github.run_id }}
+          path: api-output/result.json
+          retention-days: 1

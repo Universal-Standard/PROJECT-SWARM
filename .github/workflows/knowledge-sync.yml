@@ -1,0 +1,130 @@
+name: "Knowledge: Sync Discussions to DB"
+
+on:
+  schedule:
+    - cron: "0 */6 * * *"   # Every 6 hours
+  workflow_dispatch:
+  discussion:
+    types: [created, edited]
+
+permissions:
+  contents: write
+  discussions: read
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: Install deps
+        run: npm ci --omit=dev --ignore-scripts || npm install better-sqlite3
+
+      - name: Sync discussions to knowledge cache
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          node - << 'EOF'
+          const https = require('https');
+          const Database = require('better-sqlite3');
+          const fs = require('fs');
+
+          const [owner, repo] = process.env.REPOSITORY.split('/');
+
+          // Fetch discussions via GraphQL
+          const query = `
+          query($owner: String!, $repo: String!, $first: Int!) {
+            repository(owner: $owner, name: $repo) {
+              discussions(first: $first, orderBy: {field: CREATED_AT, direction: DESC}) {
+                nodes {
+                  id number title body url createdAt
+                  category { name }
+                  labels(first: 5) { nodes { name } }
+                }
+              }
+            }
+          }`;
+
+          const body = JSON.stringify({ query, variables: { owner, repo, first: 100 } });
+          const data = await new Promise((resolve, reject) => {
+            const req = https.request({
+              hostname: 'api.github.com',
+              path: '/graphql',
+              method: 'POST',
+              headers: {
+                'Authorization': `token ${process.env.GH_TOKEN}`,
+                'Content-Type': 'application/json',
+                'Content-Length': Buffer.byteLength(body),
+                'User-Agent': 'project-swarm-bot',
+              },
+            }, res => {
+              let raw = '';
+              res.on('data', c => raw += c);
+              res.on('end', () => resolve(JSON.parse(raw)));
+            });
+            req.on('error', reject);
+            req.write(body);
+            req.end();
+          });
+
+          const discussions = data?.data?.repository?.discussions?.nodes || [];
+          console.log(`Found ${discussions.length} discussions`);
+
+          const db = new Database('swarm.db');
+          db.pragma('journal_mode = WAL');
+
+          // Create knowledge cache table if needed
+          db.exec(`
+            CREATE TABLE IF NOT EXISTS knowledge_cache (
+              id TEXT PRIMARY KEY,
+              discussion_number INTEGER NOT NULL,
+              title TEXT NOT NULL,
+              content TEXT NOT NULL,
+              category TEXT,
+              agent_type TEXT,
+              url TEXT,
+              synced_at INTEGER NOT NULL DEFAULT (strftime('%s','now'))
+            )
+          `);
+
+          const upsert = db.prepare(`
+            INSERT INTO knowledge_cache (id, discussion_number, title, content, category, agent_type, url, synced_at)
+            VALUES ($id, $num, $title, $content, $category, $agentType, $url, $now)
+            ON CONFLICT(id) DO UPDATE SET
+              title = $title, content = $content, synced_at = $now
+          `);
+
+          const now = Math.floor(Date.now() / 1000);
+          for (const d of discussions) {
+            const agentLabel = d.labels?.nodes?.find(l => l.name?.startsWith('agent:'))?.name?.replace('agent:', '') || 'general';
+            upsert.run({
+              $id: d.id,
+              $num: d.number,
+              $title: d.title,
+              $content: d.body || '',
+              $category: d.category?.name || 'general',
+              $agentType: agentLabel,
+              $url: d.url,
+              $now: now,
+            });
+          }
+          db.close();
+
+          console.log(`Synced ${discussions.length} discussions to knowledge_cache`);
+          EOF
+
+      - name: Commit
+        run: |
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git config user.name "github-actions[bot]"
+          git add swarm.db
+          git diff --staged --quiet || (git commit -m "chore: sync knowledge from discussions" && git push)

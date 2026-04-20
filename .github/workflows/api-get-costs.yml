@@ -1,0 +1,75 @@
+name: "API: Get Cost Summary"
+
+on:
+  workflow_dispatch:
+    inputs:
+      period:
+        description: "Period (YYYY-MM or 'all')"
+        required: false
+        type: string
+        default: "all"
+
+permissions:
+  contents: read
+  actions: write
+
+jobs:
+  get-costs:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: Install deps
+        run: npm ci --omit=dev --ignore-scripts || npm install better-sqlite3
+
+      - name: Query costs
+        env:
+          PERIOD: ${{ inputs.period }}
+        run: |
+          mkdir -p api-output
+          node - << 'EOF'
+          const Database = require('better-sqlite3');
+          const fs = require('fs');
+
+          const db = new Database('swarm.db', { readonly: true });
+
+          const totalCostCents = db.prepare('SELECT COALESCE(SUM(cost_cents), 0) as total FROM execution_runs').get().total;
+
+          const byProvider = db.prepare(`
+            SELECT provider, SUM(cost_cents) as total
+            FROM execution_costs
+            GROUP BY provider
+          `).all();
+
+          const byModel = db.prepare(`
+            SELECT model, SUM(cost_cents) as total
+            FROM execution_costs
+            GROUP BY model
+          `).all();
+
+          db.close();
+
+          const result = {
+            success: true,
+            data: {
+              totalCostUsd: totalCostCents / 100,
+              byProvider: Object.fromEntries(byProvider.map(r => [r.provider, r.total / 100])),
+              byModel: Object.fromEntries(byModel.map(r => [r.model, r.total / 100])),
+            },
+          };
+          fs.writeFileSync('api-output/result.json', JSON.stringify(result, null, 2));
+          EOF
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: api-get-costs-${{ github.run_id }}
+          path: api-output/result.json
+          retention-days: 1

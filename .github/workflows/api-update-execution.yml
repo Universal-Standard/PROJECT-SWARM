@@ -1,0 +1,85 @@
+name: "API: Update Execution Status"
+
+on:
+  workflow_dispatch:
+    inputs:
+      execution_id:
+        description: "Execution ID"
+        required: true
+        type: string
+      status:
+        description: "New status"
+        required: true
+        type: choice
+        options: [queued, in_progress, completed, failed]
+      cost_cents:
+        description: "Total cost in cents (optional)"
+        required: false
+        type: string
+
+permissions:
+  contents: write
+  actions: write
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: Install deps
+        run: npm ci --omit=dev --ignore-scripts || npm install better-sqlite3
+
+      - name: Update status
+        env:
+          EXECUTION_ID: ${{ inputs.execution_id }}
+          STATUS: ${{ inputs.status }}
+          COST_CENTS: ${{ inputs.cost_cents }}
+        run: |
+          mkdir -p api-output
+          node - << 'EOF'
+          const Database = require('better-sqlite3');
+          const fs = require('fs');
+
+          const db = new Database('swarm.db');
+          db.pragma('journal_mode = WAL');
+
+          const now = Math.floor(Date.now() / 1000);
+          const status = process.env.STATUS;
+          const costCents = parseInt(process.env.COST_CENTS || '0');
+
+          db.prepare(`
+            UPDATE execution_runs
+            SET status = $status,
+                completed_at = CASE WHEN $status IN ('completed','failed') THEN $now ELSE completed_at END,
+                cost_cents = CASE WHEN $cost > 0 THEN $cost ELSE cost_cents END,
+                updated_at = $now
+            WHERE id = $id
+          `).run({ $status: status, $now: now, $cost: costCents, $id: process.env.EXECUTION_ID });
+
+          const record = db.prepare('SELECT * FROM execution_runs WHERE id = ?').get(process.env.EXECUTION_ID);
+          db.close();
+
+          fs.writeFileSync('api-output/result.json', JSON.stringify({ success: true, data: record }));
+          EOF
+
+      - name: Commit
+        run: |
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git config user.name "github-actions[bot]"
+          git add swarm.db
+          git diff --staged --quiet || (git commit -m "data: execution ${{ inputs.execution_id }} → ${{ inputs.status }}" && git push)
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: api-update-execution-${{ github.run_id }}
+          path: api-output/result.json
+          retention-days: 1

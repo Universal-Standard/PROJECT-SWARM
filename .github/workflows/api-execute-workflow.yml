@@ -1,0 +1,231 @@
+name: "API: Execute Workflow (AI Orchestration)"
+
+on:
+  workflow_dispatch:
+    inputs:
+      workflow_id:
+        description: "Workflow ID"
+        required: true
+        type: string
+      input_data:
+        description: "Input JSON for the workflow"
+        required: false
+        type: string
+        default: "{}"
+
+permissions:
+  contents: write
+  actions: write
+
+jobs:
+  execute:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: Install deps
+        run: npm ci --omit=dev --ignore-scripts || npm install better-sqlite3
+
+      - name: Create execution record
+        id: init
+        env:
+          WORKFLOW_ID: ${{ inputs.workflow_id }}
+          INPUT_DATA: ${{ inputs.input_data }}
+          RUN_ID: ${{ github.run_id }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          mkdir -p api-output
+          node - << 'EOF'
+          const Database = require('better-sqlite3');
+          const crypto = require('crypto');
+          const fs = require('fs');
+
+          const db = new Database('swarm.db');
+          db.pragma('journal_mode = WAL');
+          db.pragma('foreign_keys = ON');
+
+          const execId = 'exec_' + crypto.randomBytes(10).toString('hex');
+          const now = Math.floor(Date.now() / 1000);
+
+          db.prepare(`
+            INSERT INTO execution_runs (id, github_repo, github_run_id, workflow_path, status, started_at, created_at, updated_at)
+            VALUES ($id, $repo, $run_id, $path, 'in_progress', $now, $now, $now)
+          `).run({
+            $id: execId,
+            $repo: process.env.REPOSITORY,
+            $run_id: parseInt(process.env.RUN_ID),
+            $path: `.swarm-data/workflows/${process.env.WORKFLOW_ID}.json`,
+            $now: now,
+          });
+          db.close();
+
+          fs.writeFileSync('api-output/exec-id.txt', execId);
+          console.log('Execution ID:', execId);
+          EOF
+
+      - name: Load workflow & run AI agents
+        id: run
+        env:
+          WORKFLOW_ID: ${{ inputs.workflow_id }}
+          INPUT_DATA: ${{ inputs.input_data }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          EXEC_ID_FILE: api-output/exec-id.txt
+        run: |
+          node - << 'EOF'
+          const fs = require('fs');
+          const https = require('https');
+
+          const execId = fs.readFileSync(process.env.EXEC_ID_FILE, 'utf8').trim();
+          const workflowPath = `.swarm-data/workflows/${process.env.WORKFLOW_ID}.json`;
+
+          // Load workflow definition
+          let workflow;
+          try {
+            workflow = JSON.parse(fs.readFileSync(workflowPath, 'utf8'));
+          } catch (e) {
+            console.error('Workflow not found:', workflowPath);
+            process.exit(1);
+          }
+
+          const input = JSON.parse(process.env.INPUT_DATA || '{}');
+          const nodes = workflow.nodes || [];
+          const agentNodes = nodes.filter(n => n.type === 'agent');
+
+          const results = [];
+          for (const node of agentNodes) {
+            const provider = node.data?.provider || 'openai';
+            const model = node.data?.model || 'gpt-4o-mini';
+            const systemPrompt = node.data?.systemPrompt || 'You are a helpful AI agent.';
+            const userMessage = JSON.stringify(input);
+
+            console.log(`Running agent: ${node.data?.label || node.id} (${provider}/${model})`);
+
+            let response;
+            if (provider === 'openai' && process.env.OPENAI_API_KEY) {
+              const body = JSON.stringify({
+                model,
+                messages: [
+                  { role: 'system', content: systemPrompt },
+                  { role: 'user', content: userMessage },
+                ],
+                max_tokens: node.data?.maxTokens || 1000,
+              });
+              const data = await new Promise((resolve, reject) => {
+                const req = https.request({
+                  hostname: 'api.openai.com',
+                  path: '/v1/chat/completions',
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
+                    'Content-Length': Buffer.byteLength(body),
+                  },
+                }, res => {
+                  let raw = '';
+                  res.on('data', c => raw += c);
+                  res.on('end', () => resolve(JSON.parse(raw)));
+                });
+                req.on('error', reject);
+                req.write(body);
+                req.end();
+              });
+              response = data.choices?.[0]?.message?.content || '';
+            } else if (provider === 'anthropic' && process.env.ANTHROPIC_API_KEY) {
+              const body = JSON.stringify({
+                model: model || 'claude-3-haiku-20240307',
+                max_tokens: node.data?.maxTokens || 1000,
+                system: systemPrompt,
+                messages: [{ role: 'user', content: userMessage }],
+              });
+              const data = await new Promise((resolve, reject) => {
+                const req = https.request({
+                  hostname: 'api.anthropic.com',
+                  path: '/v1/messages',
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    'x-api-key': process.env.ANTHROPIC_API_KEY,
+                    'anthropic-version': '2023-06-01',
+                    'Content-Length': Buffer.byteLength(body),
+                  },
+                }, res => {
+                  let raw = '';
+                  res.on('data', c => raw += c);
+                  res.on('end', () => resolve(JSON.parse(raw)));
+                });
+                req.on('error', reject);
+                req.write(body);
+                req.end();
+              });
+              response = data.content?.[0]?.text || '';
+            } else {
+              response = `[Simulated response from ${provider}/${model}]`;
+            }
+
+            results.push({ nodeId: node.id, agentName: node.data?.label || node.id, provider, model, response });
+          }
+
+          const output = { results, completedAt: new Date().toISOString() };
+          fs.writeFileSync('api-output/execution-output.json', JSON.stringify(output, null, 2));
+          console.log('Execution complete. Results:', results.length, 'agents');
+          EOF
+
+      - name: Finalize execution record
+        env:
+          EXEC_ID_FILE: api-output/exec-id.txt
+          RUN_ID: ${{ github.run_id }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          node - << 'EOF'
+          const Database = require('better-sqlite3');
+          const fs = require('fs');
+
+          const db = new Database('swarm.db');
+          db.pragma('journal_mode = WAL');
+
+          const execId = fs.readFileSync(process.env.EXEC_ID_FILE, 'utf8').trim();
+          const output = JSON.parse(fs.readFileSync('api-output/execution-output.json', 'utf8'));
+          const now = Math.floor(Date.now() / 1000);
+
+          db.prepare(`
+            UPDATE execution_runs SET status = 'completed', completed_at = $now, updated_at = $now
+            WHERE id = $id
+          `).run({ $now: now, $id: execId });
+          db.close();
+
+          const result = {
+            success: true,
+            data: {
+              id: execId,
+              status: 'completed',
+              output,
+              workflowRunId: process.env.RUN_ID,
+              workflowRunUrl: `https://github.com/${process.env.REPOSITORY}/actions/runs/${process.env.RUN_ID}`,
+            },
+          };
+
+          fs.writeFileSync('api-output/result.json', JSON.stringify(result, null, 2));
+          EOF
+
+      - name: Commit
+        run: |
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git config user.name "github-actions[bot]"
+          git add swarm.db
+          git diff --staged --quiet || (git commit -m "data: execution ${{ github.run_id }} completed" && git push)
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: api-execute-workflow-${{ github.run_id }}
+          path: api-output/result.json
+          retention-days: 1
