@@ -1085,7 +1085,11 @@ export async function registerRoutes(app: Express) {
   app.post("/api/assistant/chat", isAuthenticated, async (req: any, res) => {
     try {
       const userId = getUserId(req);
-      const { message } = z.object({ message: z.string().min(1).max(10000) }).parse(req.body);
+      const { message } = z
+        .object({
+          message: z.string().min(1).max(10000, "Message must not exceed 10,000 characters"),
+        })
+        .parse(req.body);
 
       // Get or create chat session
       const chats = await storage.getAssistantChatsByUserId(userId);

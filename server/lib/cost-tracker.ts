@@ -187,7 +187,7 @@ export class CostTracker {
     costs.forEach((record) => {
       const wfId = record.execution.workflowId;
       if (!workflowCosts.has(wfId)) {
-        workflowCosts.set(wfId, { name: record.workflowName, cost: 0 });
+        workflowCosts.set(wfId, { name: record.workflowName ?? "Unknown", cost: 0 });
       }
       workflowCosts.get(wfId)!.cost += record.cost.costUsd || 0;
     });
@@ -363,7 +363,7 @@ export class CostTracker {
       const wfId = record.execution.workflowId;
       if (!workflowStats.has(wfId)) {
         workflowStats.set(wfId, {
-          name: record.workflowName,
+          name: record.workflowName ?? "Unknown",
           totalCost: 0,
           executionCount: 0,
         });
