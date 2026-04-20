@@ -29,8 +29,9 @@ export async function processExecutionJob(
   if (agentIndex >= nodes.length) {
     // All agents done — finalize
     const output = { results: previousResults, completedAt: new Date().toISOString() };
-    const totalCost = previousResults.reduce((sum, r) => sum + (r.costUsd ?? 0), 0);
-    await updateExecution(env.DB, executionId, { status: "completed", output, costCents: Math.round(totalCost / 10000) });
+    // costMicroCents is 1/1,000,000 USD; cost_cents column is 1/100 USD → divide by 10,000
+    const totalMicroCents = previousResults.reduce((sum, r) => sum + (r.costMicroCents ?? 0), 0);
+    await updateExecution(env.DB, executionId, { status: "completed", output, costCents: Math.round(totalMicroCents / 10_000) });
 
     // Broadcast completion to WebSocket room
     await broadcastToRoom(env, executionId, JSON.stringify({ type: "completed", output }));
@@ -74,14 +75,14 @@ export async function processExecutionJob(
     const result = await runAgent(currentNode, messages, env, ctx);
 
     // Record cost
-    if (result.costUsd && result.costUsd > 0) {
+    if (result.costMicroCents && result.costMicroCents > 0) {
       await recordCost(env.DB, {
         executionId,
         provider: result.provider,
         model: result.model,
-        inputTokens: 0,  // simplified
+        inputTokens: 0,  // simplified — actual per-provider token counts are in result.tokenCount
         outputTokens: result.tokenCount ?? 0,
-        costUsd: result.costUsd,
+        costMicroCents: result.costMicroCents,
       });
     }
 

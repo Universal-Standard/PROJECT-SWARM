@@ -38,7 +38,7 @@ export interface AgentResult {
   model: string;
   response: string;
   tokenCount?: number;
-  costUsd?: number;
+  costMicroCents?: number;
 }
 
 export interface WorkflowNode {

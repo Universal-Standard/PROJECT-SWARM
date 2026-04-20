@@ -13,6 +13,9 @@ import type { ApiClient, User, Workflow, Execution, CostSummary, CreateWorkflowI
 
 const GITHUB_API = "https://api.github.com";
 
+// Tolerance window (ms) for matching a freshly dispatched run against `before` timestamp.
+const DISPATCH_CLOCK_SKEW_MS = 5_000;
+
 // Configurable via env — set at Vite build time or runtime
 const OWNER = import.meta.env.VITE_GITHUB_OWNER || "";
 const REPO  = import.meta.env.VITE_GITHUB_REPO  || "";
@@ -60,7 +63,7 @@ async function dispatchWorkflow(
     ).then((r) => r.json());
 
     const run = (runs.workflow_runs as any[])?.find(
-      (r: any) => new Date(r.created_at).getTime() >= before - 5000
+      (r: any) => new Date(r.created_at).getTime() >= before - DISPATCH_CLOCK_SKEW_MS
     );
     if (run) return run.id as number;
   }

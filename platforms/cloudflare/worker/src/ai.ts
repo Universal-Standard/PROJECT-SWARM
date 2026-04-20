@@ -19,6 +19,7 @@ const PRICING: Record<string, { input: number; output: number }> = {
   "gemini-1.5-pro":      { input:  1_250_000, output:  5_000_000 },
 };
 
+/** Calculate cost in micro-cents (1/1,000,000 USD) for a given model and token counts. */
 function calcCostMicroCents(model: string, inputTokens: number, outputTokens: number): number {
   const p = PRICING[model] ?? { input: 0, output: 0 };
   return Math.round((p.input * inputTokens + p.output * outputTokens) / 1_000_000);
@@ -117,6 +118,6 @@ export async function runAgent(
     model,
     response,
     tokenCount: inputTokens + outputTokens,
-    costUsd: calcCostMicroCents(model, inputTokens, outputTokens),
+    costMicroCents: calcCostMicroCents(model, inputTokens, outputTokens),
   };
 }

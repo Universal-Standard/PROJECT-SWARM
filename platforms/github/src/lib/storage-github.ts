@@ -32,6 +32,16 @@ export interface GistFile {
   content: string;
 }
 
+/** GitHub API response shape for a single file in a Gist. */
+interface GistFileData {
+  filename: string;
+  type: string;
+  language: string | null;
+  raw_url: string;
+  size: number;
+  content: string;
+}
+
 export async function createGist(
   description: string,
   files: GistFile[],
@@ -56,9 +66,9 @@ export async function getGist(gistId: string): Promise<Record<string, string>> {
     headers: restHeaders(),
   });
   if (!res.ok) throw new Error(`Gist ${gistId} not found`);
-  const data = await res.json();
+  const data = await res.json() as { files: Record<string, GistFileData> };
   const files: Record<string, string> = {};
-  for (const [name, file] of Object.entries(data.files as Record<string, any>)) {
+  for (const [name, file] of Object.entries(data.files)) {
     files[name] = file.content;
   }
   return files;
@@ -126,6 +136,14 @@ export interface KnowledgeEntry {
   createdAt: string;
 }
 
+interface DiscussionLabel { name: string; }
+
+/** Extract the agent type from a discussion's label list (format: "agent:<type>"). */
+function extractAgentTypeFromLabels(labels: DiscussionLabel[]): string {
+  const agentLabel = labels.find((l) => l.name?.startsWith("agent:"));
+  return agentLabel ? agentLabel.name.replace("agent:", "") : "unknown";
+}
+
 async function graphql(query: string, variables: Record<string, unknown>): Promise<unknown> {
   const res = await fetch(GRAPHQL_API, {
     method: "POST",
@@ -138,6 +156,17 @@ async function graphql(query: string, variables: Record<string, unknown>): Promi
   const data = await res.json() as { data?: unknown; errors?: unknown[] };
   if (data.errors) throw new Error(JSON.stringify(data.errors));
   return data.data;
+}
+
+interface DiscussionNode {
+  id: string;
+  number: number;
+  title: string;
+  body: string;
+  url: string;
+  createdAt: string;
+  category: { name: string } | null;
+  labels: { nodes: DiscussionLabel[] };
 }
 
 export async function listKnowledgeEntries(agentType?: string): Promise<KnowledgeEntry[]> {
@@ -154,15 +183,15 @@ export async function listKnowledgeEntries(agentType?: string): Promise<Knowledg
       }
     }`,
     { owner: OWNER, repo: REPO, first: 50 }
-  ) as any;
+  ) as { repository?: { discussions?: { nodes: DiscussionNode[] } } };
 
-  const nodes = data?.repository?.discussions?.nodes || [];
+  const nodes = data?.repository?.discussions?.nodes ?? [];
   return nodes
-    .filter((n: any) => !agentType || n.labels?.nodes?.some((l: any) => l.name === `agent:${agentType}`))
-    .map((n: any) => ({
+    .filter((n) => !agentType || n.labels?.nodes?.some((l) => l.name === `agent:${agentType}`))
+    .map((n) => ({
       id: n.id,
-      agentType: (n.labels?.nodes?.find((l: any) => l.name?.startsWith("agent:"))?.name || "agent:unknown").replace("agent:", ""),
-      category: n.category?.name || "general",
+      agentType: extractAgentTypeFromLabels(n.labels?.nodes ?? []),
+      category: n.category?.name ?? "general",
       content: n.body,
       title: n.title,
       url: n.url,

@@ -4,8 +4,7 @@ import App from "./App";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import "./index.css";
 
-const routerBase =
-  import.meta.env.BASE_URL === "/" ? "" : import.meta.env.BASE_URL.replace(/\/$/, "");
+const routerBase = import.meta.env.BASE_URL.replace(/\/$/, "");
 
 createRoot(document.getElementById("root")!).render(
   <ErrorBoundary>

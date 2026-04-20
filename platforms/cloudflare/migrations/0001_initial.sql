@@ -33,7 +33,7 @@ CREATE TABLE IF NOT EXISTS execution_costs (
   input_tokens INTEGER NOT NULL DEFAULT 0,
   output_tokens INTEGER NOT NULL DEFAULT 0,
   total_tokens INTEGER NOT NULL DEFAULT 0,
-  cost_usd INTEGER NOT NULL DEFAULT 0,  -- micro-cents (1/1000000 USD)
+  cost_micro_cents INTEGER NOT NULL DEFAULT 0,  -- 1/1,000,000 of a USD (micro-cents)
   recorded_at INTEGER NOT NULL DEFAULT (unixepoch())
 );
 

@@ -11,6 +11,9 @@ const OWNER = import.meta.env.VITE_GITHUB_OWNER || "";
 const REPO  = import.meta.env.VITE_GITHUB_REPO  || "";
 const CLIENT_ID = import.meta.env.VITE_GITHUB_CLIENT_ID || "";
 
+// Tolerance window (ms) for matching a freshly dispatched run against `before` timestamp.
+const DISPATCH_CLOCK_SKEW_MS = 5_000;
+
 export function loginWithGitHub(): void {
   const state = crypto.randomUUID();
   sessionStorage.setItem("oauth_state", state);
@@ -100,7 +103,7 @@ async function exchangeCodeViaActions(code: string): Promise<string> {
       { headers }
     ).then((r) => r.json());
     const run = (runs.workflow_runs as any[])?.find(
-      (r: any) => new Date(r.created_at).getTime() >= before - 5000
+      (r: any) => new Date(r.created_at).getTime() >= before - DISPATCH_CLOCK_SKEW_MS
     );
     if (run) runId = run.id;
   }

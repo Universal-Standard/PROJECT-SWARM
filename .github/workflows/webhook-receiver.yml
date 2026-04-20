@@ -42,13 +42,24 @@ jobs:
             process.exit(0);
           }
 
+          // Strip the signature field, then re-serialize with sorted keys to get a
+          // deterministic byte string regardless of the sender's key ordering.
+          const payloadObj = JSON.parse(payload);
+          delete payloadObj.signature;
+          const sortedKeys = Object.keys(payloadObj).sort();
+          const canonical = JSON.stringify(payloadObj, sortedKeys);
+
           const hmac = crypto.createHmac('sha256', secret);
-          const payloadWithoutSig = JSON.stringify({ ...JSON.parse(payload), signature: undefined });
-          hmac.update(payloadWithoutSig);
+          hmac.update(canonical);
           const expected = hmac.digest('hex');
 
-          if (signature !== expected) {
-            console.error('HMAC validation failed');
+          try {
+            if (!crypto.timingSafeEqual(Buffer.from(signature || ''), Buffer.from(expected))) {
+              console.error('HMAC validation failed');
+              process.exit(1);
+            }
+          } catch {
+            console.error('HMAC validation failed (length mismatch)');
             process.exit(1);
           }
           console.log('HMAC signature valid');

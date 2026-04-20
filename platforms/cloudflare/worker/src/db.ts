@@ -205,29 +205,31 @@ export async function recordCost(db: D1Database, data: {
   model: string;
   inputTokens: number;
   outputTokens: number;
-  costUsd: number;
+  /** Cost in micro-cents (1/1,000,000 USD). Use calcCostMicroCents from ai.ts. */
+  costMicroCents: number;
 }) {
   const id = randomId("cost");
   await db.prepare(`
-    INSERT INTO execution_costs (id, execution_id, agent_id, provider, model, input_tokens, output_tokens, total_tokens, cost_usd, recorded_at)
+    INSERT INTO execution_costs (id, execution_id, agent_id, provider, model, input_tokens, output_tokens, total_tokens, cost_micro_cents, recorded_at)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).bind(
     id, data.executionId, data.agentId ?? null, data.provider, data.model,
     data.inputTokens, data.outputTokens, data.inputTokens + data.outputTokens,
-    data.costUsd, Math.floor(Date.now() / 1000)
+    data.costMicroCents, Math.floor(Date.now() / 1000)
   ).run();
 }
 
 export async function getCostSummary(db: D1Database, userId: string) {
+  // cost_micro_cents stores 1/1,000,000 USD — divide by 1_000_000 to get USD.
   const totalRow = await db.prepare(`
-    SELECT COALESCE(SUM(ec.cost_usd), 0) as total
+    SELECT COALESCE(SUM(ec.cost_micro_cents), 0) as total
     FROM execution_costs ec
     JOIN execution_runs er ON ec.execution_id = er.id
     WHERE er.user_id = ?
   `).bind(userId).first<{ total: number }>();
 
   const byProvider = await db.prepare(`
-    SELECT ec.provider, COALESCE(SUM(ec.cost_usd), 0) as total
+    SELECT ec.provider, COALESCE(SUM(ec.cost_micro_cents), 0) as total
     FROM execution_costs ec
     JOIN execution_runs er ON ec.execution_id = er.id
     WHERE er.user_id = ?
@@ -235,7 +237,7 @@ export async function getCostSummary(db: D1Database, userId: string) {
   `).bind(userId).all<{ provider: string; total: number }>();
 
   const byModel = await db.prepare(`
-    SELECT ec.model, COALESCE(SUM(ec.cost_usd), 0) as total
+    SELECT ec.model, COALESCE(SUM(ec.cost_micro_cents), 0) as total
     FROM execution_costs ec
     JOIN execution_runs er ON ec.execution_id = er.id
     WHERE er.user_id = ?
