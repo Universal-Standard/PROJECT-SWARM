@@ -2,42 +2,60 @@ import { PublicHeader } from "@/components/public-header";
 import { Card } from "@/components/ui/card";
 import { Users, Settings, ChartNoAxesCombined, ClipboardList } from "lucide-react";
 
-export default function Admin() {
+export function AdminOverview() {
+  const priorities = [
+    {
+      id: "platform-oversight",
+      label: "Platform Oversight",
+      value: "Central control for workflows and executions",
+    },
+    {
+      id: "access-governance",
+      label: "Access Governance",
+      value: "Protected app surfaces and secure session handling",
+    },
+    {
+      id: "operational-insight",
+      label: "Operational Insight",
+      value: "Metrics, diagnostics, and historical analysis",
+    },
+  ];
+
   const sections = [
     {
       icon: Users,
       title: "User & Access Management",
       items: [
-        "Account-level access controls",
-        "Session-aware authentication flow",
-        "Protected app areas under /app routes",
+        "Role-aware access boundaries for protected app capabilities",
+        "Session-aware authentication and account-level isolation",
+        "Controlled access to workflow creation and execution operations",
       ],
     },
     {
       icon: Settings,
       title: "Platform Configuration",
       items: [
-        "Workflow templates and runtime defaults",
-        "Provider and execution preferences",
-        "Secure operational settings",
+        "Centralized template and runtime configuration",
+        "Provider selection and execution policy preferences",
+        "Operational controls with secure default behavior",
       ],
     },
     {
       icon: ChartNoAxesCombined,
       title: "Operational Visibility",
       items: [
-        "Execution analytics and trend tracking",
-        "Run-by-run monitoring and diagnostics",
-        "Performance and quality signals",
+        "Live and historical execution analytics",
+        "Run-level diagnostics and issue triage context",
+        "Performance, quality, and reliability trend visibility",
       ],
     },
     {
       icon: ClipboardList,
       title: "Governance",
       items: [
-        "Audit-friendly execution history",
-        "Configurable workflow lifecycle controls",
-        "Centralized operational review capabilities",
+        "Audit-friendly execution timeline and event traceability",
+        "Configurable lifecycle controls across workflow states",
+        "Centralized review workflows for operational compliance",
       ],
     },
   ];
@@ -50,14 +68,22 @@ export default function Admin() {
           <div className="space-y-3 max-w-3xl">
             <h1 className="text-4xl font-bold">Admin Platform</h1>
             <p className="text-muted-foreground text-lg">
-              Administrative capabilities provide control over users, workflows, operations, and
-              platform governance.
+              Production-grade administration for control, policy, and governance across the
+              platform.
             </p>
+          </div>
+          <div className="grid md:grid-cols-3 gap-4">
+            {priorities.map((priority) => (
+              <Card key={priority.id} className="p-5">
+                <p className="text-sm text-muted-foreground">{priority.label}</p>
+                <p className="font-semibold mt-1">{priority.value}</p>
+              </Card>
+            ))}
           </div>
           <div className="grid md:grid-cols-2 gap-6">
             {sections.map((section) => (
               <Card key={section.title} className="p-6">
-                <section.icon className="w-8 h-8 text-primary mb-3" />
+                <section.icon aria-hidden="true" className="w-8 h-8 text-primary mb-3" />
                 <h2 className="text-xl font-semibold mb-3">{section.title}</h2>
                 <ul className="space-y-2 text-sm text-muted-foreground">
                   {section.items.map((item) => (

@@ -2,42 +2,56 @@ import { PublicHeader } from "@/components/public-header";
 import { Card } from "@/components/ui/card";
 import { Monitor, Palette, Gauge, ShieldCheck } from "lucide-react";
 
-export function Frontend() {
+export function FrontendOverview() {
+  const pillars = [
+    { id: "ui-framework", label: "UI Framework", value: "React + TypeScript + Vite" },
+    {
+      id: "design-system",
+      label: "Design System",
+      value: "Tailwind + reusable component primitives",
+    },
+    {
+      id: "runtime-reliability",
+      label: "Runtime Reliability",
+      value: "Error boundaries and typed state flows",
+    },
+  ];
+
   const sections = [
     {
       icon: Monitor,
       title: "Application Shell",
       items: [
-        "React 18 + TypeScript architecture",
-        "Route-driven page rendering",
-        "Reusable component primitives",
+        "Production-ready route architecture for public and protected areas",
+        "Compositional layouts for dashboard and marketing experiences",
+        "Strongly typed page contracts and reusable primitives",
       ],
     },
     {
       icon: Palette,
       title: "Design System",
       items: [
-        "TailwindCSS utility styling",
-        "Consistent card, button, and form patterns",
-        "Responsive mobile-first layout",
+        "Consistent typography, spacing, and component hierarchy",
+        "Accessible controls and predictable interaction feedback",
+        "Responsive breakpoints for desktop, tablet, and mobile",
       ],
     },
     {
       icon: Gauge,
-      title: "User Experience",
+      title: "Performance & UX",
       items: [
-        "Interactive workflow builder interfaces",
-        "Execution and analytics dashboards",
-        "Fast client navigation and route transitions",
+        "Fast route transitions with minimal layout thrash",
+        "Optimized dashboard rendering and data presentation",
+        "Clear workflows for creation, monitoring, and analysis",
       ],
     },
     {
       icon: ShieldCheck,
       title: "Reliability",
       items: [
-        "Error boundaries for runtime safety",
-        "Strong typing across UI contracts",
-        "Predictable route fallbacks",
+        "Graceful fallback routes and error-safe rendering boundaries",
+        "Strict typing to reduce runtime defects in production",
+        "Defensive UI handling for unavailable or delayed data",
       ],
     },
   ];
@@ -50,14 +64,21 @@ export function Frontend() {
           <div className="space-y-3 max-w-3xl">
             <h1 className="text-4xl font-bold">Frontend Platform</h1>
             <p className="text-muted-foreground text-lg">
-              The frontend experience is built for speed, clarity, and workflow-centric execution
-              management.
+              A production-grade interface focused on clarity, speed, and operational confidence.
             </p>
+          </div>
+          <div className="grid md:grid-cols-3 gap-4">
+            {pillars.map((pillar) => (
+              <Card key={pillar.id} className="p-5">
+                <p className="text-sm text-muted-foreground">{pillar.label}</p>
+                <p className="font-semibold mt-1">{pillar.value}</p>
+              </Card>
+            ))}
           </div>
           <div className="grid md:grid-cols-2 gap-6">
             {sections.map((section) => (
               <Card key={section.title} className="p-6">
-                <section.icon className="w-8 h-8 text-primary mb-3" />
+                <section.icon aria-hidden="true" className="w-8 h-8 text-primary mb-3" />
                 <h2 className="text-xl font-semibold mb-3">{section.title}</h2>
                 <ul className="space-y-2 text-sm text-muted-foreground">
                   {section.items.map((item) => (
