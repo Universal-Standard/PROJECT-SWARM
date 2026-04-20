@@ -17,6 +17,9 @@ import Pricing from "@/pages/pricing";
 import About from "@/pages/about";
 import Privacy from "@/pages/privacy";
 import Terms from "@/pages/terms";
+import Frontend from "@/pages/frontend";
+import Backend from "@/pages/backend";
+import Admin from "@/pages/admin";
 
 // App Pages (Protected)
 import AppWorkflows from "@/pages/app-workflows";
@@ -43,6 +46,9 @@ function PublicRouter() {
       <Route path="/about" component={About} />
       <Route path="/privacy" component={Privacy} />
       <Route path="/terms" component={Terms} />
+      <Route path="/frontend" component={Frontend} />
+      <Route path="/backend" component={Backend} />
+      <Route path="/admin" component={Admin} />
       <Route component={NotFound} />
     </Switch>
   );
@@ -50,13 +56,13 @@ function PublicRouter() {
 
 function AppRouter() {
   const [location, navigate] = useLocation();
-  
+
   // Redirect /app to /app/workflows
   if (location === "/app") {
     navigate("/app/workflows");
     return null;
   }
-  
+
   return (
     <Switch>
       <Route path="/app/workflows" component={AppWorkflows} />
