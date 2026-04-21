@@ -1,0 +1,32 @@
+[build]
+  base = "platforms/netlify"
+  publish = "dist"
+  command = "npm install -g npm@latest && cd ../.. && npm ci && cd platforms/netlify && npm ci && npm run build"
+
+[build.environment]
+  NODE_VERSION = "22"
+  NPM_FLAGS = "--prefix=/dev/null"
+
+# Route all /api/* requests to the Netlify Function
+[[redirects]]
+  from = "/api/*"
+  to = "/.netlify/functions/api/:splat"
+  status = 200
+
+# SPA fallback — serve index.html for all other paths
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
+[functions]
+  directory = "netlify/functions"
+  node_bundler = "esbuild"
+  included_files = ["../../server/**", "../../shared/**", "../../node_modules/**"]
+
+[[headers]]
+  for = "/api/*"
+  [headers.values]
+    Access-Control-Allow-Origin = "*"
+    Access-Control-Allow-Headers = "Content-Type, Authorization"
+    Access-Control-Allow-Methods = "GET, POST, PUT, PATCH, DELETE, OPTIONS"
