@@ -122,7 +122,7 @@ export function createStandaloneApp() {
     if (process.env.NODE_ENV === "production") {
       throw new Error("SESSION_SECRET environment variable is required in production");
     }
-    logger.warn("SESSION_SECRET not set — using ephemeral random secret (sessions won't survive restarts)");
+    logger.warn("SESSION_SECRET not set — using ephemeral random secret. Sessions won't survive restarts. Set SESSION_SECRET environment variable for production use.");
   }
 
   // Session
