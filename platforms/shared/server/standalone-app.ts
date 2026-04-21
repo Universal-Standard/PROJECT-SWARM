@@ -78,18 +78,57 @@ export function createStandaloneApp() {
   app.use(express.json({ limit: "10mb" }));
   app.use(express.urlencoded({ extended: false }));
 
-  // CORS — allow the frontend origin
+  // CORS — restrict to explicit FRONTEND_URL in production, permissive in dev
+  const corsOrigin = process.env.FRONTEND_URL
+    ? process.env.FRONTEND_URL
+    : process.env.NODE_ENV === "production"
+      ? false
+      : true;
   app.use(
     cors({
-      origin: process.env.FRONTEND_URL || true,
+      origin: corsOrigin,
       credentials: true,
     }),
   );
 
+  // CSRF guard — for state-mutating requests, verify Origin matches allowed host
+  app.use((req: Request, res: Response, next: NextFunction) => {
+    const method = req.method.toUpperCase();
+    if (method === "GET" || method === "HEAD" || method === "OPTIONS") {
+      return next();
+    }
+    const origin = req.headers.origin;
+    const host = req.headers.host;
+    const allowedOrigin = process.env.FRONTEND_URL;
+    if (allowedOrigin) {
+      if (!origin || origin !== allowedOrigin) {
+        return res.status(403).json({ error: "Forbidden: CSRF check failed" });
+      }
+    } else if (origin && host) {
+      try {
+        const originHost = new URL(origin).host;
+        if (originHost !== host) {
+          return res.status(403).json({ error: "Forbidden: CSRF check failed" });
+        }
+      } catch {
+        return res.status(403).json({ error: "Forbidden: invalid origin" });
+      }
+    }
+    next();
+  });
+
+  const sessionSecret = process.env.SESSION_SECRET;
+  if (!sessionSecret) {
+    if (process.env.NODE_ENV === "production") {
+      throw new Error("SESSION_SECRET environment variable is required in production");
+    }
+    logger.warn("SESSION_SECRET not set — using ephemeral random secret (sessions won't survive restarts)");
+  }
+
   // Session
   app.use(
     session({
-      secret: process.env.SESSION_SECRET || crypto.randomBytes(32).toString("hex"),
+      secret: sessionSecret || crypto.randomBytes(32).toString("hex"),
       store: new MemStore({ checkPeriod: 86400000 }),
       resave: false,
       saveUninitialized: false,
