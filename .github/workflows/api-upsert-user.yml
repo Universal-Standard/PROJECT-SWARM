@@ -1,0 +1,88 @@
+name: "API: Upsert User"
+
+on:
+  workflow_dispatch:
+    inputs:
+      github_user_id:
+        description: "GitHub user ID (integer)"
+        required: true
+        type: string
+      github_username:
+        description: "GitHub username"
+        required: true
+        type: string
+      default_provider:
+        description: "Default AI provider"
+        required: false
+        type: string
+        default: "openai"
+
+permissions:
+  contents: write
+  actions: write
+
+jobs:
+  upsert:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: Install deps
+        run: npm ci --omit=dev --ignore-scripts || npm install better-sqlite3
+
+      - name: Upsert user
+        env:
+          GH_USER_ID: ${{ inputs.github_user_id }}
+          GH_USERNAME: ${{ inputs.github_username }}
+          DEFAULT_PROVIDER: ${{ inputs.default_provider }}
+        run: |
+          mkdir -p api-output
+          node - << 'EOF'
+          const Database = require('better-sqlite3');
+          const fs = require('fs');
+
+          const db = new Database('swarm.db');
+          db.pragma('journal_mode = WAL');
+
+          const now = Math.floor(Date.now() / 1000);
+          db.prepare(`
+            INSERT INTO user_preferences (github_user_id, github_username, default_provider, created_at, updated_at)
+            VALUES ($id, $username, $provider, $now, $now)
+            ON CONFLICT(github_user_id) DO UPDATE SET
+              github_username = $username,
+              default_provider = $provider,
+              updated_at = $now
+          `).run({
+            $id: parseInt(process.env.GH_USER_ID),
+            $username: process.env.GH_USERNAME,
+            $provider: process.env.DEFAULT_PROVIDER || 'openai',
+            $now: now,
+          });
+          db.close();
+
+          fs.writeFileSync('api-output/result.json', JSON.stringify({
+            success: true,
+            data: { github_user_id: parseInt(process.env.GH_USER_ID), github_username: process.env.GH_USERNAME }
+          }));
+          EOF
+
+      - name: Commit
+        run: |
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git config user.name "github-actions[bot]"
+          git add swarm.db
+          git diff --staged --quiet || (git commit -m "data: upsert user ${{ inputs.github_username }}" && git push)
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: api-upsert-user-${{ github.run_id }}
+          path: api-output/result.json
+          retention-days: 1

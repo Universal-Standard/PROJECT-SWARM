@@ -1,0 +1,82 @@
+name: "Webhook: Repository Dispatch Receiver"
+
+on:
+  repository_dispatch:
+    types: [swarm-webhook]
+
+permissions:
+  contents: write
+  actions: write
+
+jobs:
+  handle-webhook:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: Install deps
+        run: npm ci --omit=dev --ignore-scripts || npm install better-sqlite3
+
+      - name: Validate HMAC signature
+        env:
+          WEBHOOK_SECRET: ${{ secrets.SWARM_WEBHOOK_SECRET }}
+          PAYLOAD: ${{ toJSON(github.event.client_payload) }}
+          SIGNATURE: ${{ github.event.client_payload.signature }}
+        run: |
+          node - << 'EOF'
+          const crypto = require('crypto');
+          const payload = process.env.PAYLOAD;
+          const signature = process.env.SIGNATURE;
+          const secret = process.env.WEBHOOK_SECRET;
+
+          if (!secret) {
+            console.log('No webhook secret configured — skipping signature validation');
+            process.exit(0);
+          }
+
+          // Strip the signature field, then re-serialize with sorted keys to get a
+          // deterministic byte string regardless of the sender's key ordering.
+          const payloadObj = JSON.parse(payload);
+          delete payloadObj.signature;
+          const sortedKeys = Object.keys(payloadObj).sort();
+          const canonical = JSON.stringify(payloadObj, sortedKeys);
+
+          const hmac = crypto.createHmac('sha256', secret);
+          hmac.update(canonical);
+          const expected = hmac.digest('hex');
+
+          try {
+            if (!crypto.timingSafeEqual(Buffer.from(signature || ''), Buffer.from(expected))) {
+              console.error('HMAC validation failed');
+              process.exit(1);
+            }
+          } catch {
+            console.error('HMAC validation failed (length mismatch)');
+            process.exit(1);
+          }
+          console.log('HMAC signature valid');
+          EOF
+
+      - name: Dispatch workflow execution
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPOSITORY: ${{ github.repository }}
+          WORKFLOW_ID: ${{ github.event.client_payload.workflow_id }}
+          INPUT_DATA: ${{ toJSON(github.event.client_payload.input) }}
+        run: |
+          gh api \
+            --method POST \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            /repos/${{ github.repository }}/actions/workflows/api-execute-workflow.yml/dispatches \
+            -f ref=main \
+            -f "inputs[workflow_id]=${{ github.event.client_payload.workflow_id }}" \
+            -f "inputs[input_data]=${{ toJSON(github.event.client_payload.input) }}"

@@ -1,0 +1,50 @@
+name: "DB: Daily Backup"
+
+on:
+  schedule:
+    - cron: "0 2 * * *"   # 2am UTC daily
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: write
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create backup
+        id: backup
+        run: |
+          cp swarm.db swarm.db.backup
+          BACKUP_DATE=$(date -u +%Y-%m-%d)
+          cp swarm.db "swarm-backup-${BACKUP_DATE}.db"
+          echo "backup_date=${BACKUP_DATE}" >> $GITHUB_OUTPUT
+
+      - name: Upload backup artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: db-backup-${{ steps.backup.outputs.backup_date }}
+          path: swarm-backup-*.db
+          retention-days: 30
+
+      - name: Create release with backup
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          BACKUP_DATE=$(date -u +%Y-%m-%d)
+          # Check if we should create a weekly release (on Sundays)
+          if [ "$(date -u +%u)" = "7" ]; then
+            gh release create "db-backup-${BACKUP_DATE}" \
+              --title "Database Backup ${BACKUP_DATE}" \
+              --notes "Weekly automated database backup." \
+              swarm-backup-${BACKUP_DATE}.db || true
+          fi
+
+      - name: Cleanup temp files
+        run: rm -f swarm-backup-*.db

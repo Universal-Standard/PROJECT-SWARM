@@ -1,0 +1,60 @@
+name: "Deploy: Cloudflare Platform Variant"
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "platforms/cloudflare/**"
+      - "client/src/**"
+      - "shared/**"
+  workflow_dispatch:
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+
+      - name: Install root deps
+        run: npm ci
+
+      - name: Install platform deps
+        run: npm ci
+        working-directory: platforms/cloudflare
+
+      - name: Build frontend
+        run: npx vite build
+        working-directory: platforms/cloudflare
+        env:
+          NODE_ENV: production
+          VITE_BACKEND: cloudflare
+
+      - name: Apply D1 migrations
+        run: npx wrangler d1 migrations apply project-swarm-d1 --env production
+        working-directory: platforms/cloudflare
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        continue-on-error: true  # Don't fail if DB already migrated
+
+      - name: Deploy Worker
+        run: npx wrangler deploy worker/src/index.ts --env production
+        working-directory: platforms/cloudflare
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
+      - name: Deploy Pages
+        run: npx wrangler pages deploy dist/ --project-name=project-swarm
+        working-directory: platforms/cloudflare
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
