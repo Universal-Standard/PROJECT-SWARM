@@ -21,9 +21,15 @@ jobs:
       contents: write
     steps:
       - name: Add to project
+        if: vars.PROJECT_BOARD_URL != null && vars.PROJECT_BOARD_URL != ''
         uses: actions/add-to-project@v1.0.2
+        continue-on-error: true
         with:
           # Update this URL with your actual project URL after creating the project board
           # Example: https://github.com/orgs/Universal-Standard/projects/YOUR_PROJECT_NUMBER
           project-url: ${{ vars.PROJECT_BOARD_URL }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Log project assignment status
+        if: vars.PROJECT_BOARD_URL == null || vars.PROJECT_BOARD_URL == ''
+        run: echo "PROJECT_BOARD_URL is not configured; skipping add-to-project step."
