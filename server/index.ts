@@ -1,77 +1,34 @@
-import express from "express";
-import { registerRoutes } from "./routes";
+import { createApp } from "./app";
 import { setupVite, serveStatic, log } from "./vite";
 import { scheduler } from "./scheduler";
-import { errorHandler } from "./middleware/error-handler";
 import { wsManager } from "./websocket";
 import { createServer } from "http";
-import { configureHelmet } from "./middleware/helmet";
-import { corsMiddleware } from "./middleware/cors";
-import { globalRateLimiter } from "./middleware/rate-limiter";
-import { registerHealthRoutes } from "./routes/health";
 
-const app = express();
-
-// Security headers (must be first)
-configureHelmet(app);
-
-// CORS must be applied early, before routes
-app.use(corsMiddleware);
-
-// Global rate limiting
-app.use(globalRateLimiter);
-
-app.use(express.json());
-app.use(express.urlencoded({ extended: false }));
-
-app.use((req, res, next) => {
-  const start = Date.now();
-  const path = req.path;
-  let capturedJsonResponse: Record<string, any> | undefined = undefined;
-
-  const originalResJson = res.json;
-  res.json = function (bodyJson, ...args) {
-    capturedJsonResponse = bodyJson;
-    return originalResJson.apply(res, [bodyJson, ...args]);
-  };
-
-  res.on("finish", () => {
-    const duration = Date.now() - start;
-    if (path.startsWith("/api")) {
-      let logLine = `${req.method} ${path} ${res.statusCode} in ${duration}ms`;
-      if (capturedJsonResponse) {
-        logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
-      }
-
-      if (logLine.length > 80) {
-        logLine = logLine.slice(0, 79) + "…";
-      }
-
-      log(logLine);
-    }
-  });
-
-  next();
-});
-
+/**
+ * Traditional Node server entrypoint — used for local development, Replit,
+ * and any always-on host (Railway, Render, Fly, self-hosted, etc.).
+ *
+ * This is NOT used by the Vercel deployment; see api/index.ts for the
+ * serverless entrypoint, which reuses the same createApp() factory but
+ * skips everything below that requires a persistent process: the raw
+ * http.Server (needed for WebSocket), the in-process node-cron scheduler,
+ * and Vite's dev middleware.
+ */
 (async () => {
-  // Register health check routes early (before auth, so load balancers can reach them)
-  registerHealthRoutes(app);
+  const app = await createApp();
 
-  await registerRoutes(app);
-
-  // Start workflow scheduler
+  // Start workflow scheduler (in-process node-cron; requires a
+  // long-lived process, which is why this file — not api/index.ts —
+  // owns it)
   await scheduler.start();
   log("Workflow scheduler started");
+
   // Initialize Phase 3A features
   const { scheduler: libScheduler } = await import("./lib/scheduler");
   const { costTracker } = await import("./lib/cost-tracker");
 
   await libScheduler.initialize();
   await costTracker.initializePricing();
-
-  // Use enhanced error handler (must be registered after all routes)
-  app.use(errorHandler);
 
   // Create HTTP server and initialize WebSocket before serving static/vite
   const port = parseInt(process.env.PORT || "5000", 10);
