@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- npm ERESOLVE conflict blocking install (date-fns/react-day-picker/react 19 peer mismatches; react-day-picker upgraded to v9)
+- Tailwind v4 build failure (postcss.config.js used the deprecated v3 plugin API; wired in @tailwindcss/vite instead)
+- esbuild downlevel-transform failure on wouter 3.10.0 output (raised vite build.target to es2022)
+- Calendar component migrated to react-day-picker v9's classNames/components API
+- Added Vercel serverless deployment support (server/app.ts, api/index.ts, vercel.json, serverless-safe cron tick endpoint replacing in-process node-cron)
+
 ### Added
 - Comprehensive repository review with AI-driven improvement strategy
 - SWARM workflow template for automated repository improvements
