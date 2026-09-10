@@ -1,0 +1,282 @@
+# ⚡ SWARM Lightning Deploy — Master Orchestrator
+# This single workflow triggers ALL 28 parallel streams
+# FIXED: matrix strategy uses workflow_call pattern correctly
+
+name: ⚡ Lightning Deploy — Master Orchestrator
+
+on:
+  workflow_dispatch:
+    inputs:
+      execute_phase:
+        description: 'Which phase(s) to execute'
+        required: true
+        default: 'all'
+        type: choice
+        options: [all, phase1, phase2, phase3]
+      ai_provider:
+        description: 'AI Provider for all workflows'
+        required: false
+        default: 'groq'
+        type: choice
+        options: [groq, google, anthropic, together]
+
+# ============================================================
+# PHASE 1: FOUNDATION (6 parallel streams)
+# ============================================================
+jobs:
+  phase1-database:
+    if: ${{ inputs.execute_phase == 'all' || inputs.execute_phase == 'phase1' }}
+    uses: ./.github/workflows/phase1-database.yml
+    secrets: inherit
+    with:
+      ai_provider: ${{ inputs.ai_provider }}
+
+  phase1-testing:
+    if: ${{ inputs.execute_phase == 'all' || inputs.execute_phase == 'phase1' }}
+    uses: ./.github/workflows/phase1-testing.yml
+    secrets: inherit
+    with:
+      ai_provider: ${{ inputs.ai_provider }}
+
+  phase1-api:
+    if: ${{ inputs.execute_phase == 'all' || inputs.execute_phase == 'phase1' }}
+    uses: ./.github/workflows/phase1-api.yml
+    secrets: inherit
+    with:
+      ai_provider: ${{ inputs.ai_provider }}
+
+  phase1-security:
+    if: ${{ inputs.execute_phase == 'all' || inputs.execute_phase == 'phase1' }}
+    uses: ./.github/workflows/phase1-security.yml
+    secrets: inherit
+    with:
+      ai_provider: ${{ inputs.ai_provider }}
+
+  phase1-frontend:
+    if: ${{ inputs.execute_phase == 'all' || inputs.execute_phase == 'phase1' }}
+    uses: ./.github/workflows/phase1-frontend.yml
+    secrets: inherit
+    with:
+      ai_provider: ${{ inputs.ai_provider }}
+
+  phase1-devops:
+    if: ${{ inputs.execute_phase == 'all' || inputs.execute_phase == 'phase1' }}
+    uses: ./.github/workflows/phase1-devops.yml
+    secrets: inherit
+    with:
+      ai_provider: ${{ inputs.ai_provider }}
+
+# ============================================================
+# PHASE 2: ADVANCED FEATURES (13 parallel streams)
+# All depend on phase1 jobs completing
+# ============================================================
+  phase2-redis:
+    if: ${{ inputs.execute_phase == 'all' || inputs.execute_phase == 'phase2' }}
+    needs: [phase1-database, phase1-testing, phase1-api, phase1-security, phase1-frontend, phase1-devops]
+    uses: ./.github/workflows/phase2-redis.yml
+    secrets: inherit
+    with:
+      ai_provider: ${{ inputs.ai_provider }}
+
+  phase2-parallel-execution:
+    if: ${{ inputs.execute_phase == 'all' || inputs.execute_phase == 'phase2' }}
+    needs: [phase1-database, phase1-testing, phase1-api, phase1-security, phase1-frontend, phase1-devops]
+    uses: ./.github/workflows/phase2-parallel-execution.yml
+    secrets: inherit
+    with:
+      ai_provider: ${{ inputs.ai_provider }}
+
+  phase2-hive-mind:
+    if: ${{ inputs.execute_phase == 'all' || inputs.execute_phase == 'phase2' }}
+    needs: [phase1-database, phase1-testing, phase1-api, phase1-security, phase1-frontend, phase1-devops]
+    uses: ./.github/workflows/phase2-hive-mind.yml
+    secrets: inherit
+    with:
+      ai_provider: ${{ inputs.ai_provider }}
+
+  phase2-mcp:
+    if: ${{ inputs.execute_phase == 'all' || inputs.execute_phase == 'phase2' }}
+    needs: [phase1-database, phase1-testing, phase1-api, phase1-security, phase1-frontend, phase1-devops]
+    uses: ./.github/workflows/phase2-mcp.yml
+    secrets: inherit
+    with:
+      ai_provider: ${{ inputs.ai_provider }}
+
+  phase2-a2a:
+    if: ${{ inputs.execute_phase == 'all' || inputs.execute_phase == 'phase2' }}
+    needs: [phase1-database, phase1-testing, phase1-api, phase1-security, phase1-frontend, phase1-devops]
+    uses: ./.github/workflows/phase2-a2a.yml
+    secrets: inherit
+    with:
+      ai_provider: ${{ inputs.ai_provider }}
+
+  phase2-github-automation:
+    if: ${{ inputs.execute_phase == 'all' || inputs.execute_phase == 'phase2' }}
+    needs: [phase1-database, phase1-testing, phase1-api, phase1-security, phase1-frontend, phase1-devops]
+    uses: ./.github/workflows/phase2-github-automation.yml
+    secrets: inherit
+    with:
+      ai_provider: ${{ inputs.ai_provider }}
+
+  phase2-github-pr-review:
+    if: ${{ inputs.execute_phase == 'all' || inputs.execute_phase == 'phase2' }}
+    needs: [phase1-database, phase1-testing, phase1-api, phase1-security, phase1-frontend, phase1-devops]
+    uses: ./.github/workflows/phase2-github-pr-review.yml
+    secrets: inherit
+    with:
+      ai_provider: ${{ inputs.ai_provider }}
+
+  phase2-github-issues:
+    if: ${{ inputs.execute_phase == 'all' || inputs.execute_phase == 'phase2' }}
+    needs: [phase1-database, phase1-testing, phase1-api, phase1-security, phase1-frontend, phase1-devops]
+    uses: ./.github/workflows/phase2-github-issues.yml
+    secrets: inherit
+    with:
+      ai_provider: ${{ inputs.ai_provider }}
+
+  phase2-dragonfly:
+    if: ${{ inputs.execute_phase == 'all' || inputs.execute_phase == 'phase2' }}
+    needs: [phase1-database, phase1-testing, phase1-api, phase1-security, phase1-frontend, phase1-devops]
+    uses: ./.github/workflows/phase2-dragonfly.yml
+    secrets: inherit
+    with:
+      ai_provider: ${{ inputs.ai_provider }}
+
+  phase2-nats:
+    if: ${{ inputs.execute_phase == 'all' || inputs.execute_phase == 'phase2' }}
+    needs: [phase1-database, phase1-testing, phase1-api, phase1-security, phase1-frontend, phase1-devops]
+    uses: ./.github/workflows/phase2-nats.yml
+    secrets: inherit
+    with:
+      ai_provider: ${{ inputs.ai_provider }}
+
+  phase2-drools:
+    if: ${{ inputs.execute_phase == 'all' || inputs.execute_phase == 'phase2' }}
+    needs: [phase1-database, phase1-testing, phase1-api, phase1-security, phase1-frontend, phase1-devops]
+    uses: ./.github/workflows/phase2-drools.yml
+    secrets: inherit
+    with:
+      ai_provider: ${{ inputs.ai_provider }}
+
+  phase2-secrets:
+    if: ${{ inputs.execute_phase == 'all' || inputs.execute_phase == 'phase2' }}
+    needs: [phase1-database, phase1-testing, phase1-api, phase1-security, phase1-frontend, phase1-devops]
+    uses: ./.github/workflows/phase2-secrets.yml
+    secrets: inherit
+    with:
+      ai_provider: ${{ inputs.ai_provider }}
+
+  phase2-workflow-versioning:
+    if: ${{ inputs.execute_phase == 'all' || inputs.execute_phase == 'phase2' }}
+    needs: [phase1-database, phase1-testing, phase1-api, phase1-security, phase1-frontend, phase1-devops]
+    uses: ./.github/workflows/phase2-workflow-versioning.yml
+    secrets: inherit
+    with:
+      ai_provider: ${{ inputs.ai_provider }}
+
+# ============================================================
+# PHASE 3: SCALE & POLISH (9 parallel streams)
+# All depend on phase2 jobs completing
+# ============================================================
+  phase3-multitenant:
+    if: ${{ inputs.execute_phase == 'all' || inputs.execute_phase == 'phase3' }}
+    needs: [phase2-redis, phase2-parallel-execution, phase2-hive-mind, phase2-mcp, phase2-a2a]
+    uses: ./.github/workflows/phase3-multitenant.yml
+    secrets: inherit
+    with:
+      ai_provider: ${{ inputs.ai_provider }}
+
+  phase3-rbac:
+    if: ${{ inputs.execute_phase == 'all' || inputs.execute_phase == 'phase3' }}
+    needs: [phase2-redis, phase2-parallel-execution, phase2-hive-mind, phase2-mcp, phase2-a2a]
+    uses: ./.github/workflows/phase3-rbac.yml
+    secrets: inherit
+    with:
+      ai_provider: ${{ inputs.ai_provider }}
+
+  phase3-monitoring:
+    if: ${{ inputs.execute_phase == 'all' || inputs.execute_phase == 'phase3' }}
+    needs: [phase2-redis, phase2-parallel-execution, phase2-hive-mind, phase2-mcp, phase2-a2a]
+    uses: ./.github/workflows/phase3-monitoring.yml
+    secrets: inherit
+    with:
+      ai_provider: ${{ inputs.ai_provider }}
+
+  phase3-grafana:
+    if: ${{ inputs.execute_phase == 'all' || inputs.execute_phase == 'phase3' }}
+    needs: [phase2-redis, phase2-parallel-execution, phase2-hive-mind, phase2-mcp, phase2-a2a]
+    uses: ./.github/workflows/phase3-grafana.yml
+    secrets: inherit
+    with:
+      ai_provider: ${{ inputs.ai_provider }}
+
+  phase3-prometheus:
+    if: ${{ inputs.execute_phase == 'all' || inputs.execute_phase == 'phase3' }}
+    needs: [phase2-redis, phase2-parallel-execution, phase2-hive-mind, phase2-mcp, phase2-a2a]
+    uses: ./.github/workflows/phase3-prometheus.yml
+    secrets: inherit
+    with:
+      ai_provider: ${{ inputs.ai_provider }}
+
+  phase3-plugins:
+    if: ${{ inputs.execute_phase == 'all' || inputs.execute_phase == 'phase3' }}
+    needs: [phase2-redis, phase2-parallel-execution, phase2-hive-mind, phase2-mcp, phase2-a2a]
+    uses: ./.github/workflows/phase3-plugins.yml
+    secrets: inherit
+    with:
+      ai_provider: ${{ inputs.ai_provider }}
+
+  phase3-plugin-sdk:
+    if: ${{ inputs.execute_phase == 'all' || inputs.execute_phase == 'phase3' }}
+    needs: [phase2-redis, phase2-parallel-execution, phase2-hive-mind, phase2-mcp, phase2-a2a]
+    uses: ./.github/workflows/phase3-plugin-sdk.yml
+    secrets: inherit
+    with:
+      ai_provider: ${{ inputs.ai_provider }}
+
+  phase3-examples:
+    if: ${{ inputs.execute_phase == 'all' || inputs.execute_phase == 'phase3' }}
+    needs: [phase2-redis, phase2-parallel-execution, phase2-hive-mind, phase2-mcp, phase2-a2a]
+    uses: ./.github/workflows/phase3-examples.yml
+    secrets: inherit
+    with:
+      ai_provider: ${{ inputs.ai_provider }}
+
+  phase3-notifications:
+    if: ${{ inputs.execute_phase == 'all' || inputs.execute_phase == 'phase3' }}
+    needs: [phase2-redis, phase2-parallel-execution, phase2-hive-mind, phase2-mcp, phase2-a2a]
+    uses: ./.github/workflows/phase3-notifications.yml
+    secrets: inherit
+    with:
+      ai_provider: ${{ inputs.ai_provider }}
+
+# ============================================================
+# FINAL SUMMARY
+# ============================================================
+  deployment-summary:
+    needs: [phase3-multitenant, phase3-rbac, phase3-monitoring, phase3-grafana,
+            phase3-prometheus, phase3-plugins, phase3-plugin-sdk, phase3-examples,
+            phase3-notifications]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: 📊 Final Lightning Deploy Summary
+        run: |
+          {
+            echo "# ⚡ Operation Lightning — Complete"
+            echo ""
+            echo "## Execution Summary"
+            echo "| Metric | Value |"
+            echo "|--------|-------|"
+            echo "| Total Tasks | 40 |"
+            echo "| Parallel Streams | 28 |"
+            echo "| Phases | 3 (Foundation → Advanced → Scale) |"
+            echo "| AI Provider | ${{ inputs.ai_provider }} |"
+            echo "| Completed | $(date -u '+%Y-%m-%d %H:%M:%S UTC') |"
+            echo ""
+            echo "## Next Steps"
+            echo "1. Review and merge all PRs labeled \`lightning-deploy\`"
+            echo "2. Run integration tests: \`npm run test:integration\`"
+            echo "3. Deploy to production: \`vinext deploy\`"
+            echo "4. Verify: \`curl https://swarm.workers.dev/api/health\`"
+          } >> $GITHUB_STEP_SUMMARY
