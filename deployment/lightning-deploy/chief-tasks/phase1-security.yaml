@@ -1,0 +1,18 @@
+# Chief CLI Workflow: phase1-security
+# Run with: chief run chief-tasks/phase1-security.yaml
+
+name: phase1-security
+description: Phase 1 Security Foundation
+
+tasks:
+  - name: "Rate Limiting"
+    file: chief-tasks/tasks/11-rate-limiting-middleware.md
+    commit_message: "feat(security): plan-based rate limiting"
+  - name: "Audit Logs"
+    file: chief-tasks/tasks/12-audit-logging-system.md
+    commit_message: "feat(security): comprehensive audit logging"
+    depends_on: ["Rate Limiting"]
+  - name: "Vuln Scan"
+    file: chief-tasks/tasks/13-automated-vulnerability-scanning.md
+    commit_message: "feat(security): CI vulnerability scanning"
+    depends_on: ["Audit Logs"]

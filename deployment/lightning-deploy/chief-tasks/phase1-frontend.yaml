@@ -1,0 +1,18 @@
+# Chief CLI Workflow: phase1-frontend
+# Run with: chief run chief-tasks/phase1-frontend.yaml
+
+name: phase1-frontend
+description: Phase 1 Frontend Foundation
+
+tasks:
+  - name: "Sign In UI"
+    file: chief-tasks/tasks/14-authentication-ui-sign-in--sign-up.md
+    commit_message: "feat(ui): NextAuth GitHub OAuth"
+  - name: "Model Selector"
+    file: chief-tasks/tasks/15-ai-model-selector-component.md
+    commit_message: "feat(ui): model selector with capabilities"
+    depends_on: ["Sign In UI"]
+  - name: "Prompt Editor"
+    file: chief-tasks/tasks/16-prompt-editor-component.md
+    commit_message: "feat(ui): rich prompt editor"
+    depends_on: ["Model Selector"]

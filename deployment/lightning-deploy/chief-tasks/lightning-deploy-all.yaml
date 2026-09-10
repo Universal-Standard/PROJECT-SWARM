@@ -1,0 +1,59 @@
+# Chief CLI — Master Lightning Deploy Orchestrator
+# This runs ALL phases sequentially
+# For parallel execution, use GitHub Actions (lightning-deploy-master.yml instead)
+
+name: lightning-deploy-all
+description: Complete SWARM platform deployment — all 40 tasks across 3 phases
+
+phases:
+  - name: phase0
+    description: Pre-foundation (vinext migration)
+    parallel: false
+    workflows:
+      - chief-tasks/phase0-vinext.yaml
+
+  - name: phase1
+    description: Foundation (database, testing, API, security, frontend, devops)
+    parallel: true
+    depends_on: [phase0]
+    workflows:
+      - chief-tasks/phase1-database.yaml
+      - chief-tasks/phase1-testing.yaml
+      - chief-tasks/phase1-api.yaml
+      - chief-tasks/phase1-security.yaml
+      - chief-tasks/phase1-frontend.yaml
+      - chief-tasks/phase1-devops.yaml
+
+  - name: phase2
+    description: Advanced features (Redis, parallel execution, MCP, A2A, GitHub)
+    parallel: true
+    depends_on: [phase1]
+    workflows:
+      - chief-tasks/phase2-redis.yaml
+      - chief-tasks/phase2-parallel-execution.yaml
+      - chief-tasks/phase2-hive-mind.yaml
+      - chief-tasks/phase2-mcp.yaml
+      - chief-tasks/phase2-a2a.yaml
+      - chief-tasks/phase2-github-automation.yaml
+      - chief-tasks/phase2-github-pr-review.yaml
+      - chief-tasks/phase2-github-issues.yaml
+      - chief-tasks/phase2-dragonfly.yaml
+      - chief-tasks/phase2-nats.yaml
+      - chief-tasks/phase2-drools.yaml
+      - chief-tasks/phase2-secrets.yaml
+      - chief-tasks/phase2-workflow-versioning.yaml
+
+  - name: phase3
+    description: Scale and polish (multi-tenancy, RBAC, monitoring, plugins)
+    parallel: true
+    depends_on: [phase2]
+    workflows:
+      - chief-tasks/phase3-multitenant.yaml
+      - chief-tasks/phase3-rbac.yaml
+      - chief-tasks/phase3-monitoring.yaml
+      - chief-tasks/phase3-grafana.yaml
+      - chief-tasks/phase3-prometheus.yaml
+      - chief-tasks/phase3-plugins.yaml
+      - chief-tasks/phase3-plugin-sdk.yaml
+      - chief-tasks/phase3-examples.yaml
+      - chief-tasks/phase3-notifications.yaml
