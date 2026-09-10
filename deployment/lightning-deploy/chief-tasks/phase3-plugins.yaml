@@ -1,0 +1,10 @@
+# Chief CLI Workflow: phase3-plugins
+# Run with: chief run chief-tasks/phase3-plugins.yaml
+
+name: phase3-plugins
+description: Phase 3 Plugin System
+
+tasks:
+  - name: "Plugins"
+    file: chief-tasks/tasks/41-plugin-system--marketplace.md
+    commit_message: "feat(plugins): sandboxed plugin marketplace"

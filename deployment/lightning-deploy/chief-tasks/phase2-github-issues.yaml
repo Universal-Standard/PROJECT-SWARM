@@ -1,0 +1,10 @@
+# Chief CLI Workflow: phase2-github-issues
+# Run with: chief run chief-tasks/phase2-github-issues.yaml
+
+name: phase2-github-issues
+description: Phase 2 GitHub Issues
+
+tasks:
+  - name: "Issue Triage"
+    file: chief-tasks/tasks/30-github-issue-management-agent.md
+    commit_message: "feat(github): issue triage agent"

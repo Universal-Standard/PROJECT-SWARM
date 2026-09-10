@@ -1,0 +1,10 @@
+# Chief CLI Workflow: phase2-github-automation
+# Run with: chief run chief-tasks/phase2-github-automation.yaml
+
+name: phase2-github-automation
+description: Phase 2 GitHub Automation
+
+tasks:
+  - name: "GitHub Automation"
+    file: chief-tasks/tasks/28-github-repository-automation.md
+    commit_message: "feat(github): repo automation and webhooks"

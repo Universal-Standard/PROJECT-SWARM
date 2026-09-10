@@ -1,0 +1,14 @@
+# Chief CLI Workflow: phase1-api
+# Run with: chief run chief-tasks/phase1-api.yaml
+
+name: phase1-api
+description: Phase 1 Core API
+
+tasks:
+  - name: "GitHub Repos API"
+    file: chief-tasks/tasks/09-github-repositories-api-endpoint.md
+    commit_message: "feat(api): GitHub repos CRUD endpoint"
+  - name: "AI Chat API"
+    file: chief-tasks/tasks/10-ai-chat-completions-api.md
+    commit_message: "feat(api): streaming AI chat with multi-model routing"
+    depends_on: ["GitHub Repos API"]

@@ -69,7 +69,6 @@ playwright/.cache/
 .tmp/
 
 # Database
-# swarm.db is intentionally tracked (GitHub-only architecture)
 # WAL side-car files are ephemeral and must NOT be committed
 swarm.db-wal
 swarm.db-shm
@@ -91,3 +90,7 @@ vite.config.ts.*
 
 # Sentry
 .sentryclirc
+
+# Local SQLite DB artifact — must not be committed (see consolidation notes)
+swarm.db
+*.db

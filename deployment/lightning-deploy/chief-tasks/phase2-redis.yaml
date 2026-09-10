@@ -1,0 +1,18 @@
+# Chief CLI Workflow: phase2-redis
+# Run with: chief run chief-tasks/phase2-redis.yaml
+
+name: phase2-redis
+description: Phase 2 Redis Caching
+
+tasks:
+  - name: "Upstash Client"
+    file: chief-tasks/tasks/19-upstash-redis-client--session-store.md
+    commit_message: "feat(redis): edge-compatible Upstash client"
+  - name: "Session Management"
+    file: chief-tasks/tasks/20-redis-session-management.md
+    commit_message: "feat(redis): multi-device session management"
+    depends_on: ["Upstash Client"]
+  - name: "API Caching"
+    file: chief-tasks/tasks/21-api-response-caching-layer.md
+    commit_message: "feat(redis): stale-while-revalidate API cache"
+    depends_on: ["Session Management"]

@@ -1,0 +1,10 @@
+# Chief CLI Workflow: phase3-multitenant
+# Run with: chief run chief-tasks/phase3-multitenant.yaml
+
+name: phase3-multitenant
+description: Phase 3 Multi-Tenancy
+
+tasks:
+  - name: "Multi-Tenant"
+    file: chief-tasks/tasks/36-multi-tenant-architecture-hardening.md
+    commit_message: "feat(security): multi-tenant isolation hardening"

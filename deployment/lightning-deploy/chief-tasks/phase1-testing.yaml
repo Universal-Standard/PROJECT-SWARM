@@ -1,0 +1,22 @@
+# Chief CLI Workflow: phase1-testing
+# Run with: chief run chief-tasks/phase1-testing.yaml
+
+name: phase1-testing
+description: Phase 1 Testing Infrastructure
+
+tasks:
+  - name: "Jest Setup"
+    file: chief-tasks/tasks/05-jest-testing-infrastructure-setup.md
+    commit_message: "feat(test): Jest + TypeScript testing infrastructure"
+  - name: "Unit Tests"
+    file: chief-tasks/tasks/06-core-unit-tests.md
+    commit_message: "feat(test): core unit test suite"
+    depends_on: ["Jest Setup"]
+  - name: "Integration Tests"
+    file: chief-tasks/tasks/07-integration-test-suite.md
+    commit_message: "feat(test): integration tests with real DB"
+    depends_on: ["Unit Tests"]
+  - name: "E2E Tests"
+    file: chief-tasks/tasks/08-end-to-end-test-suite-playwright.md
+    commit_message: "feat(test): Playwright E2E test suite"
+    depends_on: ["Integration Tests"]

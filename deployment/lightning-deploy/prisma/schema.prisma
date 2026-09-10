@@ -1,0 +1,343 @@
+// SWARM Platform — Multi-Tenant PostgreSQL Schema (Supabase)
+// Multi-tenancy built in from Day 1 — NOT retrofitted in Phase 3
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ============================================================
+// MULTI-TENANCY FOUNDATION
+// ============================================================
+
+model Organization {
+  id          String   @id @default(cuid())
+  name        String
+  slug        String   @unique
+  plan        Plan     @default(FREE)
+  maxAgents   Int      @default(5)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  members     OrgMember[]
+  workflows   Workflow[]
+  agents      Agent[]
+  executions  Execution[]
+  apiKeys     ApiKey[]
+
+  @@map("organizations")
+}
+
+model OrgMember {
+  id             String       @id @default(cuid())
+  organizationId String
+  userId         String
+  role           OrgRole      @default(MEMBER)
+  createdAt      DateTime     @default(now())
+
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, userId])
+  @@map("org_members")
+}
+
+// ============================================================
+// AUTH (NextAuth compatible)
+// ============================================================
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String?   @unique
+  emailVerified DateTime?
+  image         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  accounts      Account[]
+  sessions      Session[]
+  orgMemberships OrgMember[]
+
+  @@map("users")
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@map("accounts")
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+// ============================================================
+// CORE SWARM ENTITIES
+// ============================================================
+
+model Workflow {
+  id             String         @id @default(cuid())
+  organizationId String
+  name           String
+  description    String?
+  nodes          Json           @default("[]")
+  edges          Json           @default("[]")
+  config         Json           @default("{}")
+  status         WorkflowStatus @default(DRAFT)
+  version        Int            @default(1)
+  templateId     String?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  organization   Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  executions     Execution[]
+  template       WorkflowTemplate? @relation(fields: [templateId], references: [id])
+
+  @@index([organizationId])
+  @@map("workflows")
+}
+
+model WorkflowTemplate {
+  id          String     @id @default(cuid())
+  name        String
+  description String?
+  category    String
+  nodes       Json       @default("[]")
+  edges       Json       @default("[]")
+  config      Json       @default("{}")
+  isPublic    Boolean    @default(true)
+  usageCount  Int        @default(0)
+  createdAt   DateTime   @default(now())
+
+  workflows   Workflow[]
+
+  @@map("workflow_templates")
+}
+
+model Agent {
+  id             String      @id @default(cuid())
+  organizationId String
+  name           String
+  description    String?
+  templateId     String
+  config         Json        @default("{}")
+  capabilities   String[]    @default([])
+  aiProvider     AIProvider  @default(GROQ)
+  model          String      @default("llama-3.1-70b-versatile")
+  systemPrompt   String?     @db.Text
+  maxIterations  Int         @default(10)
+  timeoutSeconds Int         @default(300)
+  status         AgentStatus @default(IDLE)
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  executions     AgentExecution[]
+
+  @@index([organizationId])
+  @@map("agents")
+}
+
+model Execution {
+  id             String          @id @default(cuid())
+  organizationId String
+  workflowId     String
+  status         ExecutionStatus @default(PENDING)
+  input          Json            @default("{}")
+  output         Json?
+  error          String?         @db.Text
+  startedAt      DateTime?
+  completedAt    DateTime?
+  durationMs     Int?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  organization   Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  workflow       Workflow        @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  agentRuns      AgentExecution[]
+  artifacts      Artifact[]
+  auditLogs      AuditLog[]
+
+  @@index([organizationId, workflowId])
+  @@index([status])
+  @@map("executions")
+}
+
+model AgentExecution {
+  id          String          @id @default(cuid())
+  executionId String
+  agentId     String
+  status      ExecutionStatus @default(PENDING)
+  input       Json            @default("{}")
+  output      Json?
+  error       String?         @db.Text
+  iterations  Int             @default(0)
+  tokensUsed  Int             @default(0)
+  costUsd     Float           @default(0)
+  startedAt   DateTime?
+  completedAt DateTime?
+  createdAt   DateTime        @default(now())
+
+  execution   Execution @relation(fields: [executionId], references: [id], onDelete: Cascade)
+  agent       Agent     @relation(fields: [agentId], references: [id], onDelete: Cascade)
+
+  @@index([executionId])
+  @@map("agent_executions")
+}
+
+model Artifact {
+  id          String       @id @default(cuid())
+  executionId String
+  name        String
+  type        ArtifactType
+  content     String?      @db.Text
+  url         String?
+  metadata    Json         @default("{}")
+  sizeBytes   Int          @default(0)
+  createdAt   DateTime     @default(now())
+
+  execution   Execution @relation(fields: [executionId], references: [id], onDelete: Cascade)
+
+  @@index([executionId])
+  @@map("artifacts")
+}
+
+// ============================================================
+// SECURITY & GOVERNANCE
+// ============================================================
+
+model ApiKey {
+  id             String    @id @default(cuid())
+  organizationId String
+  name           String
+  keyHash        String    @unique
+  keyPrefix      String
+  permissions    String[]  @default([])
+  lastUsedAt     DateTime?
+  expiresAt      DateTime?
+  createdAt      DateTime  @default(now())
+  revokedAt      DateTime?
+
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@map("api_keys")
+}
+
+model AuditLog {
+  id             String   @id @default(cuid())
+  organizationId String?
+  userId         String?
+  executionId    String?
+  action         String
+  resource       String
+  resourceId     String?
+  metadata       Json     @default("{}")
+  ipAddress      String?
+  userAgent      String?
+  createdAt      DateTime @default(now())
+
+  execution      Execution? @relation(fields: [executionId], references: [id])
+
+  @@index([organizationId])
+  @@index([userId])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+
+model RateLimit {
+  id         String   @id @default(cuid())
+  identifier String
+  window     String
+  count      Int      @default(0)
+  resetAt    DateTime
+  createdAt  DateTime @default(now())
+
+  @@unique([identifier, window])
+  @@map("rate_limits")
+}
+
+// ============================================================
+// ENUMS
+// ============================================================
+
+enum Plan {
+  FREE
+  PRO
+  ENTERPRISE
+}
+
+enum OrgRole {
+  OWNER
+  ADMIN
+  MEMBER
+  VIEWER
+}
+
+enum WorkflowStatus {
+  DRAFT
+  ACTIVE
+  ARCHIVED
+  DEPRECATED
+}
+
+enum ExecutionStatus {
+  PENDING
+  RUNNING
+  COMPLETED
+  FAILED
+  CANCELLED
+  TIMEOUT
+}
+
+enum AgentStatus {
+  IDLE
+  RUNNING
+  ERROR
+  DISABLED
+}
+
+enum AIProvider {
+  ANTHROPIC
+  GROQ
+  GOOGLE
+  TOGETHER
+  OPENAI
+}
+
+enum ArtifactType {
+  FILE
+  CODE
+  DATA
+  REPORT
+  IMAGE
+  OTHER
+}

@@ -1,0 +1,14 @@
+# Chief CLI Workflow: phase1-devops
+# Run with: chief run chief-tasks/phase1-devops.yaml
+
+name: phase1-devops
+description: Phase 1 DevOps
+
+tasks:
+  - name: "CI/CD Pipeline"
+    file: chief-tasks/tasks/17-cicd-pipeline-configuration.md
+    commit_message: "feat(devops): CI/CD with preview deploys"
+  - name: "Cloudflare Config"
+    file: chief-tasks/tasks/18-cloudflare-workers--wrangler-configuration.md
+    commit_message: "feat(devops): Cloudflare Workers config"
+    depends_on: ["CI/CD Pipeline"]

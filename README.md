@@ -6,13 +6,20 @@
 [![Deploy to GitHub Pages](https://img.shields.io/badge/Deploy-GitHub%20Pages-blue)](./docs/deployment/GITHUB_PAGES_DEPLOYMENT.md)
 [![Self-Hosted](https://img.shields.io/badge/Deploy-Self%20Hosted-green)](./docs/deployment/SELF_HOSTED_DEPLOYMENT.md)
 
+> **This is the single canonical SWARM repository.** As of September 2026, this
+> repo consolidates what were four separate SWARM repositories
+> (`UniversalStandards/SWARM`, `Universal-Standard/SWARM`, `US-SPURS/SWARM`, and
+> this one). Unresolved work from the duplicates was migrated in as GitHub
+> issues and an archived reference scaffold under `deployment/lightning-deploy/`
+> — see `REPOSITORY_STRUCTURE.md` for the full consolidation notes.
+
 ---
 
 ## 🚀 Quick Start
 
 ```bash
 # Clone repository
-git clone https://github.com/UniversalStandards/PROJECT-SWARM.git
+git clone https://github.com/Universal-Standard/PROJECT-SWARM.git
 cd PROJECT-SWARM
 
 # Install dependencies
@@ -224,10 +231,10 @@ MIT License - see [LICENSE](./LICENSE) for details.
 
 ## 🔗 Links
 
-- **Repository**: https://github.com/UniversalStandards/PROJECT-SWARM
+- **Repository**: https://github.com/Universal-Standard/PROJECT-SWARM
 - **Documentation**: [Complete Docs](./docs/)
-- **Issues**: https://github.com/UniversalStandards/PROJECT-SWARM/issues
-- **Discussions**: https://github.com/UniversalStandards/PROJECT-SWARM/discussions
+- **Issues**: https://github.com/Universal-Standard/PROJECT-SWARM/issues
+- **Discussions**: https://github.com/Universal-Standard/PROJECT-SWARM/discussions
 
 ---
 

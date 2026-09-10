@@ -1,0 +1,10 @@
+# Chief CLI Workflow: phase2-a2a
+# Run with: chief run chief-tasks/phase2-a2a.yaml
+
+name: phase2-a2a
+description: Phase 2 A2A Communication
+
+tasks:
+  - name: "A2A Protocol"
+    file: chief-tasks/tasks/27-agent-to-agent-communication-protocol.md
+    commit_message: "feat(protocols): A2A messaging"

@@ -1,0 +1,10 @@
+# Chief CLI Workflow: phase2-mcp
+# Run with: chief run chief-tasks/phase2-mcp.yaml
+
+name: phase2-mcp
+description: Phase 2 MCP Integration
+
+tasks:
+  - name: "MCP Integration"
+    file: chief-tasks/tasks/26-model-context-protocol-mcp-integration.md
+    commit_message: "feat(protocols): MCP tool registry"

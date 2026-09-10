@@ -1,0 +1,10 @@
+# Chief CLI Workflow: phase2-github-pr-review
+# Run with: chief run chief-tasks/phase2-github-pr-review.yaml
+
+name: phase2-github-pr-review
+description: Phase 2 GitHub PR Review
+
+tasks:
+  - name: "PR Review Agent"
+    file: chief-tasks/tasks/29-ai-powered-pull-request-review.md
+    commit_message: "feat(github): AI PR review agent"

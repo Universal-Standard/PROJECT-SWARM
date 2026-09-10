@@ -1,0 +1,10 @@
+# Chief CLI Workflow: phase2-hive-mind
+# Run with: chief run chief-tasks/phase2-hive-mind.yaml
+
+name: phase2-hive-mind
+description: Phase 2 Hive Mind
+
+tasks:
+  - name: "Hive Mind"
+    file: chief-tasks/tasks/25-hive-mind-master-coordinator.md
+    commit_message: "feat(core): Hive Mind AI coordinator"

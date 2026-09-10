@@ -1,0 +1,22 @@
+# Chief CLI Workflow: phase1-database
+# Run with: chief run chief-tasks/phase1-database.yaml
+
+name: phase1-database
+description: Phase 1 Database Foundation
+
+tasks:
+  - name: "PostgreSQL Schema"
+    file: chief-tasks/tasks/01-postgres-schema-design-multi-tenant-from-day-1.md
+    commit_message: "feat(db): multi-tenant PostgreSQL schema"
+  - name: "Prisma ORM Config"
+    file: chief-tasks/tasks/02-prisma-orm-configuration--type-generation.md
+    commit_message: "feat(db): Prisma ORM with TypeScript types"
+    depends_on: ["PostgreSQL Schema"]
+  - name: "Database Migrations"
+    file: chief-tasks/tasks/03-database-migrations--deployment-pipeline.md
+    commit_message: "feat(db): migration pipeline"
+    depends_on: ["Prisma ORM Config"]
+  - name: "Seed Data"
+    file: chief-tasks/tasks/04-seed-data--agent-templates.md
+    commit_message: "feat(db): 17 agent templates + 4 workflow templates"
+    depends_on: ["Database Migrations"]

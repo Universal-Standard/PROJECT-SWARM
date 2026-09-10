@@ -1,0 +1,10 @@
+# Chief CLI Workflow: phase2-drools
+# Run with: chief run chief-tasks/phase2-drools.yaml
+
+name: phase2-drools
+description: Phase 2 Rules Engine
+
+tasks:
+  - name: "Rules Engine"
+    file: chief-tasks/tasks/33-business-rules-engine-droolsjson-rules.md
+    commit_message: "feat(rules): JSON rules engine"

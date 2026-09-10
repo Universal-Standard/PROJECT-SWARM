@@ -1,0 +1,10 @@
+# Chief CLI Workflow: phase3-monitoring
+# Run with: chief run chief-tasks/phase3-monitoring.yaml
+
+name: phase3-monitoring
+description: Phase 3 Monitoring
+
+tasks:
+  - name: "Monitoring"
+    file: chief-tasks/tasks/38-application-monitoring--alerting.md
+    commit_message: "feat(ops): monitoring and alerting"

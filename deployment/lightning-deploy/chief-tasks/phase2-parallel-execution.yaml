@@ -1,0 +1,18 @@
+# Chief CLI Workflow: phase2-parallel-execution
+# Run with: chief run chief-tasks/phase2-parallel-execution.yaml
+
+name: phase2-parallel-execution
+description: Phase 2 Parallel Execution
+
+tasks:
+  - name: "Orchestrator"
+    file: chief-tasks/tasks/22-parallel-agent-execution-engine.md
+    commit_message: "feat(core): parallel agent orchestration engine"
+  - name: "Resource Mgmt"
+    file: chief-tasks/tasks/23-agent-resource-management.md
+    commit_message: "feat(core): token budgets and cost tracking"
+    depends_on: ["Orchestrator"]
+  - name: "Load Balancing"
+    file: chief-tasks/tasks/24-ai-provider-load-balancing.md
+    commit_message: "feat(core): multi-provider load balancing"
+    depends_on: ["Resource Mgmt"]

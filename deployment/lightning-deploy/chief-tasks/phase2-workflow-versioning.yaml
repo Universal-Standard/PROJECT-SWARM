@@ -1,0 +1,10 @@
+# Chief CLI Workflow: phase2-workflow-versioning
+# Run with: chief run chief-tasks/phase2-workflow-versioning.yaml
+
+name: phase2-workflow-versioning
+description: Phase 2 Workflow Versioning
+
+tasks:
+  - name: "Versioning"
+    file: chief-tasks/tasks/35-workflow-version-control.md
+    commit_message: "feat(versioning): semantic workflow versioning"

@@ -1,0 +1,10 @@
+# Chief CLI Workflow: phase0-vinext
+# Run with: chief run chief-tasks/phase0-vinext.yaml
+
+name: phase0-vinext
+description: Phase 0 vinext Migration
+
+tasks:
+  - name: "vinext Migration"
+    file: chief-tasks/tasks/00-vinext-migration-phase-0-pre-foundation.md
+    commit_message: "feat(infra): migrate to vinext for 4.4x faster builds"

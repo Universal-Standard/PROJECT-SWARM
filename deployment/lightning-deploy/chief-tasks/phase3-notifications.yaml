@@ -1,0 +1,10 @@
+# Chief CLI Workflow: phase3-notifications
+# Run with: chief run chief-tasks/phase3-notifications.yaml
+
+name: phase3-notifications
+description: Phase 3 Notifications
+
+tasks:
+  - name: "Notifications"
+    file: chief-tasks/tasks/44-notification-system.md
+    commit_message: "feat(notifications): multi-channel notification system"

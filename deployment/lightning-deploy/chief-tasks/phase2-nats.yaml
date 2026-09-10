@@ -1,0 +1,10 @@
+# Chief CLI Workflow: phase2-nats
+# Run with: chief run chief-tasks/phase2-nats.yaml
+
+name: phase2-nats
+description: Phase 2 NATS Messaging
+
+tasks:
+  - name: "NATS JetStream"
+    file: chief-tasks/tasks/32-nats-jetstream-message-bus.md
+    commit_message: "feat(messaging): NATS JetStream bus"
