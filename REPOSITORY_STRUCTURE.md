@@ -25,6 +25,10 @@ PROJECT-SWARM/
 │   ├── index.html                # HTML entry point
 │   └── 404.html                  # 404 page
 │
+├── deployment/                   # Archived/reference deployment scaffolds
+│   └── lightning-deploy/         # Migrated from US-SPURS/SWARM (reference only,
+│                                  #   AGPL-3.0 licensed, not wired into CI/build)
+│
 ├── docs/                         # Documentation
 │   ├── README.md                 # Documentation index
 │   ├── architecture/             # System design & features
@@ -117,7 +121,7 @@ Keep only essential top-level files:
 - **README.md** - Project overview and quick start
 - **GETTING_STARTED.md** - Detailed setup instructions
 - **SECURITY.md** - Security policies and reporting
-- **LICENSE** - Project license (MIT)
+- **LICENSE** - Project license (MIT). Exception: `deployment/lightning-deploy/LICENSE` is AGPL-3.0 and applies only within that archived subfolder.
 
 ### Configuration Files
 All in root directory for tool compatibility:
@@ -212,3 +216,23 @@ This structure was established in January 2026 to improve repository organizatio
 - Comprehensive documentation index created
 
 All existing functionality maintained - no breaking changes to code or builds.
+
+
+## SWARM Repository Consolidation (September 2026)
+
+`Universal-Standard/PROJECT-SWARM` was confirmed as the single canonical SWARM
+codebase, consolidating four previously separate repositories:
+
+- `UniversalStandards/SWARM` — older Next.js/Docker/Kubernetes architecture,
+  retired (historical reference only, no content merged)
+- `Universal-Standard/SWARM` — near-duplicate with a superseded 16-branch
+  deployment strategy, retired; its 20 open, unresolved issues were migrated
+  into this repository's issue tracker (see `docs/project-management/PROJECT_BOARD.md`
+  for the full backlog these issues are drawn from)
+- `US-SPURS/SWARM` — near-empty repo containing only a `SWARM-complete.zip`
+  archive; its contents were extracted into `deployment/lightning-deploy/`
+  (see that folder's README for important license/architecture caveats)
+
+Also as part of this consolidation: a `swarm.db` SQLite file that had been
+committed to this repository was removed and added to `.gitignore` — binary
+database files should never be tracked in git.
