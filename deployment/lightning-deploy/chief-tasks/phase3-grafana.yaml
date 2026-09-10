@@ -1,0 +1,10 @@
+# Chief CLI Workflow: phase3-grafana
+# Run with: chief run chief-tasks/phase3-grafana.yaml
+
+name: phase3-grafana
+description: Phase 3 Grafana
+
+tasks:
+  - name: "Grafana"
+    file: chief-tasks/tasks/39-grafana-monitoring-dashboards.md
+    commit_message: "feat(ops): Grafana performance dashboards"

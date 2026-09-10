@@ -1,0 +1,10 @@
+# Chief CLI Workflow: phase3-examples
+# Run with: chief run chief-tasks/phase3-examples.yaml
+
+name: phase3-examples
+description: Phase 3 Example Workflows
+
+tasks:
+  - name: "Examples"
+    file: chief-tasks/tasks/43-example-workflows--agent-templates.md
+    commit_message: "feat(examples): 4 production workflow examples"

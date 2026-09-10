@@ -1,0 +1,10 @@
+# Chief CLI Workflow: phase3-rbac
+# Run with: chief run chief-tasks/phase3-rbac.yaml
+
+name: phase3-rbac
+description: Phase 3 RBAC
+
+tasks:
+  - name: "RBAC"
+    file: chief-tasks/tasks/37-role-based-access-control.md
+    commit_message: "feat(security): RBAC with permission matrix"

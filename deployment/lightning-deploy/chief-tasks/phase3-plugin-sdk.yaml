@@ -1,0 +1,10 @@
+# Chief CLI Workflow: phase3-plugin-sdk
+# Run with: chief run chief-tasks/phase3-plugin-sdk.yaml
+
+name: phase3-plugin-sdk
+description: Phase 3 Plugin SDK
+
+tasks:
+  - name: "Plugin SDK"
+    file: chief-tasks/tasks/42-plugin-developer-sdk.md
+    commit_message: "feat(sdk): plugin developer SDK"

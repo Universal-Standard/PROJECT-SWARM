@@ -1,0 +1,10 @@
+# Chief CLI Workflow: phase3-prometheus
+# Run with: chief run chief-tasks/phase3-prometheus.yaml
+
+name: phase3-prometheus
+description: Phase 3 Prometheus
+
+tasks:
+  - name: "Prometheus"
+    file: chief-tasks/tasks/40-prometheus-metrics-collection.md
+    commit_message: "feat(ops): Prometheus custom metrics"
