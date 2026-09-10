@@ -1,0 +1,10 @@
+# Chief CLI Workflow: phase2-dragonfly
+# Run with: chief run chief-tasks/phase2-dragonfly.yaml
+
+name: phase2-dragonfly
+description: Phase 2 DragonflyDB
+
+tasks:
+  - name: "DragonflyDB"
+    file: chief-tasks/tasks/31-dragonflydb-high-performance-cache-layer.md
+    commit_message: "feat(cache): DragonflyDB multi-tier cache"
