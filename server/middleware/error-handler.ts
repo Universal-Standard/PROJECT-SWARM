@@ -7,7 +7,7 @@ import {
   RateLimitError,
   type StructuredError,
 } from "@shared/errors";
-import { ZodError } from "zod";
+import { ZodError } from "zod/v4";
 import { logger } from "../lib/logger";
 
 /**
@@ -67,7 +67,7 @@ export function errorHandler(err: any, req: Request, res: Response, next: NextFu
   if (err instanceof ZodError) {
     const response: StructuredError = {
       error: "Validation failed",
-      details: err.errors.map((e) => ({
+      details: err.issues.map((e) => ({
         field: e.path.join("."),
         message: e.message,
         code: e.code,

@@ -1,5 +1,5 @@
 import type { Request, Response, NextFunction } from "express";
-import type { ZodSchema, ZodError } from "zod";
+import type { ZodSchema, ZodError, ZodIssue } from "zod/v4";
 import { fromZodError } from "zod-validation-error";
 import { logger } from "../lib/logger";
 
@@ -82,7 +82,7 @@ export function validate(schema: ZodSchema, target: ValidationTarget = "body") {
 export function validateMultiple(schemas: Partial<Record<ValidationTarget, ZodSchema>>) {
   return async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const errors: Array<{ target: ValidationTarget; issues: any[] }> = [];
+      const errors: Array<{ target: ValidationTarget; issues: ZodIssue[] }> = [];
 
       // Validate each target
       for (const [target, schema] of Object.entries(schemas)) {

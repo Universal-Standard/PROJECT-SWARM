@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import { z } from 'zod/v4';
 import type { Workflow } from '@shared/schema';
 import { ValidationError, WorkflowValidationError } from '@shared/errors';
 
@@ -20,7 +20,7 @@ const nodeSchema = z.object({
   id: z.string(),
   type: z.string(),
   position: z.object({ x: z.number(), y: z.number() }),
-  data: z.record(z.any()),
+  data: z.record(z.string(), z.any()),
 });
 
 const edgeSchema = z.object({
@@ -58,8 +58,8 @@ export const workflowExportSchema = z.object({
     nodeId: z.string(),
     position: z.object({ x: z.number(), y: z.number() }),
   })).optional(),
-  inputSchema: z.record(z.any()).optional(),
-  outputSchema: z.record(z.any()).optional(),
+  inputSchema: z.record(z.string(), z.any()).optional(),
+  outputSchema: z.record(z.string(), z.any()).optional(),
   includeHistory: z.boolean().optional(),
   includeKnowledge: z.boolean().optional(),
   executionHistory: z.array(z.any()).optional(),
@@ -76,12 +76,15 @@ export class WorkflowValidator {
     try {
       const validated = workflowExportSchema.parse(data);
       return { valid: true, data: validated };
-    } catch (error: any) {
-      if (error.errors) {
-        const errors = error.errors.map((e: any) => `${e.path.join('.')}: ${e.message}`);
+    } catch (error: unknown) {
+      if (error instanceof z.ZodError) {
+        const errors = error.issues.map((issue) => `${issue.path.join('.')}: ${issue.message}`);
         return { valid: false, errors };
       }
-      return { valid: false, errors: [error.message] };
+      return {
+        valid: false,
+        errors: [error instanceof Error ? error.message : "Unknown validation error"],
+      };
     }
   }
 

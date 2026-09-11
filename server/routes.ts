@@ -7,7 +7,7 @@ import {
   insertTemplateSchema,
 } from "@shared/schema";
 import { orchestrator } from "./ai/orchestrator";
-import { z } from "zod";
+import { z } from "zod/v4";
 import { setupAuth, isAuthenticated } from "./replitAuth";
 import type { Request } from "express";
 import { workflowValidator, workflowExportSchema } from "./lib/workflow-validator";
@@ -241,7 +241,7 @@ export async function registerRoutes(app: Express) {
         id: z.string(),
         type: z.string(),
         position: z.object({ x: z.number(), y: z.number() }),
-        data: z.record(z.any()),
+        data: z.record(z.string(), z.any()),
       });
 
       const edgeSchema = z.object({
@@ -281,7 +281,7 @@ export async function registerRoutes(app: Express) {
       res.json(workflow);
     } catch (error: any) {
       if (error.name === "ZodError") {
-        return res.status(400).json({ error: "Invalid input", details: error.errors });
+        return res.status(400).json({ error: "Invalid input", details: error.issues });
       }
       res.status(500).json({ error: getErrorMessage(error) });
     }
@@ -391,7 +391,7 @@ export async function registerRoutes(app: Express) {
         type: z.string(),
         name: z.string(),
         description: z.string().optional(),
-        parameters: z.record(z.any()).optional(),
+        parameters: z.record(z.string(), z.any()).optional(),
       });
 
       // Validate the update data with Zod schema
@@ -450,7 +450,7 @@ export async function registerRoutes(app: Express) {
       res.json(updatedAgent);
     } catch (error: any) {
       if (error.name === "ZodError") {
-        return res.status(400).json({ error: "Invalid input", details: error.errors });
+        return res.status(400).json({ error: "Invalid input", details: error.issues });
       }
       res.status(500).json({ error: getErrorMessage(error) });
     }
@@ -525,7 +525,7 @@ export async function registerRoutes(app: Express) {
       res.json(execution);
     } catch (error: any) {
       if (error.name === "ZodError") {
-        return res.status(400).json({ error: "Invalid input", details: error.errors });
+        return res.status(400).json({ error: "Invalid input", details: error.issues });
       }
       res.status(500).json({ error: getErrorMessage(error) });
     }
@@ -550,7 +550,7 @@ export async function registerRoutes(app: Express) {
       const updateExecutionSchema = z
         .object({
           status: z.enum(["pending", "running", "completed", "error"]).optional(),
-          output: z.record(z.any()).optional(),
+          output: z.record(z.string(), z.any()).optional(),
           error: z.string().optional(),
         })
         .strict();
@@ -568,7 +568,7 @@ export async function registerRoutes(app: Express) {
       res.json(updatedExecution);
     } catch (error: any) {
       if (error.name === "ZodError") {
-        return res.status(400).json({ error: "Invalid input", details: error.errors });
+        return res.status(400).json({ error: "Invalid input", details: error.issues });
       }
       res.status(500).json({ error: getErrorMessage(error) });
     }
@@ -854,7 +854,7 @@ export async function registerRoutes(app: Express) {
       res.json(updated);
     } catch (error: any) {
       if (error.name === "ZodError") {
-        return res.status(400).json({ error: "Invalid input", details: error.errors });
+        return res.status(400).json({ error: "Invalid input", details: error.issues });
       }
       res.status(500).json({ error: getErrorMessage(error) });
     }
@@ -1267,7 +1267,7 @@ Be concise, practical, and provide actionable guidance. When relevant, suggest s
       res.json({ success: true });
     } catch (error: any) {
       if (error.name === "ZodError") {
-        return res.status(400).json({ error: "Invalid input", details: error.errors });
+        return res.status(400).json({ error: "Invalid input", details: error.issues });
       }
       res.status(500).json({ error: getErrorMessage(error) });
     }
@@ -1363,7 +1363,7 @@ Be concise, practical, and provide actionable guidance. When relevant, suggest s
       res.json({ success: true });
     } catch (error: any) {
       if (error.name === "ZodError") {
-        return res.status(400).json({ error: "Invalid input", details: error.errors });
+        return res.status(400).json({ error: "Invalid input", details: error.issues });
       }
       res.status(500).json({ error: getErrorMessage(error) });
     }

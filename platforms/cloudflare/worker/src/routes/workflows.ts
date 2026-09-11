@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import { zValidator } from "@hono/zod-validator";
-import { z } from "zod";
+import { z } from "zod/v4";
 import type { Env } from "../types";
 import * as db from "../db";
 import { getSession, getSessionIdFromRequest } from "../session";

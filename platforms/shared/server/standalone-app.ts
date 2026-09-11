@@ -20,7 +20,7 @@ import {
   insertAgentSchema,
   insertExecutionSchema,
 } from "../../../shared/schema";
-import { z } from "zod";
+import { z } from "zod/v4";
 import type { Request, Response, NextFunction } from "express";
 import type { WorkflowNode } from "../../../server/types/workflow";
 
@@ -327,7 +327,7 @@ export function createStandaloneApp() {
       res.json(workflow);
     } catch (err: any) {
       if (err.name === "ZodError")
-        return res.status(400).json({ error: "Invalid input", details: err.errors });
+        return res.status(400).json({ error: "Invalid input", details: err.issues });
       res.status(500).json({ error: err.message });
     }
   });
@@ -435,7 +435,7 @@ export function createStandaloneApp() {
       res.json(execution);
     } catch (err: any) {
       if (err.name === "ZodError")
-        return res.status(400).json({ error: "Invalid input", details: err.errors });
+        return res.status(400).json({ error: "Invalid input", details: err.issues });
       res.status(500).json({ error: err.message });
     }
   });
