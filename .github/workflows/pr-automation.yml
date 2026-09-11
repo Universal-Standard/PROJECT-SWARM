@@ -2,7 +2,7 @@ name: Pull Request Automation
 
 on:
   pull_request:
-    types: [opened, edited, labeled, synchronize, ready_for_review]
+    types: [opened, edited, labeled, synchronize, ready_for_review, closed]
   pull_request_review:
     types: [submitted]
 
@@ -197,7 +197,7 @@ jobs:
 
   post-merge:
     runs-on: ubuntu-latest
-    if: github.event.pull_request.merged == true
+    if: github.event_name == 'pull_request' && github.event.action == 'closed' && github.event.pull_request.merged == true
     steps:
       - name: Update linked issues
         uses: actions/github-script@v8

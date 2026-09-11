@@ -44,7 +44,7 @@ jobs:
           cache: npm
 
       - name: Install runtime deps
-        run: npm ci --omit=dev --ignore-scripts || npm install better-sqlite3
+        run: npm ci --legacy-peer-deps --omit=dev --ignore-scripts || npm install better-sqlite3
 
       - name: Insert execution record
         id: insert

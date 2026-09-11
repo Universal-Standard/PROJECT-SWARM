@@ -35,20 +35,20 @@ jobs:
             const provider = providerLabel ? providerLabel.split(':')[1] : 'openai';
 
             // Prompt packet
-            const prompt = `
-You are an engineering assistant.
-Return:
-1) Plan
-2) Risks
-3) Test plan
-4) Implementation checklist
-
-Issue:
-${issue.title}
-
-Body:
-${issue.body || '(no body)'}
-            `.trim();
+            const prompt = [
+              'You are an engineering assistant.',
+              'Return:',
+              '1) Plan',
+              '2) Risks',
+              '3) Test plan',
+              '4) Implementation checklist',
+              '',
+              'Issue:',
+              issue.title,
+              '',
+              'Body:',
+              issue.body || '(no body)',
+            ].join('\n');
 
             async function post(body) {
               await github.rest.issues.createComment({ owner, repo, issue_number, body });
