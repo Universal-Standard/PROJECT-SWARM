@@ -1,6 +1,6 @@
 import express, { type Express } from "express";
 import { registerRoutes } from "./routes";
-import { errorHandler } from "./middleware/error-handler";
+import { errorHandler, notFoundHandler } from "./middleware/error-handler";
 import { configureHelmet } from "./middleware/helmet";
 import { corsMiddleware } from "./middleware/cors";
 import { globalRateLimiter } from "./middleware/rate-limiter";
@@ -102,6 +102,8 @@ export async function createApp(): Promise<Express> {
   registerCronRoutes(app);
 
   await registerRoutes(app);
+
+  app.use("/api", notFoundHandler);
 
   // Must be registered after all routes
   app.use(errorHandler);

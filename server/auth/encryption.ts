@@ -7,10 +7,11 @@ const IV_LENGTH = 16;
 const AUTH_TAG_LENGTH = 16;
 
 /**
- * Get encryption key from environment variable
- * Falls back to a default key for development (NOT SECURE FOR PRODUCTION)
+ * Derive and cache the encryption key at module load time.
+ * crypto.scryptSync is an intentionally expensive KDF — calling it on every
+ * encrypt/decrypt operation would be a significant performance problem.
  */
-function getEncryptionKey(): Buffer {
+function deriveEncryptionKey(): Buffer {
   const key = process.env.ENCRYPTION_KEY;
   const salt = process.env.ENCRYPTION_SALT;
 
@@ -26,13 +27,14 @@ function getEncryptionKey(): Buffer {
     logger.warn(
       "ENCRYPTION_KEY not set in environment. Using insecure default key for development only!"
     );
-    // Generate a deterministic key for development
     return crypto.scryptSync("dev-only-key-not-for-production", effectiveSalt, KEY_LENGTH);
   }
 
-  // Derive a proper key from the environment variable
   return crypto.scryptSync(key, effectiveSalt, KEY_LENGTH);
 }
+
+// Derived once at module load — never recalculated
+const ENCRYPTION_KEY: Buffer = deriveEncryptionKey();
 
 /**
  * Encrypt a string value
@@ -42,10 +44,9 @@ function getEncryptionKey(): Buffer {
 export function encrypt(text: string): string {
   if (!text) return "";
 
-  const key = getEncryptionKey();
   const iv = crypto.randomBytes(IV_LENGTH);
 
-  const cipher = crypto.createCipheriv(ALGORITHM, key, iv);
+  const cipher = crypto.createCipheriv(ALGORITHM, ENCRYPTION_KEY, iv);
 
   let encrypted = cipher.update(text, "utf8", "base64");
   encrypted += cipher.final("base64");
@@ -66,7 +67,6 @@ export function encrypt(text: string): string {
 export function decrypt(encryptedData: string): string {
   if (!encryptedData) return "";
 
-  const key = getEncryptionKey();
   const combined = Buffer.from(encryptedData, "base64");
 
   // Extract iv, authTag, and encrypted data
@@ -74,7 +74,7 @@ export function decrypt(encryptedData: string): string {
   const authTag = combined.subarray(IV_LENGTH, IV_LENGTH + AUTH_TAG_LENGTH);
   const encrypted = combined.subarray(IV_LENGTH + AUTH_TAG_LENGTH);
 
-  const decipher = crypto.createDecipheriv(ALGORITHM, key, iv);
+  const decipher = crypto.createDecipheriv(ALGORITHM, ENCRYPTION_KEY, iv);
   decipher.setAuthTag(authTag);
 
   let decrypted = decipher.update(encrypted.toString("base64"), "base64", "utf8");

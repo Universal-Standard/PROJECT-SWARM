@@ -26,6 +26,8 @@ import { withGitHubAuth, type GitHubAuthRequest } from "./middleware/github-auth
 import type { WorkflowNode, ChatMessage } from "./types/workflow";
 import { encrypt, decrypt, maskToken } from "./auth/encryption";
 import { WorkflowValidationError } from "@shared/errors";
+import { getErrorMessage } from "./types/auth";
+import { executionRateLimiter } from "./middleware/rate-limiter";
 
 // Execution request schema - only workflowId and input are needed from client
 const executeWorkflowSchema = insertExecutionSchema.pick({ workflowId: true, input: true });
@@ -105,7 +107,7 @@ export async function registerRoutes(app: Express) {
       const authUrl = getGitHubAuthUrl(state);
       res.json({ authUrl });
     } catch (error: any) {
-      res.status(500).json({ error: error.message });
+      res.status(500).json({ error: getErrorMessage(error) });
     }
   });
 
@@ -161,7 +163,7 @@ export async function registerRoutes(app: Express) {
         tokenPreview: maskedToken,
       });
     } catch (error: any) {
-      res.status(500).json({ error: error.message });
+      res.status(500).json({ error: getErrorMessage(error) });
     }
   });
 
@@ -171,7 +173,7 @@ export async function registerRoutes(app: Express) {
       await revokeGitHubToken(userId);
       res.json({ success: true });
     } catch (error: any) {
-      res.status(500).json({ error: error.message });
+      res.status(500).json({ error: getErrorMessage(error) });
     }
   });
 
@@ -182,7 +184,7 @@ export async function registerRoutes(app: Express) {
       const workflows = await storage.getWorkflowsByUserId(userId);
       res.json(workflows);
     } catch (error: any) {
-      res.status(500).json({ error: error.message });
+      res.status(500).json({ error: getErrorMessage(error) });
     }
   });
 
@@ -199,7 +201,7 @@ export async function registerRoutes(app: Express) {
       }
       res.json(workflow);
     } catch (error: any) {
-      res.status(500).json({ error: error.message });
+      res.status(500).json({ error: getErrorMessage(error) });
     }
   });
 
@@ -217,7 +219,7 @@ export async function registerRoutes(app: Express) {
 
       res.json(workflow);
     } catch (error: any) {
-      res.status(400).json({ error: error.message });
+      res.status(400).json({ error: getErrorMessage(error) });
     }
   });
 
@@ -281,7 +283,7 @@ export async function registerRoutes(app: Express) {
       if (error.name === "ZodError") {
         return res.status(400).json({ error: "Invalid input", details: error.errors });
       }
-      res.status(500).json({ error: error.message });
+      res.status(500).json({ error: getErrorMessage(error) });
     }
   });
 
@@ -301,7 +303,7 @@ export async function registerRoutes(app: Express) {
       await storage.deleteWorkflow(req.params.id);
       res.json({ success: true });
     } catch (error: any) {
-      res.status(500).json({ error: error.message });
+      res.status(500).json({ error: getErrorMessage(error) });
     }
   });
 
@@ -323,7 +325,7 @@ export async function registerRoutes(app: Express) {
       const result = workflowValidator.validate(workflow);
       res.json(result);
     } catch (error: any) {
-      res.status(500).json({ error: error.message });
+      res.status(500).json({ error: getErrorMessage(error) });
     }
   });
 
@@ -344,7 +346,7 @@ export async function registerRoutes(app: Express) {
       const agents = await storage.getAgentsByWorkflowId(req.params.workflowId);
       res.json(agents);
     } catch (error: any) {
-      res.status(500).json({ error: error.message });
+      res.status(500).json({ error: getErrorMessage(error) });
     }
   });
 
@@ -365,7 +367,7 @@ export async function registerRoutes(app: Express) {
       const agent = await storage.createAgent(data);
       res.json(agent);
     } catch (error: any) {
-      res.status(400).json({ error: error.message });
+      res.status(400).json({ error: getErrorMessage(error) });
     }
   });
 
@@ -450,7 +452,7 @@ export async function registerRoutes(app: Express) {
       if (error.name === "ZodError") {
         return res.status(400).json({ error: "Invalid input", details: error.errors });
       }
-      res.status(500).json({ error: error.message });
+      res.status(500).json({ error: getErrorMessage(error) });
     }
   });
 
@@ -461,7 +463,7 @@ export async function registerRoutes(app: Express) {
       const executions = await storage.getExecutionsByUserId(userId);
       res.json(executions);
     } catch (error: any) {
-      res.status(500).json({ error: error.message });
+      res.status(500).json({ error: getErrorMessage(error) });
     }
   });
 
@@ -481,7 +483,7 @@ export async function registerRoutes(app: Express) {
       const executions = await storage.getExecutionsByWorkflowId(req.params.workflowId);
       res.json(executions);
     } catch (error: any) {
-      res.status(500).json({ error: error.message });
+      res.status(500).json({ error: getErrorMessage(error) });
     }
   });
 
@@ -501,11 +503,11 @@ export async function registerRoutes(app: Express) {
 
       res.json(execution);
     } catch (error: any) {
-      res.status(500).json({ error: error.message });
+      res.status(500).json({ error: getErrorMessage(error) });
     }
   });
 
-  app.post("/api/executions", isAuthenticated, async (req: any, res) => {
+  app.post("/api/executions", isAuthenticated, executionRateLimiter, async (req: any, res) => {
     try {
       const userId = getUserId(req);
       const { workflowId, input } = executeWorkflowSchema.parse(req.body);
@@ -525,7 +527,7 @@ export async function registerRoutes(app: Express) {
       if (error.name === "ZodError") {
         return res.status(400).json({ error: "Invalid input", details: error.errors });
       }
-      res.status(500).json({ error: error.message });
+      res.status(500).json({ error: getErrorMessage(error) });
     }
   });
 
@@ -568,7 +570,7 @@ export async function registerRoutes(app: Express) {
       if (error.name === "ZodError") {
         return res.status(400).json({ error: "Invalid input", details: error.errors });
       }
-      res.status(500).json({ error: error.message });
+      res.status(500).json({ error: getErrorMessage(error) });
     }
   });
 
@@ -598,7 +600,7 @@ export async function registerRoutes(app: Express) {
       const logs = await storage.getLogsByExecutionId(req.params.id, filters);
       res.json(logs);
     } catch (error: any) {
-      res.status(500).json({ error: error.message });
+      res.status(500).json({ error: getErrorMessage(error) });
     }
   });
 
@@ -620,7 +622,7 @@ export async function registerRoutes(app: Express) {
       const messages = await storage.getMessagesByExecutionId(req.params.id);
       res.json(messages);
     } catch (error: any) {
-      res.status(500).json({ error: error.message });
+      res.status(500).json({ error: getErrorMessage(error) });
     }
   });
 
@@ -695,7 +697,7 @@ export async function registerRoutes(app: Express) {
         totalSteps: timeline.length,
       });
     } catch (error: any) {
-      res.status(500).json({ error: error.message });
+      res.status(500).json({ error: getErrorMessage(error) });
     }
   });
 
@@ -754,7 +756,7 @@ export async function registerRoutes(app: Express) {
         comparisonDate: new Date().toISOString(),
       });
     } catch (error: any) {
-      res.status(500).json({ error: error.message });
+      res.status(500).json({ error: getErrorMessage(error) });
     }
   });
 
@@ -765,7 +767,7 @@ export async function registerRoutes(app: Express) {
       const deleted = await storage.deleteExecutionsByUserId(userId);
       res.json({ success: true, deleted });
     } catch (error: any) {
-      res.status(500).json({ error: error.message });
+      res.status(500).json({ error: getErrorMessage(error) });
     }
   });
 
@@ -775,7 +777,7 @@ export async function registerRoutes(app: Express) {
       const templates = await storage.getAllTemplates();
       res.json(templates);
     } catch (error: any) {
-      res.status(500).json({ error: error.message });
+      res.status(500).json({ error: getErrorMessage(error) });
     }
   });
 
@@ -784,7 +786,7 @@ export async function registerRoutes(app: Express) {
       const templates = await storage.getFeaturedTemplates();
       res.json(templates);
     } catch (error: any) {
-      res.status(500).json({ error: error.message });
+      res.status(500).json({ error: getErrorMessage(error) });
     }
   });
 
@@ -796,7 +798,7 @@ export async function registerRoutes(app: Express) {
       }
       res.json(template);
     } catch (error: any) {
-      res.status(500).json({ error: error.message });
+      res.status(500).json({ error: getErrorMessage(error) });
     }
   });
 
@@ -817,7 +819,7 @@ export async function registerRoutes(app: Express) {
       const template = await storage.createTemplate(data);
       res.json(template);
     } catch (error: any) {
-      res.status(400).json({ error: error.message });
+      res.status(400).json({ error: getErrorMessage(error) });
     }
   });
 
@@ -854,7 +856,7 @@ export async function registerRoutes(app: Express) {
       if (error.name === "ZodError") {
         return res.status(400).json({ error: "Invalid input", details: error.errors });
       }
-      res.status(500).json({ error: error.message });
+      res.status(500).json({ error: getErrorMessage(error) });
     }
   });
 
@@ -879,7 +881,7 @@ export async function registerRoutes(app: Express) {
       await storage.deleteTemplate(req.params.id);
       res.json({ success: true });
     } catch (error: any) {
-      res.status(500).json({ error: error.message });
+      res.status(500).json({ error: getErrorMessage(error) });
     }
   });
 
@@ -888,7 +890,7 @@ export async function registerRoutes(app: Express) {
       await storage.updateTemplateUsageCount(req.params.id);
       res.json({ success: true });
     } catch (error: any) {
-      res.status(500).json({ error: error.message });
+      res.status(500).json({ error: getErrorMessage(error) });
     }
   });
 
@@ -920,7 +922,7 @@ export async function registerRoutes(app: Express) {
 
       res.json(newWorkflow);
     } catch (error: any) {
-      res.status(500).json({ error: error.message });
+      res.status(500).json({ error: getErrorMessage(error) });
     }
   });
 
@@ -958,7 +960,7 @@ export async function registerRoutes(app: Express) {
       );
       res.json(exportData);
     } catch (error: any) {
-      res.status(500).json({ error: error.message });
+      res.status(500).json({ error: getErrorMessage(error) });
     }
   });
 
@@ -995,7 +997,7 @@ export async function registerRoutes(app: Express) {
 
       res.json(workflow);
     } catch (error: any) {
-      res.status(500).json({ error: error.message });
+      res.status(500).json({ error: getErrorMessage(error) });
     }
   });
 
@@ -1012,7 +1014,7 @@ export async function registerRoutes(app: Express) {
         });
         res.json(data);
       } catch (error: any) {
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ error: getErrorMessage(error) });
       }
     }
   );
@@ -1032,7 +1034,7 @@ export async function registerRoutes(app: Express) {
         });
         res.json(data);
       } catch (error: any) {
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ error: getErrorMessage(error) });
       }
     }
   );
@@ -1052,7 +1054,7 @@ export async function registerRoutes(app: Express) {
         });
         res.json(data);
       } catch (error: any) {
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ error: getErrorMessage(error) });
       }
     }
   );
@@ -1078,7 +1080,7 @@ export async function registerRoutes(app: Express) {
       // Return most recent chat
       res.json(chats[0]);
     } catch (error: any) {
-      res.status(500).json({ error: error.message });
+      res.status(500).json({ error: getErrorMessage(error) });
     }
   });
 
@@ -1167,7 +1169,7 @@ Be concise, practical, and provide actionable guidance. When relevant, suggest s
         });
       }
 
-      res.status(500).json({ error: error.message || "Failed to process message" });
+      res.status(500).json({ error: getErrorMessage(error) || "Failed to process message" });
     }
   });
 
@@ -1199,7 +1201,7 @@ Be concise, practical, and provide actionable guidance. When relevant, suggest s
         githubConnected: !!user.githubAccessToken && !isGitHubTokenExpired(user),
       });
     } catch (error: any) {
-      res.status(500).json({ error: error.message });
+      res.status(500).json({ error: getErrorMessage(error) });
     }
   });
 
@@ -1218,7 +1220,7 @@ Be concise, practical, and provide actionable guidance. When relevant, suggest s
       const versions = await versionManager.getVersions(req.params.id);
       res.json(versions);
     } catch (error: any) {
-      res.status(500).json({ error: error.message });
+      res.status(500).json({ error: getErrorMessage(error) });
     }
   });
 
@@ -1238,7 +1240,7 @@ Be concise, practical, and provide actionable guidance. When relevant, suggest s
 
       res.json(version);
     } catch (error: any) {
-      res.status(500).json({ error: error.message });
+      res.status(500).json({ error: getErrorMessage(error) });
     }
   });
 
@@ -1267,7 +1269,7 @@ Be concise, practical, and provide actionable guidance. When relevant, suggest s
       if (error.name === "ZodError") {
         return res.status(400).json({ error: "Invalid input", details: error.errors });
       }
-      res.status(500).json({ error: error.message });
+      res.status(500).json({ error: getErrorMessage(error) });
     }
   });
 
@@ -1284,7 +1286,7 @@ Be concise, practical, and provide actionable guidance. When relevant, suggest s
       const version = await versionManager.createVersion(req.params.id, userId, commitMessage);
       res.json(version);
     } catch (error: any) {
-      res.status(500).json({ error: error.message });
+      res.status(500).json({ error: getErrorMessage(error) });
     }
   });
 
@@ -1303,7 +1305,7 @@ Be concise, practical, and provide actionable guidance. When relevant, suggest s
         await versionManager.restoreVersion(req.params.id, req.params.versionId, userId);
         res.json({ success: true });
       } catch (error: any) {
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ error: getErrorMessage(error) });
       }
     }
   );
@@ -1327,7 +1329,7 @@ Be concise, practical, and provide actionable guidance. When relevant, suggest s
 
       res.json(exportData);
     } catch (error: any) {
-      res.status(500).json({ error: error.message });
+      res.status(500).json({ error: getErrorMessage(error) });
     }
   });
 
@@ -1363,7 +1365,7 @@ Be concise, practical, and provide actionable guidance. When relevant, suggest s
       if (error.name === "ZodError") {
         return res.status(400).json({ error: "Invalid input", details: error.errors });
       }
-      res.status(500).json({ error: error.message });
+      res.status(500).json({ error: getErrorMessage(error) });
     }
   });
 
@@ -1379,7 +1381,7 @@ Be concise, practical, and provide actionable guidance. When relevant, suggest s
       const comparison = await versionManager.compareVersions(req.params.v1, req.params.v2);
       res.json(comparison);
     } catch (error: any) {
-      res.status(500).json({ error: error.message });
+      res.status(500).json({ error: getErrorMessage(error) });
     }
   });
 
@@ -1389,7 +1391,7 @@ Be concise, practical, and provide actionable guidance. When relevant, suggest s
       await versionManager.tagVersion(req.params.versionId, tag);
       res.json({ success: true });
     } catch (error: any) {
-      res.status(500).json({ error: error.message });
+      res.status(500).json({ error: getErrorMessage(error) });
     }
   });
 
@@ -1460,7 +1462,7 @@ Be concise, practical, and provide actionable guidance. When relevant, suggest s
 
       res.json(workflow);
     } catch (error: any) {
-      res.status(500).json({ error: error.message });
+      res.status(500).json({ error: getErrorMessage(error) });
     }
   });
 
@@ -1485,7 +1487,7 @@ Be concise, practical, and provide actionable guidance. When relevant, suggest s
       await storage.updateUser(userId, updateData);
       res.json({ success: true });
     } catch (error: any) {
-      res.status(500).json({ error: error.message });
+      res.status(500).json({ error: getErrorMessage(error) });
     }
   });
 
@@ -1504,7 +1506,7 @@ Be concise, practical, and provide actionable guidance. When relevant, suggest s
       const schedules = await scheduler.getSchedules(req.params.id);
       res.json(schedules);
     } catch (error: any) {
-      res.status(500).json({ error: error.message });
+      res.status(500).json({ error: getErrorMessage(error) });
     }
   });
 
@@ -1528,16 +1530,26 @@ Be concise, practical, and provide actionable guidance. When relevant, suggest s
       });
       res.json(schedule);
     } catch (error: any) {
-      res.status(500).json({ error: error.message });
+      res.status(500).json({ error: getErrorMessage(error) });
     }
   });
 
   app.put("/api/schedules/:id", isAuthenticated, async (req: any, res) => {
     try {
+      const userId = getUserId(req);
+      // Verify ownership before updating
+      const existing = await storage.getWorkflowScheduleById(req.params.id);
+      if (!existing) {
+        return res.status(404).json({ error: "Schedule not found" });
+      }
+      const workflow = await storage.getWorkflowById(existing.workflowId);
+      if (!workflow || workflow.userId !== userId) {
+        return res.status(403).json({ error: "Forbidden" });
+      }
       const schedule = await scheduler.updateSchedule(req.params.id, req.body);
       res.json(schedule);
     } catch (error: any) {
-      res.status(500).json({ error: error.message });
+      res.status(500).json({ error: getErrorMessage(error) });
     }
   });
 
@@ -1564,7 +1576,7 @@ Be concise, practical, and provide actionable guidance. When relevant, suggest s
 
       res.json(updated);
     } catch (error: any) {
-      res.status(500).json({ error: error.message });
+      res.status(500).json({ error: getErrorMessage(error) });
     }
   });
 
@@ -1573,7 +1585,7 @@ Be concise, practical, and provide actionable guidance. When relevant, suggest s
       await scheduler.deleteSchedule(req.params.id);
       res.json({ success: true });
     } catch (error: any) {
-      res.status(500).json({ error: error.message });
+      res.status(500).json({ error: getErrorMessage(error) });
     }
   });
 
@@ -1589,7 +1601,7 @@ Be concise, practical, and provide actionable guidance. When relevant, suggest s
       await storage.deleteWorkflowSchedule(req.params.scheduleId);
       res.json({ success: true });
     } catch (error: any) {
-      res.status(500).json({ error: error.message });
+      res.status(500).json({ error: getErrorMessage(error) });
     }
   });
 
@@ -1598,7 +1610,7 @@ Be concise, practical, and provide actionable guidance. When relevant, suggest s
       await scheduler.pauseSchedule(req.params.id);
       res.json({ success: true });
     } catch (error: any) {
-      res.status(500).json({ error: error.message });
+      res.status(500).json({ error: getErrorMessage(error) });
     }
   });
 
@@ -1624,7 +1636,7 @@ Be concise, practical, and provide actionable guidance. When relevant, suggest s
 
       res.json(webhook);
     } catch (error: any) {
-      res.status(500).json({ error: error.message });
+      res.status(500).json({ error: getErrorMessage(error) });
     }
   });
 
@@ -1633,7 +1645,7 @@ Be concise, practical, and provide actionable guidance. When relevant, suggest s
       await scheduler.resumeSchedule(req.params.id);
       res.json({ success: true });
     } catch (error: any) {
-      res.status(500).json({ error: error.message });
+      res.status(500).json({ error: getErrorMessage(error) });
     }
   });
 
@@ -1652,7 +1664,7 @@ Be concise, practical, and provide actionable guidance. When relevant, suggest s
       const webhooks = await storage.getWorkflowWebhooks(req.params.id);
       res.json(webhooks);
     } catch (error: any) {
-      res.status(500).json({ error: error.message });
+      res.status(500).json({ error: getErrorMessage(error) });
     }
   });
 
@@ -1680,7 +1692,7 @@ Be concise, practical, and provide actionable guidance. When relevant, suggest s
 
         res.json(updated);
       } catch (error: any) {
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ error: getErrorMessage(error) });
       }
     }
   );
@@ -1698,7 +1710,7 @@ Be concise, practical, and provide actionable guidance. When relevant, suggest s
       const webhook = await webhookManager.createWebhook(req.params.id, baseUrl);
       res.json(webhook);
     } catch (error: any) {
-      res.status(500).json({ error: error.message });
+      res.status(500).json({ error: getErrorMessage(error) });
     }
   });
 
@@ -1714,25 +1726,43 @@ Be concise, practical, and provide actionable guidance. When relevant, suggest s
       await storage.deleteWorkflowWebhook(req.params.webhookId);
       res.json({ success: true });
     } catch (error: any) {
-      res.status(500).json({ error: error.message });
+      res.status(500).json({ error: getErrorMessage(error) });
     }
   });
 
   app.put("/api/webhooks/:id", isAuthenticated, async (req: any, res) => {
     try {
+      const userId = getUserId(req);
+      const existing = await storage.getWorkflowWebhookById(req.params.id);
+      if (!existing) {
+        return res.status(404).json({ error: "Webhook not found" });
+      }
+      const workflow = await storage.getWorkflowById(existing.workflowId);
+      if (!workflow || workflow.userId !== userId) {
+        return res.status(403).json({ error: "Forbidden" });
+      }
       const webhook = await webhookManager.updateWebhook(req.params.id, req.body);
       res.json(webhook);
     } catch (error: any) {
-      res.status(500).json({ error: error.message });
+      res.status(500).json({ error: getErrorMessage(error) });
     }
   });
 
   app.delete("/api/webhooks/:id", isAuthenticated, async (req: any, res) => {
     try {
+      const userId = getUserId(req);
+      const existing = await storage.getWorkflowWebhookById(req.params.id);
+      if (!existing) {
+        return res.status(404).json({ error: "Webhook not found" });
+      }
+      const workflow = await storage.getWorkflowById(existing.workflowId);
+      if (!workflow || workflow.userId !== userId) {
+        return res.status(403).json({ error: "Forbidden" });
+      }
       await webhookManager.deleteWebhook(req.params.id);
       res.json({ success: true });
     } catch (error: any) {
-      res.status(500).json({ error: error.message });
+      res.status(500).json({ error: getErrorMessage(error) });
     }
   });
 
@@ -1753,7 +1783,7 @@ Be concise, practical, and provide actionable guidance. When relevant, suggest s
       const logs = await storage.getWebhookLogs(req.params.webhookId);
       res.json(logs);
     } catch (error: any) {
-      res.status(500).json({ error: error.message });
+      res.status(500).json({ error: getErrorMessage(error) });
     }
   });
 
@@ -1787,7 +1817,7 @@ Be concise, practical, and provide actionable guidance. When relevant, suggest s
       res.status(400).json({
         success: false,
         valid: false,
-        error: error.message || "API key validation failed",
+        error: getErrorMessage(error) || "API key validation failed",
       });
     }
   });
@@ -1804,7 +1834,7 @@ Be concise, practical, and provide actionable guidance. When relevant, suggest s
 
       res.json({ success: true, deleted: workflows.length });
     } catch (error: any) {
-      res.status(500).json({ error: error.message });
+      res.status(500).json({ error: getErrorMessage(error) });
     }
   });
 
@@ -1814,7 +1844,7 @@ Be concise, practical, and provide actionable guidance. When relevant, suggest s
       const webhook = await webhookManager.regenerateSecret(req.params.id, baseUrl);
       res.json(webhook);
     } catch (error: any) {
-      res.status(500).json({ error: error.message });
+      res.status(500).json({ error: getErrorMessage(error) });
     }
   });
 
@@ -1823,7 +1853,7 @@ Be concise, practical, and provide actionable guidance. When relevant, suggest s
       const result = await webhookManager.testWebhook(req.params.id, req.body.payload);
       res.json(result);
     } catch (error: any) {
-      res.status(500).json({ error: error.message });
+      res.status(500).json({ error: getErrorMessage(error) });
     }
   });
 
@@ -1844,7 +1874,7 @@ Be concise, practical, and provide actionable guidance. When relevant, suggest s
         res.status(400).json({ success: false, error: result.error });
       }
     } catch (error: any) {
-      res.status(500).json({ error: error.message });
+      res.status(500).json({ error: getErrorMessage(error) });
     }
   });
 
@@ -1867,7 +1897,7 @@ Be concise, practical, and provide actionable guidance. When relevant, suggest s
         res.status(400).json({ success: false, error: result.error });
       }
     } catch (error: any) {
-      res.status(500).json({ success: false, error: error.message });
+      res.status(500).json({ success: false, error: getErrorMessage(error) });
     }
   });
 
@@ -1902,7 +1932,7 @@ Be concise, practical, and provide actionable guidance. When relevant, suggest s
 
       res.json(schema);
     } catch (error: any) {
-      res.status(500).json({ error: error.message });
+      res.status(500).json({ error: getErrorMessage(error) });
     }
   });
 
@@ -1920,7 +1950,7 @@ Be concise, practical, and provide actionable guidance. When relevant, suggest s
       const analytics = await costTracker.getCostAnalytics(userId, startDate, endDate);
       res.json(analytics);
     } catch (error: any) {
-      res.status(500).json({ error: error.message });
+      res.status(500).json({ error: getErrorMessage(error) });
     }
   });
 
@@ -1936,7 +1966,7 @@ Be concise, practical, and provide actionable guidance. When relevant, suggest s
       const schema = await storage.getWorkflowSchema(req.params.id);
       res.json(schema || { inputSchema: {}, outputSchema: {} });
     } catch (error: any) {
-      res.status(500).json({ error: error.message });
+      res.status(500).json({ error: getErrorMessage(error) });
     }
   });
 
@@ -1951,7 +1981,7 @@ Be concise, practical, and provide actionable guidance. When relevant, suggest s
       const usage = await costTracker.getTokenUsageStats(userId, startDate, endDate);
       res.json(usage);
     } catch (error: any) {
-      res.status(500).json({ error: error.message });
+      res.status(500).json({ error: getErrorMessage(error) });
     }
   });
 
@@ -1966,7 +1996,7 @@ Be concise, practical, and provide actionable guidance. When relevant, suggest s
       const trends = await costTracker.getCostTrends(userId, startDate, endDate);
       res.json(trends);
     } catch (error: any) {
-      res.status(500).json({ error: error.message });
+      res.status(500).json({ error: getErrorMessage(error) });
     }
   });
 
@@ -1976,7 +2006,7 @@ Be concise, practical, and provide actionable guidance. When relevant, suggest s
       const tags = await storage.getAllTags();
       res.json(tags);
     } catch (error: any) {
-      res.status(500).json({ error: error.message });
+      res.status(500).json({ error: getErrorMessage(error) });
     }
   });
 
@@ -1988,7 +2018,7 @@ Be concise, practical, and provide actionable guidance. When relevant, suggest s
       const workflows = await costTracker.getMostExpensiveWorkflows(userId, limit);
       res.json(workflows);
     } catch (error: any) {
-      res.status(500).json({ error: error.message });
+      res.status(500).json({ error: getErrorMessage(error) });
     }
   });
 
@@ -2009,7 +2039,7 @@ Be concise, practical, and provide actionable guidance. When relevant, suggest s
 
       res.json(tag);
     } catch (error: any) {
-      res.status(500).json({ error: error.message });
+      res.status(500).json({ error: getErrorMessage(error) });
     }
   });
 
@@ -2027,7 +2057,7 @@ Be concise, practical, and provide actionable guidance. When relevant, suggest s
       res.setHeader("Content-Disposition", "attachment; filename=cost-report.csv");
       res.send(csv);
     } catch (error: any) {
-      res.status(500).json({ error: error.message });
+      res.status(500).json({ error: getErrorMessage(error) });
     }
   });
 
@@ -2036,7 +2066,7 @@ Be concise, practical, and provide actionable guidance. When relevant, suggest s
       await storage.deleteTag(req.params.id);
       res.json({ success: true });
     } catch (error: any) {
-      res.status(500).json({ error: error.message });
+      res.status(500).json({ error: getErrorMessage(error) });
     }
   });
 
@@ -2067,7 +2097,7 @@ Be concise, practical, and provide actionable guidance. When relevant, suggest s
       res.setHeader("Content-Disposition", `attachment; filename=${workflow.name}.json`);
       res.json(exportData);
     } catch (error: any) {
-      res.status(500).json({ error: error.message });
+      res.status(500).json({ error: getErrorMessage(error) });
     }
   });
 
@@ -2089,7 +2119,7 @@ Be concise, practical, and provide actionable guidance. When relevant, suggest s
       const tags = await storage.getWorkflowTags(req.params.id);
       res.json(tags);
     } catch (error: any) {
-      res.status(500).json({ error: error.message });
+      res.status(500).json({ error: getErrorMessage(error) });
     }
   });
 
@@ -2103,7 +2133,7 @@ Be concise, practical, and provide actionable guidance. When relevant, suggest s
 
       res.json({ success: true, deleted: executions.length });
     } catch (error: any) {
-      res.status(500).json({ error: error.message });
+      res.status(500).json({ error: getErrorMessage(error) });
     }
   });
 
@@ -2123,7 +2153,7 @@ Be concise, practical, and provide actionable guidance. When relevant, suggest s
       const result = await workflowImporter.importWorkflow(req.body.workflow, options);
       res.json(result);
     } catch (error: any) {
-      res.status(500).json({ error: error.message });
+      res.status(500).json({ error: getErrorMessage(error) });
     }
   });
 
@@ -2140,7 +2170,7 @@ Be concise, practical, and provide actionable guidance. When relevant, suggest s
       const tags = await storage.getWorkflowTags(req.params.id);
       res.json(tags);
     } catch (error: any) {
-      res.status(500).json({ error: error.message });
+      res.status(500).json({ error: getErrorMessage(error) });
     }
   });
 
@@ -2167,7 +2197,7 @@ Be concise, practical, and provide actionable guidance. When relevant, suggest s
       );
       res.json(exportData);
     } catch (error: any) {
-      res.status(500).json({ error: error.message });
+      res.status(500).json({ error: getErrorMessage(error) });
     }
   });
 
@@ -2193,7 +2223,7 @@ Be concise, practical, and provide actionable guidance. When relevant, suggest s
       res.setHeader("Content-Disposition", "attachment; filename=workflows-export.json");
       res.json(exportData);
     } catch (error: any) {
-      res.status(500).json({ error: error.message });
+      res.status(500).json({ error: getErrorMessage(error) });
     }
   });
 
@@ -2209,7 +2239,7 @@ Be concise, practical, and provide actionable guidance. When relevant, suggest s
       const tags = await storage.getWorkflowTags(req.params.id);
       res.json(tags);
     } catch (error: any) {
-      res.status(500).json({ error: error.message });
+      res.status(500).json({ error: getErrorMessage(error) });
     }
   });
 
@@ -2226,7 +2256,7 @@ Be concise, practical, and provide actionable guidance. When relevant, suggest s
 
       res.json(result);
     } catch (error: any) {
-      res.status(500).json({ error: error.message });
+      res.status(500).json({ error: getErrorMessage(error) });
     }
   });
 }

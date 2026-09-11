@@ -1,13 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Input } from "@/components/ui/input";
@@ -22,6 +16,7 @@ import {
 } from "@/components/ui/dialog";
 import { History, GitBranch, Tag, RotateCcw, Save } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { apiRequest } from "@/lib/queryClient";
 
 interface WorkflowVersion {
   id: string;
@@ -52,12 +47,9 @@ export function VersionHistory({ workflowId }: VersionHistoryProps) {
 
   const createVersionMutation = useMutation({
     mutationFn: async (message: string) => {
-      const response = await fetch(`/api/workflows/${workflowId}/versions`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ commitMessage: message }),
+      const response = await apiRequest("POST", `/api/workflows/${workflowId}/versions`, {
+        commitMessage: message,
       });
-      if (!response.ok) throw new Error("Failed to create version");
       return response.json();
     },
     onSuccess: () => {
@@ -80,10 +72,7 @@ export function VersionHistory({ workflowId }: VersionHistoryProps) {
 
   const restoreVersionMutation = useMutation({
     mutationFn: async (versionId: string) => {
-      const response = await fetch(`/api/workflows/${workflowId}/restore/${versionId}`, {
-        method: "PUT",
-      });
-      if (!response.ok) throw new Error("Failed to restore version");
+      const response = await apiRequest("PUT", `/api/workflows/${workflowId}/restore/${versionId}`);
       return response.json();
     },
     onSuccess: () => {
@@ -109,7 +98,11 @@ export function VersionHistory({ workflowId }: VersionHistoryProps) {
   };
 
   const handleRestoreVersion = (versionId: string) => {
-    if (confirm("Are you sure you want to restore this version? Current changes will be saved as a new version.")) {
+    if (
+      confirm(
+        "Are you sure you want to restore this version? Current changes will be saved as a new version."
+      )
+    ) {
       restoreVersionMutation.mutate(versionId);
     }
   };
@@ -158,9 +151,7 @@ export function VersionHistory({ workflowId }: VersionHistoryProps) {
                               {version.tag}
                             </Badge>
                           )}
-                          {index === 0 && (
-                            <Badge variant="default">Latest</Badge>
-                          )}
+                          {index === 0 && <Badge variant="default">Latest</Badge>}
                         </div>
                         <p className="text-sm font-medium mb-1">
                           {version.commitMessage || `Version ${version.version}`}
@@ -219,10 +210,7 @@ export function VersionHistory({ workflowId }: VersionHistoryProps) {
             <Button variant="outline" onClick={() => setShowCommitDialog(false)}>
               Cancel
             </Button>
-            <Button
-              onClick={handleCreateVersion}
-              disabled={createVersionMutation.isPending}
-            >
+            <Button onClick={handleCreateVersion} disabled={createVersionMutation.isPending}>
               {createVersionMutation.isPending ? "Saving..." : "Save Version"}
             </Button>
           </DialogFooter>

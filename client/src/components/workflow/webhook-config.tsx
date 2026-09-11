@@ -1,19 +1,14 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Link, Copy, RefreshCw, Zap, Check } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { apiRequest } from "@/lib/queryClient";
 
 interface WorkflowWebhook {
   id: string;
@@ -40,11 +35,7 @@ export function WebhookConfig({ workflowId }: WebhookConfigProps) {
 
   const createWebhookMutation = useMutation({
     mutationFn: async () => {
-      const response = await fetch(`/api/workflows/${workflowId}/webhooks`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-      });
-      if (!response.ok) throw new Error("Failed to create webhook");
+      const response = await apiRequest("POST", `/api/workflows/${workflowId}/webhooks`);
       return response.json();
     },
     onSuccess: () => {
@@ -66,10 +57,7 @@ export function WebhookConfig({ workflowId }: WebhookConfigProps) {
   const regenerateSecretMutation = useMutation({
     mutationFn: async () => {
       if (!webhook) throw new Error("No webhook found");
-      const response = await fetch(`/api/webhooks/${webhook.id}/regenerate`, {
-        method: "POST",
-      });
-      if (!response.ok) throw new Error("Failed to regenerate secret");
+      const response = await apiRequest("POST", `/api/webhooks/${webhook.id}/regenerate`);
       return response.json();
     },
     onSuccess: () => {
@@ -91,12 +79,7 @@ export function WebhookConfig({ workflowId }: WebhookConfigProps) {
   const toggleWebhookMutation = useMutation({
     mutationFn: async (enabled: boolean) => {
       if (!webhook) throw new Error("No webhook found");
-      const response = await fetch(`/api/webhooks/${webhook.id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ enabled }),
-      });
-      if (!response.ok) throw new Error("Failed to update webhook");
+      const response = await apiRequest("PUT", `/api/webhooks/${webhook.id}`, { enabled });
       return response.json();
     },
     onSuccess: () => {
@@ -172,11 +155,7 @@ export function WebhookConfig({ workflowId }: WebhookConfigProps) {
             <div className="space-y-2">
               <Label>Webhook URL</Label>
               <div className="flex gap-2">
-                <Input
-                  value={webhook.webhookUrl}
-                  readOnly
-                  className="font-mono text-sm"
-                />
+                <Input value={webhook.webhookUrl} readOnly className="font-mono text-sm" />
                 <Button
                   variant="outline"
                   size="icon"

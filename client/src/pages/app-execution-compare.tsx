@@ -1,13 +1,14 @@
-import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { Link } from 'wouter';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Checkbox } from '@/components/ui/checkbox';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { ArrowLeft, Loader2, RefreshCw } from 'lucide-react';
-import type { Execution } from '@shared/schema';
+import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { Link } from "wouter";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { ArrowLeft, Loader2, RefreshCw } from "lucide-react";
+import type { Execution } from "@shared/schema";
+import { apiRequest } from "@/lib/queryClient";
 
 interface ComparisonData {
   id: string;
@@ -36,13 +37,11 @@ export default function AppExecutionCompare() {
   const [comparisonData, setComparisonData] = useState<ComparisonResponse | null>(null);
 
   const { data: executions, isLoading } = useQuery<Execution[]>({
-    queryKey: ['/api/executions'],
+    queryKey: ["/api/executions"],
   });
 
   const handleToggleExecution = (id: string) => {
-    setSelectedIds(prev =>
-      prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
-    );
+    setSelectedIds((prev) => (prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]));
   };
 
   const handleCompare = async () => {
@@ -50,22 +49,20 @@ export default function AppExecutionCompare() {
 
     setIsComparing(true);
     try {
-      const response = await fetch('/api/executions/compare', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ executionIds: selectedIds }),
+      const response = await apiRequest("POST", "/api/executions/compare", {
+        executionIds: selectedIds,
       });
       const data = await response.json();
       setComparisonData(data);
     } catch (error) {
-      console.error('Failed to compare executions:', error);
+      console.error("Failed to compare executions:", error);
     } finally {
       setIsComparing(false);
     }
   };
 
   const formatDuration = (ms: number | null) => {
-    if (ms === null) return 'N/A';
+    if (ms === null) return "N/A";
     if (ms < 1000) return `${ms}ms`;
     if (ms < 60000) return `${(ms / 1000).toFixed(2)}s`;
     return `${(ms / 60000).toFixed(2)}m`;
@@ -73,14 +70,14 @@ export default function AppExecutionCompare() {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'completed':
-        return 'bg-green-500/10 text-green-500 border-green-500/20';
-      case 'error':
-        return 'bg-destructive/10 text-destructive border-destructive/20';
-      case 'running':
-        return 'bg-blue-500/10 text-blue-500 border-blue-500/20';
+      case "completed":
+        return "bg-green-500/10 text-green-500 border-green-500/20";
+      case "error":
+        return "bg-destructive/10 text-destructive border-destructive/20";
+      case "running":
+        return "bg-blue-500/10 text-blue-500 border-blue-500/20";
       default:
-        return 'bg-muted text-muted-foreground';
+        return "bg-muted text-muted-foreground";
     }
   };
 
@@ -105,15 +102,10 @@ export default function AppExecutionCompare() {
           </Link>
           <div>
             <h1 className="text-3xl font-bold">Compare Executions</h1>
-            <p className="text-muted-foreground text-sm">
-              Select 2 or more executions to compare
-            </p>
+            <p className="text-muted-foreground text-sm">Select 2 or more executions to compare</p>
           </div>
         </div>
-        <Button
-          onClick={handleCompare}
-          disabled={selectedIds.length < 2 || isComparing}
-        >
+        <Button onClick={handleCompare} disabled={selectedIds.length < 2 || isComparing}>
           {isComparing ? (
             <>
               <Loader2 className="w-4 h-4 mr-2 animate-spin" />
@@ -243,7 +235,9 @@ export default function AppExecutionCompare() {
                         <td className="p-2 font-medium">Errors</td>
                         {comparisonData.executions.map((exec) => (
                           <td key={exec.id} className="p-2">
-                            <span className={exec.errorLogs > 0 ? 'text-destructive font-medium' : ''}>
+                            <span
+                              className={exec.errorLogs > 0 ? "text-destructive font-medium" : ""}
+                            >
                               {exec.errorLogs}
                             </span>
                           </td>
@@ -253,7 +247,9 @@ export default function AppExecutionCompare() {
                         <td className="p-2 font-medium">Warnings</td>
                         {comparisonData.executions.map((exec) => (
                           <td key={exec.id} className="p-2">
-                            <span className={exec.warningLogs > 0 ? 'text-amber-500 font-medium' : ''}>
+                            <span
+                              className={exec.warningLogs > 0 ? "text-amber-500 font-medium" : ""}
+                            >
                               {exec.warningLogs}
                             </span>
                           </td>
@@ -277,7 +273,7 @@ export default function AppExecutionCompare() {
                       <h4 className="font-medium text-sm">Execution {idx + 1}</h4>
                       <div className="bg-muted rounded-lg p-3 text-xs">
                         <pre className="whitespace-pre-wrap break-words">
-                          {exec.output ? JSON.stringify(exec.output, null, 2) : 'No output'}
+                          {exec.output ? JSON.stringify(exec.output, null, 2) : "No output"}
                         </pre>
                       </div>
                       {exec.error && (
