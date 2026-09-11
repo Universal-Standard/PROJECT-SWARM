@@ -1,0 +1,229 @@
+name: "API: Cost Report"
+# Aggregates execution_costs by provider/model and generates a summary.
+# Can be scheduled monthly via cron or triggered manually.
+
+on:
+  workflow_dispatch:
+    inputs:
+      start_date:
+        description: "Start date (YYYY-MM-DD) — blank = 30 days ago"
+        required: false
+        type: string
+      end_date:
+        description: "End date (YYYY-MM-DD) — blank = today"
+        required: false
+        type: string
+      create_issue:
+        description: "Create a GitHub Issue with the report?"
+        required: false
+        type: boolean
+        default: false
+
+  schedule:
+    # First day of each month at 00:00 UTC
+    - cron: "0 0 1 * *"
+
+permissions:
+  contents: read
+  issues: write
+  actions: write
+
+jobs:
+  report:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: Install runtime deps
+        run: npm ci --omit=dev --ignore-scripts || npm install better-sqlite3
+
+      - name: Generate cost report
+        id: report
+        env:
+          START_DATE: ${{ inputs.start_date }}
+          END_DATE: ${{ inputs.end_date }}
+          RUN_ID: ${{ github.run_id }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          mkdir -p api-output
+          node - << 'EOF'
+          const Database = require('better-sqlite3');
+          const fs       = require('fs');
+
+          const db = new Database('swarm.db', { readonly: true });
+          db.pragma('foreign_keys = ON');
+
+          // Parse date range
+          const now = new Date();
+          const thirtyDaysAgo = new Date(now);
+          thirtyDaysAgo.setDate(now.getDate() - 30);
+
+          const startDate = process.env.START_DATE || thirtyDaysAgo.toISOString().split('T')[0];
+          const endDate   = process.env.END_DATE   || now.toISOString().split('T')[0];
+
+          const startTs = Math.floor(new Date(startDate + 'T00:00:00Z').getTime() / 1000);
+          const endTs   = Math.floor(new Date(endDate   + 'T23:59:59Z').getTime() / 1000);
+
+          // Aggregate by provider + model
+          const byProviderModel = db.prepare(`
+            SELECT
+              provider,
+              model,
+              COUNT(*) AS invocations,
+              SUM(input_tokens) AS total_input_tokens,
+              SUM(output_tokens) AS total_output_tokens,
+              SUM(cost_cents) AS total_cost_cents
+            FROM execution_costs
+            WHERE recorded_at >= ? AND recorded_at <= ?
+            GROUP BY provider, model
+            ORDER BY total_cost_cents DESC
+          `).all(startTs, endTs);
+
+          // Aggregate by provider only
+          const byProvider = db.prepare(`
+            SELECT
+              provider,
+              COUNT(*) AS invocations,
+              SUM(cost_cents) AS total_cost_cents
+            FROM execution_costs
+            WHERE recorded_at >= ? AND recorded_at <= ?
+            GROUP BY provider
+            ORDER BY total_cost_cents DESC
+          `).all(startTs, endTs);
+
+          // Overall totals
+          const overall = db.prepare(`
+            SELECT
+              COUNT(*) AS total_invocations,
+              SUM(input_tokens) AS total_input_tokens,
+              SUM(output_tokens) AS total_output_tokens,
+              SUM(cost_cents) AS total_cost_cents
+            FROM execution_costs
+            WHERE recorded_at >= ? AND recorded_at <= ?
+          `).get(startTs, endTs);
+
+          // Top executions by cost
+          const topExecutions = db.prepare(`
+            SELECT
+              er.id,
+              er.workflow_path,
+              er.status,
+              SUM(ec.cost_cents) AS total_cost_cents
+            FROM execution_runs er
+            JOIN execution_costs ec ON ec.execution_id = er.id
+            WHERE ec.recorded_at >= ? AND ec.recorded_at <= ?
+            GROUP BY er.id, er.workflow_path, er.status
+            ORDER BY total_cost_cents DESC
+            LIMIT 10
+          `).all(startTs, endTs);
+
+          db.close();
+
+          const report = {
+            success: true,
+            period: {
+              start: startDate,
+              end: endDate,
+              start_ts: startTs,
+              end_ts: endTs,
+            },
+            summary: {
+              total_invocations: overall.total_invocations || 0,
+              total_input_tokens: overall.total_input_tokens || 0,
+              total_output_tokens: overall.total_output_tokens || 0,
+              total_cost_cents: overall.total_cost_cents || 0,
+              total_cost_usd: ((overall.total_cost_cents || 0) / 100).toFixed(2),
+            },
+            by_provider: byProvider,
+            by_provider_model: byProviderModel,
+            top_executions: topExecutions,
+            meta: {
+              workflow_run_id:  process.env.RUN_ID,
+              workflow_run_url: `https://github.com/${process.env.REPOSITORY}/actions/runs/${process.env.RUN_ID}`,
+              generated_at: new Date().toISOString(),
+            },
+          };
+
+          fs.writeFileSync('api-output/cost-report.json', JSON.stringify(report, null, 2));
+
+          // Generate markdown summary
+          let md = `# 💰 Cost Report\n\n`;
+          md += `**Period:** ${startDate} to ${endDate}\n\n`;
+          md += `## Summary\n\n`;
+          md += `- **Total invocations:** ${report.summary.total_invocations.toLocaleString()}\n`;
+          md += `- **Total tokens (in/out):** ${report.summary.total_input_tokens.toLocaleString()} / ${report.summary.total_output_tokens.toLocaleString()}\n`;
+          md += `- **Total cost:** $${report.summary.total_cost_usd}\n\n`;
+
+          if (byProvider.length > 0) {
+            md += `## By Provider\n\n`;
+            md += `| Provider | Invocations | Cost |\n`;
+            md += `|----------|-------------|------|\n`;
+            byProvider.forEach(p => {
+              md += `| ${p.provider} | ${p.invocations.toLocaleString()} | $${(p.total_cost_cents / 100).toFixed(2)} |\n`;
+            });
+            md += `\n`;
+          }
+
+          if (byProviderModel.length > 0) {
+            md += `## By Provider & Model\n\n`;
+            md += `| Provider | Model | Invocations | Tokens (in/out) | Cost |\n`;
+            md += `|----------|-------|-------------|-----------------|------|\n`;
+            byProviderModel.forEach(pm => {
+              const tokStr = `${pm.total_input_tokens.toLocaleString()}/${pm.total_output_tokens.toLocaleString()}`;
+              md += `| ${pm.provider} | ${pm.model} | ${pm.invocations} | ${tokStr} | $${(pm.total_cost_cents / 100).toFixed(2)} |\n`;
+            });
+            md += `\n`;
+          }
+
+          if (topExecutions.length > 0) {
+            md += `## Top 10 Executions by Cost\n\n`;
+            md += `| Execution ID | Workflow | Status | Cost |\n`;
+            md += `|--------------|----------|--------|------|\n`;
+            topExecutions.forEach(ex => {
+              md += `| \`${ex.id}\` | ${ex.workflow_path} | ${ex.status} | $${(ex.total_cost_cents / 100).toFixed(2)} |\n`;
+            });
+            md += `\n`;
+          }
+
+          if (report.summary.total_invocations === 0) {
+            md += `\n_No execution costs recorded for this period._\n`;
+          }
+
+          fs.writeFileSync('api-output/cost-report.md', md);
+          fs.writeFileSync('api-output/cost-summary.txt', report.summary.total_cost_usd);
+
+          console.log('Cost report generated');
+          console.log('Total cost:', '$' + report.summary.total_cost_usd);
+          EOF
+
+      - name: Upload report artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: cost-report-${{ github.run_id }}
+          path: api-output/
+          retention-days: 30
+
+      - name: Job summary
+        run: |
+          cat api-output/cost-report.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Create GitHub Issue (if requested)
+        if: ${{ inputs.create_issue == true || github.event_name == 'schedule' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          COST=$(cat api-output/cost-summary.txt)
+          MONTH=$(date +%Y-%m)
+
+          gh issue create \
+            --title "💰 Monthly Cost Report — ${MONTH}" \
+            --body-file api-output/cost-report.md \
+            --label "cost-report,automated" \
+            || echo "Issue creation failed (may already exist)"

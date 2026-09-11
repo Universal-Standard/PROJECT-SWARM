@@ -1,21 +1,29 @@
-name: "API: Update Execution Status"
+name: "API: Update Execution"
+# Proof-of-concept: workflow_dispatch used as an HTTP PATCH equivalent.
+# Updates an existing execution_runs record (status, completed_at, cost).
 
 on:
   workflow_dispatch:
     inputs:
       execution_id:
-        description: "Execution ID"
+        description: "Execution ID to update"
         required: true
         type: string
       status:
         description: "New status"
-        required: true
+        required: false
         type: choice
         options: [queued, in_progress, completed, failed]
-      cost_cents:
-        description: "Total cost in cents (optional)"
+      mark_completed:
+        description: "Set completed_at to now?"
+        required: false
+        type: boolean
+        default: false
+      add_cost_cents:
+        description: "Add to cost_cents (incremental)"
         required: false
         type: string
+        default: "0"
 
 permissions:
   contents: write
@@ -25,6 +33,7 @@ jobs:
   update:
     runs-on: ubuntu-latest
     timeout-minutes: 3
+
     steps:
       - uses: actions/checkout@v4
         with:
@@ -35,51 +44,122 @@ jobs:
           node-version: "20"
           cache: npm
 
-      - name: Install deps
+      - name: Install runtime deps
         run: npm ci --omit=dev --ignore-scripts || npm install better-sqlite3
 
-      - name: Update status
+      - name: Update execution record
+        id: update
         env:
           EXECUTION_ID: ${{ inputs.execution_id }}
           STATUS: ${{ inputs.status }}
-          COST_CENTS: ${{ inputs.cost_cents }}
+          MARK_COMPLETED: ${{ inputs.mark_completed }}
+          ADD_COST: ${{ inputs.add_cost_cents }}
+          RUN_ID: ${{ github.run_id }}
+          REPOSITORY: ${{ github.repository }}
         run: |
           mkdir -p api-output
           node - << 'EOF'
           const Database = require('better-sqlite3');
-          const fs = require('fs');
+          const fs       = require('fs');
 
           const db = new Database('swarm.db');
           db.pragma('journal_mode = WAL');
+          db.pragma('foreign_keys = ON');
 
-          const now = Math.floor(Date.now() / 1000);
-          const status = process.env.STATUS;
-          const costCents = parseInt(process.env.COST_CENTS || '0');
+          const id = process.env.EXECUTION_ID;
 
-          db.prepare(`
-            UPDATE execution_runs
-            SET status = $status,
-                completed_at = CASE WHEN $status IN ('completed','failed') THEN $now ELSE completed_at END,
-                cost_cents = CASE WHEN $cost > 0 THEN $cost ELSE cost_cents END,
-                updated_at = $now
-            WHERE id = $id
-          `).run({ $status: status, $now: now, $cost: costCents, $id: process.env.EXECUTION_ID });
+          // Check if record exists
+          const existing = db.prepare('SELECT * FROM execution_runs WHERE id = ?').get(id);
+          if (!existing) {
+            console.error('Execution not found:', id);
+            process.exit(1);
+          }
 
-          const record = db.prepare('SELECT * FROM execution_runs WHERE id = ?').get(process.env.EXECUTION_ID);
+          // Build UPDATE statement dynamically
+          const updates = [];
+          const params  = { $id: id };
+
+          if (process.env.STATUS) {
+            updates.push('status = $status');
+            params.$status = process.env.STATUS;
+          }
+
+          if (process.env.MARK_COMPLETED === 'true') {
+            updates.push('completed_at = $completed_at');
+            params.$completed_at = Math.floor(Date.now() / 1000);
+          }
+
+          const addCost = parseInt(process.env.ADD_COST || '0');
+          if (addCost > 0) {
+            updates.push('cost_cents = cost_cents + $add_cost');
+            params.$add_cost = addCost;
+          }
+
+          // Always update the timestamp
+          updates.push('updated_at = $updated_at');
+          params.$updated_at = Math.floor(Date.now() / 1000);
+
+          if (updates.length === 0) {
+            console.log('No updates specified (other than updated_at)');
+          }
+
+          const sql = `UPDATE execution_runs SET ${updates.join(', ')} WHERE id = $id`;
+          const info = db.prepare(sql).run(params);
+
+          // Fetch updated record
+          const updated = db.prepare('SELECT * FROM execution_runs WHERE id = ?').get(id);
           db.close();
 
-          fs.writeFileSync('api-output/result.json', JSON.stringify({ success: true, data: record }));
+          const body = JSON.stringify({
+            success: true,
+            changes: info.changes,
+            before: existing,
+            after: updated,
+            meta: {
+              workflow_run_id:  process.env.RUN_ID,
+              workflow_run_url: `https://github.com/${process.env.REPOSITORY}/actions/runs/${process.env.RUN_ID}`,
+              updated_at: new Date().toISOString(),
+            },
+          }, null, 2);
+
+          fs.writeFileSync('api-output/result.json', body);
+          console.log('Updated execution:', id, '— changes:', info.changes);
           EOF
 
-      - name: Commit
+      - name: Commit database
         run: |
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git config user.name "github-actions[bot]"
-          git add swarm.db
-          git diff --staged --quiet || (git commit -m "data: execution ${{ inputs.execution_id }} → ${{ inputs.status }}" && git push)
+          git config user.name  "github-actions[bot]"
+          git add swarm.db swarm.db-wal swarm.db-shm 2>/dev/null || git add swarm.db
+          if git diff --staged --quiet; then
+            echo "Nothing to commit"
+          else
+            git commit -m "data: update execution ${{ inputs.execution_id }}
 
-      - uses: actions/upload-artifact@v4
+          status=${{ inputs.status }}
+          completed=${{ inputs.mark_completed }}
+          cost_added=${{ inputs.add_cost_cents }}
+          api_run=${{ github.run_id }}"
+            git push
+          fi
+
+      - name: Upload result artifact
+        uses: actions/upload-artifact@v4
         with:
           name: api-update-execution-${{ github.run_id }}
           path: api-output/result.json
           retention-days: 1
+
+      - name: Job summary
+        run: |
+          {
+            echo "## API: Update Execution"
+            echo "| Key | Value |"
+            echo "|-----|-------|"
+            echo "| execution_id | \`${{ inputs.execution_id }}\` |"
+            echo "| status | \`${{ inputs.status }}\` |"
+            echo "| mark_completed | ${{ inputs.mark_completed }} |"
+            echo "| add_cost_cents | ${{ inputs.add_cost_cents }} |"
+            echo ""
+            echo "Database updated and committed."
+          } >> "$GITHUB_STEP_SUMMARY"
