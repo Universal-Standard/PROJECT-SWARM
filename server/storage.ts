@@ -55,7 +55,7 @@ import {
   tags,
   workflowTags,
 } from "@shared/schema";
-import { eq, desc, and, or, inArray } from "drizzle-orm";
+import { eq, desc, and, or, inArray, gte, lte, sql } from "drizzle-orm";
 
 export interface IStorage {
   // Users (Replit Auth)
@@ -440,7 +440,7 @@ export class DatabaseStorage implements IStorage {
   async updateTemplateUsageCount(id: string): Promise<void> {
     await db
       .update(templates)
-      .set({ usageCount: db.$count(templates.usageCount) })
+      .set({ usageCount: sql`${templates.usageCount} + 1` })
       .where(eq(templates.id, id));
   }
 
@@ -712,10 +712,14 @@ export class DatabaseStorage implements IStorage {
     const executionIds = workflowExecutions.map((e) => e.id);
     if (executionIds.length === 0) return [];
 
+    const conditions: ReturnType<typeof eq>[] = [inArray(executionCosts.executionId, executionIds)];
+    if (startDate) conditions.push(gte(executionCosts.timestamp, startDate));
+    if (endDate) conditions.push(lte(executionCosts.timestamp, endDate));
+
     return await db
       .select()
       .from(executionCosts)
-      .where(inArray(executionCosts.executionId, executionIds))
+      .where(and(...conditions))
       .orderBy(desc(executionCosts.timestamp));
   }
 
@@ -728,10 +732,14 @@ export class DatabaseStorage implements IStorage {
     const executionIds = userExecutions.map((e) => e.id);
     if (executionIds.length === 0) return [];
 
+    const conditions: ReturnType<typeof eq>[] = [inArray(executionCosts.executionId, executionIds)];
+    if (startDate) conditions.push(gte(executionCosts.timestamp, startDate));
+    if (endDate) conditions.push(lte(executionCosts.timestamp, endDate));
+
     return await db
       .select()
       .from(executionCosts)
-      .where(inArray(executionCosts.executionId, executionIds))
+      .where(and(...conditions))
       .orderBy(desc(executionCosts.timestamp));
   }
 

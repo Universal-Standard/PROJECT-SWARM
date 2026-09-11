@@ -1,6 +1,5 @@
 import { createApp } from "./app";
 import { setupVite, serveStatic, log } from "./vite";
-import { scheduler } from "./scheduler";
 import { wsManager } from "./websocket";
 import { createServer } from "http";
 
@@ -17,17 +16,12 @@ import { createServer } from "http";
 (async () => {
   const app = await createApp();
 
-  // Start workflow scheduler (in-process node-cron; requires a
-  // long-lived process, which is why this file — not api/index.ts —
-  // owns it)
-  await scheduler.start();
-  log("Workflow scheduler started");
-
-  // Initialize Phase 3A features
+  // Initialize Phase 3A features (single scheduler instance)
   const { scheduler: libScheduler } = await import("./lib/scheduler");
   const { costTracker } = await import("./lib/cost-tracker");
 
   await libScheduler.initialize();
+  log("Workflow scheduler started");
   await costTracker.initializePricing();
 
   // Create HTTP server and initialize WebSocket before serving static/vite

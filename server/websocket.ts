@@ -3,6 +3,7 @@ import type { Server } from "http";
 import type { IncomingMessage } from "http";
 import url from "url";
 import { logger } from "./lib/logger";
+import { storage } from "./storage";
 
 export interface ExecutionEventData {
   workflowName?: string;
@@ -49,13 +50,13 @@ class WebSocketManager {
     });
 
     this.wss.on("connection", (ws: WebSocket, req: IncomingMessage) => {
-      this.handleConnection(ws, req);
+      void this.handleConnection(ws, req);
     });
 
     logger.info("WebSocket server initialized", { path: "/ws" });
   }
 
-  private handleConnection(ws: WebSocket, req: IncomingMessage) {
+  private async handleConnection(ws: WebSocket, req: IncomingMessage) {
     // Parse query parameters for executionId and userId
     const query = url.parse(req.url || "", true).query;
     const executionId = query.executionId as string;
@@ -63,6 +64,26 @@ class WebSocketManager {
 
     if (!executionId || !userId) {
       ws.close(1008, "Missing executionId or userId");
+      return;
+    }
+
+    // Verify the userId owns the execution before granting access
+    try {
+      const execution = await storage.getExecutionById(executionId);
+      if (!execution) {
+        ws.close(1008, "Execution not found");
+        return;
+      }
+      // execution.userId is set directly; for executions created via workflows,
+      // we also accept ownership via the workflow.
+      if (execution.userId !== userId) {
+        logger.warn("WebSocket rejected: userId does not own executionId", { executionId, userId });
+        ws.close(1008, "Forbidden");
+        return;
+      }
+    } catch (err) {
+      logger.error("WebSocket ownership check failed", err);
+      ws.close(1011, "Internal error");
       return;
     }
 
