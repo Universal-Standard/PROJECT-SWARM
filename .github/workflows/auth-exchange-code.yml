@@ -1,0 +1,49 @@
+name: "Auth: Exchange OAuth Code"
+
+on:
+  workflow_dispatch:
+    inputs:
+      code:
+        description: "GitHub OAuth authorization code"
+        required: true
+        type: string
+
+# NOTE: This job runs on a private runner to keep GITHUB_CLIENT_SECRET safe.
+# The resulting access_token artifact is short-lived (1 day).
+
+permissions:
+  actions: write
+
+jobs:
+  exchange:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Exchange code for token
+        env:
+          GITHUB_CLIENT_ID: ${{ secrets.SWARM_GITHUB_CLIENT_ID }}
+          GITHUB_CLIENT_SECRET: ${{ secrets.SWARM_GITHUB_CLIENT_SECRET }}
+          CODE: ${{ inputs.code }}
+        run: |
+          mkdir -p auth-output
+          RESPONSE=$(curl -s -X POST https://github.com/login/oauth/access_token \
+            -H "Accept: application/json" \
+            -H "Content-Type: application/json" \
+            -d "{\"client_id\":\"$GITHUB_CLIENT_ID\",\"client_secret\":\"$GITHUB_CLIENT_SECRET\",\"code\":\"$CODE\"}")
+
+          echo "Response received"
+          ACCESS_TOKEN=$(echo "$RESPONSE" | node -e "let d='';process.stdin.on('data',c=>d+=c);process.stdin.on('end',()=>console.log(JSON.parse(d).access_token))")
+
+          if [ -z "$ACCESS_TOKEN" ] || [ "$ACCESS_TOKEN" = "null" ] || [ "$ACCESS_TOKEN" = "undefined" ]; then
+            echo '{"success":false,"error":"Token exchange failed"}' > auth-output/token.json
+            exit 1
+          fi
+
+          echo "{\"access_token\":\"$ACCESS_TOKEN\",\"token_type\":\"bearer\"}" > auth-output/token.json
+          echo "Token exchange successful"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: auth-token-${{ github.run_id }}
+          path: auth-output/token.json
+          retention-days: 1

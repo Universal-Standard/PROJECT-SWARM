@@ -1,0 +1,71 @@
+name = "project-swarm-worker"
+main = "worker/src/index.ts"
+compatibility_date = "2024-11-24"
+compatibility_flags = ["nodejs_compat"]
+
+# ── D1 Database (SQLite at the edge) ─────────────────────────────────────────
+[[d1_databases]]
+binding = "DB"
+database_name = "project-swarm-d1"
+database_id = "00000000-0000-0000-0000-000000000000"  # Replace after: wrangler d1 create project-swarm-d1
+
+# ── KV Namespaces ─────────────────────────────────────────────────────────────
+[[kv_namespaces]]
+binding = "SESSIONS"
+id = "00000000000000000000000000000001"  # Replace after: wrangler kv:namespace create SESSIONS
+
+[[kv_namespaces]]
+binding = "RATE_LIMIT"
+id = "00000000000000000000000000000002"  # Replace after: wrangler kv:namespace create RATE_LIMIT
+
+# ── R2 Bucket (file storage) ──────────────────────────────────────────────────
+[[r2_buckets]]
+binding = "STORAGE"
+bucket_name = "project-swarm-files"
+# Run: wrangler r2 bucket create project-swarm-files
+
+# ── Queues (async AI execution) ───────────────────────────────────────────────
+[[queues.producers]]
+binding = "EXECUTION_QUEUE"
+queue = "workflow-executions"
+# Run: wrangler queues create workflow-executions
+
+[[queues.consumers]]
+queue = "workflow-executions"
+max_batch_size = 1
+max_retries = 3
+dead_letter_queue = "workflow-executions-dlq"
+
+# ── Durable Objects (WebSocket rooms) ─────────────────────────────────────────
+[[durable_objects.bindings]]
+name = "WS_ROOMS"
+class_name = "ExecutionRoom"
+script_name = "project-swarm-worker"
+
+[[migrations]]
+tag = "v1"
+new_classes = ["ExecutionRoom"]
+
+# ── Cron Triggers ─────────────────────────────────────────────────────────────
+[triggers]
+crons = ["*/5 * * * *"]
+
+# ── Non-sensitive environment variables ───────────────────────────────────────
+[vars]
+NODE_ENV = "production"
+GITHUB_CLIENT_ID = ""  # Set via: wrangler secret put GITHUB_CLIENT_ID
+
+# ── Secrets (set via wrangler secret put <NAME>) ──────────────────────────────
+# GITHUB_CLIENT_SECRET
+# OPENAI_API_KEY
+# ANTHROPIC_API_KEY
+# GEMINI_API_KEY
+# SESSION_SECRET
+# ENCRYPTION_KEY
+
+# ── Build ─────────────────────────────────────────────────────────────────────
+[build]
+command = "cd ../.. && npm run build 2>/dev/null || true"
+
+# ── Pages (frontend) — deploy separately via: wrangler pages deploy dist/ ─────
+# Frontend calls /api/* which Cloudflare routes to this Worker via Pages Functions

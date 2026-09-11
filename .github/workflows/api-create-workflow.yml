@@ -1,0 +1,116 @@
+name: "API: Create Workflow"
+
+on:
+  workflow_dispatch:
+    inputs:
+      workflow_data:
+        description: "Workflow JSON data"
+        required: true
+        type: string
+
+permissions:
+  contents: write
+  actions: write
+
+jobs:
+  create:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: Install deps
+        run: npm ci --omit=dev --ignore-scripts || npm install better-sqlite3
+
+      - name: Create workflow record
+        id: create
+        env:
+          WORKFLOW_DATA: ${{ inputs.workflow_data }}
+          RUN_ID: ${{ github.run_id }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          mkdir -p api-output .swarm-data/workflows
+          node - << 'EOF'
+          const Database = require('better-sqlite3');
+          const crypto = require('crypto');
+          const fs = require('fs');
+
+          const db = new Database('swarm.db');
+          db.pragma('journal_mode = WAL');
+          db.pragma('foreign_keys = ON');
+
+          const data = JSON.parse(process.env.WORKFLOW_DATA);
+          const id = 'wf_' + crypto.randomBytes(10).toString('hex');
+          const now = Math.floor(Date.now() / 1000);
+
+          // Ensure workflow_defs table exists
+          db.exec(`
+            CREATE TABLE IF NOT EXISTS workflow_defs (
+              id TEXT PRIMARY KEY,
+              name TEXT NOT NULL,
+              description TEXT,
+              nodes TEXT NOT NULL DEFAULT '[]',
+              edges TEXT NOT NULL DEFAULT '[]',
+              created_at INTEGER NOT NULL,
+              updated_at INTEGER NOT NULL
+            )
+          `);
+
+          db.prepare(`
+            INSERT INTO workflow_defs (id, name, description, nodes, edges, created_at, updated_at)
+            VALUES ($id, $name, $desc, $nodes, $edges, $now, $now)
+          `).run({
+            $id: id,
+            $name: data.name || 'Untitled Workflow',
+            $desc: data.description || '',
+            $nodes: JSON.stringify(data.nodes || []),
+            $edges: JSON.stringify(data.edges || []),
+            $now: now,
+          });
+
+          const record = db.prepare('SELECT * FROM workflow_defs WHERE id = ?').get(id);
+          db.close();
+
+          const result = {
+            success: true,
+            data: { ...record, nodes: JSON.parse(record.nodes), edges: JSON.parse(record.edges), createdAt: new Date(record.created_at * 1000).toISOString(), updatedAt: new Date(record.updated_at * 1000).toISOString() },
+          };
+
+          // Also write to repo file for fast Contents API reads
+          fs.mkdirSync('.swarm-data/workflows', { recursive: true });
+          fs.writeFileSync(`.swarm-data/workflows/${id}.json`, JSON.stringify(result.data, null, 2));
+
+          fs.writeFileSync('api-output/result.json', JSON.stringify(result, null, 2));
+          console.log('Created workflow:', id);
+          EOF
+
+      - name: Update index
+        run: |
+          node - << 'EOF'
+          const fs = require('fs');
+          const indexPath = '.swarm-data/workflows/index.json';
+          const list = fs.existsSync(indexPath) ? JSON.parse(fs.readFileSync(indexPath, 'utf8')) : [];
+          const newEntry = JSON.parse(fs.readFileSync('api-output/result.json', 'utf8')).data;
+          list.unshift(newEntry);
+          fs.writeFileSync(indexPath, JSON.stringify(list, null, 2));
+          EOF
+
+      - name: Commit
+        run: |
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git config user.name "github-actions[bot]"
+          git add swarm.db .swarm-data/ 2>/dev/null || git add swarm.db
+          git diff --staged --quiet || git commit -m "data: create workflow $(cat api-output/result.json | node -e \"process.stdin.resume();let d='';process.stdin.on('data',c=>d+=c);process.stdin.on('end',()=>console.log(JSON.parse(d).data.id))\")" && git push
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: api-create-workflow-${{ github.run_id }}
+          path: api-output/result.json
+          retention-days: 1

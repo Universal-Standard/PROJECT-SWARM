@@ -1,0 +1,105 @@
+name: "Scheduler: Run Scheduled Workflows"
+
+on:
+  schedule:
+    - cron: "*/15 * * * *"   # Every 15 minutes
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: write
+
+jobs:
+  check-schedules:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: Install deps
+        run: npm ci --omit=dev --ignore-scripts || npm install better-sqlite3
+
+      - name: Find due workflows
+        id: find-due
+        run: |
+          node - << 'EOF'
+          const Database = require('better-sqlite3');
+          const fs = require('fs');
+
+          const db = new Database('swarm.db', { readonly: true });
+          const now = Math.floor(Date.now() / 1000);
+
+          // workflow_schedules table may not exist in the SQLite schema (it's in Postgres schema)
+          // Create it if needed
+          const tables = db.prepare("SELECT name FROM sqlite_master WHERE type='table'").all().map(t => t.name);
+          if (!tables.includes('workflow_schedules')) {
+            console.log('No workflow_schedules table yet — nothing to schedule.');
+            fs.writeFileSync('due-workflows.json', '[]');
+            db.close();
+            process.exit(0);
+          }
+
+          const due = db.prepare(`
+            SELECT * FROM workflow_schedules
+            WHERE enabled = 1 AND (next_run IS NULL OR next_run <= $now)
+          `).all({ $now: now });
+
+          db.close();
+          fs.writeFileSync('due-workflows.json', JSON.stringify(due));
+          console.log('Due workflows:', due.length);
+          EOF
+
+      - name: Trigger due workflows
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          node - << 'EOF'
+          const fs = require('fs');
+          const https = require('https');
+
+          (async () => {
+            const due = JSON.parse(fs.readFileSync('due-workflows.json', 'utf8'));
+
+            for (const schedule of due) {
+              console.log(`Triggering workflow: ${schedule.workflow_path}`);
+
+              const body = JSON.stringify({
+                ref: 'main',
+                inputs: {
+                  workflow_id: schedule.workflow_id || schedule.workflow_path,
+                  input_data: '{}',
+                },
+              });
+
+              await new Promise((resolve, reject) => {
+                const req = https.request({
+                  hostname: 'api.github.com',
+                  path: `/repos/${process.env.REPOSITORY}/actions/workflows/api-execute-workflow.yml/dispatches`,
+                  method: 'POST',
+                  headers: {
+                    'Authorization': `token ${process.env.GH_TOKEN}`,
+                    'Accept': 'application/vnd.github+json',
+                    'X-GitHub-Api-Version': '2022-11-28',
+                    'Content-Type': 'application/json',
+                    'Content-Length': Buffer.byteLength(body),
+                  },
+                }, res => {
+                  console.log('Trigger response:', res.statusCode);
+                  resolve(null);
+                });
+                req.on('error', reject);
+                req.write(body);
+                req.end();
+              });
+            }
+            console.log('All due workflows triggered');
+          })();
+          EOF

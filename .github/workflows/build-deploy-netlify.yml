@@ -1,0 +1,57 @@
+name: "Deploy: Netlify Platform Variant"
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "platforms/netlify/**"
+      - "platforms/shared/server/**"
+      - "client/src/**"
+      - "server/**"
+      - "shared/**"
+  workflow_dispatch:
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+
+      - name: Install root deps
+        run: npm ci
+
+      - name: Install platform deps
+        run: npm ci
+        working-directory: platforms/netlify
+
+      - name: Build frontend
+        run: npm run build
+        working-directory: platforms/netlify
+        env:
+          NODE_ENV: production
+          VITE_BACKEND: netlify
+
+      - name: Deploy to Netlify
+        uses: nwtgck/actions-netlify@v3.0
+        with:
+          publish-dir: "platforms/netlify/dist"
+          production-branch: main
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          deploy-message: "Deploy from GitHub Actions"
+          enable-pull-request-comment: true
+          enable-commit-comment: false
+          overwrites-pull-request-comment: true
+          functions-dir: "platforms/netlify/netlify/functions"
+        env:
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+          NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
+        timeout-minutes: 10

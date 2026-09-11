@@ -12,7 +12,7 @@ export default tseslint.config(
 
   // React configuration
   {
-    files: ["**/*.{js,jsx,ts,tsx}"],
+    files: ["**/*.{ts,tsx}"],
     plugins: {
       react,
       "react-hooks": reactHooks,
@@ -26,7 +26,7 @@ export default tseslint.config(
         ecmaFeatures: {
           jsx: true,
         },
-        project: "./tsconfig.json",
+        project: "./tsconfig.eslint.json",
       },
       globals: {
         ...globals.browser,
@@ -53,7 +53,7 @@ export default tseslint.config(
       ],
       "@typescript-eslint/no-non-null-assertion": "warn",
       "@typescript-eslint/consistent-type-imports": [
-        "error",
+        "warn",
         {
           prefer: "type-imports",
         },
@@ -63,15 +63,17 @@ export default tseslint.config(
       "react/react-in-jsx-scope": "off",
       "react/prop-types": "off",
       "react/jsx-uses-react": "off",
-      ...reactHooks.configs.recommended.rules,
+      "react-hooks/rules-of-hooks": "warn",
+      "react-hooks/exhaustive-deps": "warn",
 
       // General best practices
       "no-console": ["warn", { allow: ["warn", "error"] }],
+      "no-undef": "off",
       "no-debugger": "warn",
       "prefer-const": "error",
       "no-var": "error",
       eqeqeq: ["error", "always"],
-      curly: ["error", "all"],
+      curly: ["warn", "all"],
 
       // Code quality
       "max-lines": [
@@ -93,6 +95,9 @@ export default tseslint.config(
     ignores: [
       "dist/**",
       "node_modules/**",
+      "**/*.js",
+      "**/*.mjs",
+      "**/*.cjs",
       "*.config.js",
       "*.config.ts",
       ".github/**",

@@ -1,0 +1,92 @@
+name: "API: Update Workflow"
+
+on:
+  workflow_dispatch:
+    inputs:
+      workflow_id:
+        description: "Workflow ID"
+        required: true
+        type: string
+      workflow_data:
+        description: "Partial workflow JSON data"
+        required: true
+        type: string
+
+permissions:
+  contents: write
+  actions: write
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: Install deps
+        run: npm ci --omit=dev --ignore-scripts || npm install better-sqlite3
+
+      - name: Update workflow record
+        id: update
+        env:
+          WORKFLOW_ID: ${{ inputs.workflow_id }}
+          WORKFLOW_DATA: ${{ inputs.workflow_data }}
+          RUN_ID: ${{ github.run_id }}
+        run: |
+          mkdir -p api-output .swarm-data/workflows
+          node - << 'EOF'
+          const Database = require('better-sqlite3');
+          const fs = require('fs');
+
+          const db = new Database('swarm.db');
+          db.pragma('journal_mode = WAL');
+
+          const id = process.env.WORKFLOW_ID;
+          const data = JSON.parse(process.env.WORKFLOW_DATA);
+          const now = Math.floor(Date.now() / 1000);
+
+          const existing = db.prepare('SELECT * FROM workflow_defs WHERE id = ?').get(id);
+          if (!existing) throw new Error(`Workflow ${id} not found`);
+
+          const updates = [];
+          const params = { $id: id, $now: now };
+          if (data.name !== undefined) { updates.push('name = $name'); params.$name = data.name; }
+          if (data.description !== undefined) { updates.push('description = $desc'); params.$desc = data.description; }
+          if (data.nodes !== undefined) { updates.push('nodes = $nodes'); params.$nodes = JSON.stringify(data.nodes); }
+          if (data.edges !== undefined) { updates.push('edges = $edges'); params.$edges = JSON.stringify(data.edges); }
+          updates.push('updated_at = $now');
+
+          db.prepare(`UPDATE workflow_defs SET ${updates.join(', ')} WHERE id = $id`).run(params);
+
+          const record = db.prepare('SELECT * FROM workflow_defs WHERE id = ?').get(id);
+          db.close();
+
+          const result = {
+            success: true,
+            data: { ...record, nodes: JSON.parse(record.nodes), edges: JSON.parse(record.edges), createdAt: new Date(record.created_at * 1000).toISOString(), updatedAt: new Date(record.updated_at * 1000).toISOString() },
+          };
+
+          fs.writeFileSync(`.swarm-data/workflows/${id}.json`, JSON.stringify(result.data, null, 2));
+          fs.writeFileSync('api-output/result.json', JSON.stringify(result, null, 2));
+          console.log('Updated workflow:', id);
+          EOF
+
+      - name: Commit
+        run: |
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git config user.name "github-actions[bot]"
+          git add swarm.db .swarm-data/
+          git diff --staged --quiet || (git commit -m "data: update workflow ${{ inputs.workflow_id }}" && git push)
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: api-update-workflow-${{ github.run_id }}
+          path: api-output/result.json
+          retention-days: 1

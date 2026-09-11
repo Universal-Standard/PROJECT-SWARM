@@ -1,0 +1,91 @@
+name: "API: Save Agent Message"
+
+on:
+  workflow_dispatch:
+    inputs:
+      execution_id:
+        description: "Execution ID"
+        required: true
+        type: string
+      agent_id:
+        description: "Agent ID"
+        required: true
+        type: string
+      role:
+        description: "Message role"
+        required: true
+        type: choice
+        options: [thought, action, result, communication]
+      content:
+        description: "Message content (JSON or plain text)"
+        required: true
+        type: string
+
+permissions:
+  contents: write
+  actions: write
+
+jobs:
+  save:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: Install deps
+        run: npm ci --omit=dev --ignore-scripts || npm install better-sqlite3
+
+      - name: Save message
+        env:
+          EXECUTION_ID: ${{ inputs.execution_id }}
+          AGENT_ID: ${{ inputs.agent_id }}
+          ROLE: ${{ inputs.role }}
+          CONTENT: ${{ inputs.content }}
+        run: |
+          mkdir -p api-output
+          node - << 'EOF'
+          const Database = require('better-sqlite3');
+          const crypto = require('crypto');
+          const fs = require('fs');
+
+          const db = new Database('swarm.db');
+          db.pragma('journal_mode = WAL');
+
+          const id = 'msg_' + crypto.randomBytes(10).toString('hex');
+          const now = Math.floor(Date.now() / 1000);
+
+          db.prepare(`
+            INSERT INTO agent_messages (id, execution_id, agent_id, message_type, content, recorded_at)
+            VALUES ($id, $exec_id, $agent_id, $role, $content, $now)
+          `).run({
+            $id: id,
+            $exec_id: process.env.EXECUTION_ID,
+            $agent_id: process.env.AGENT_ID,
+            $role: process.env.ROLE,
+            $content: process.env.CONTENT,
+            $now: now,
+          });
+          db.close();
+
+          fs.writeFileSync('api-output/result.json', JSON.stringify({ success: true, data: { id } }));
+          EOF
+
+      - name: Commit
+        run: |
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git config user.name "github-actions[bot]"
+          git add swarm.db
+          git diff --staged --quiet || (git commit -m "data: agent message ${{ inputs.agent_id }}" && git push)
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: api-save-agent-message-${{ github.run_id }}
+          path: api-output/result.json
+          retention-days: 1

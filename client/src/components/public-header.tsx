@@ -3,17 +3,16 @@ import { Button } from "@/components/ui/button";
 import { Sparkles, Menu } from "lucide-react";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { useAuth } from "@/hooks/useAuth";
-import {
-  Sheet,
-  SheetContent,
-  SheetTrigger,
-} from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 
 export function PublicHeader() {
   const { isAuthenticated, isLoading } = useAuth();
 
   const navItems = [
     { href: "/features", label: "Features" },
+    { href: "/frontend", label: "Frontend" },
+    { href: "/backend", label: "Backend" },
+    { href: "/admin", label: "Admin" },
     { href: "/how-it-works", label: "How It Works" },
     { href: "/pricing", label: "Pricing" },
     { href: "/about", label: "About" },
@@ -34,7 +33,10 @@ export function PublicHeader() {
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container flex h-16 items-center justify-between gap-4">
-        <Link href="/" className="flex items-center gap-3 hover-elevate transition-all px-3 py-2 rounded-lg">
+        <Link
+          href="/"
+          className="flex items-center gap-3 hover-elevate transition-all px-3 py-2 rounded-lg"
+        >
           <div className="p-2 rounded-lg bg-gradient-to-br from-primary to-blue-500">
             <Sparkles className="w-5 h-5 text-primary-foreground" />
           </div>
@@ -51,7 +53,7 @@ export function PublicHeader() {
               key={item.href}
               href={item.href}
               className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
-              data-testid={`nav-${item.label.toLowerCase().replace(/\s+/g, '-')}`}
+              data-testid={`nav-${item.label.toLowerCase().replace(/\s+/g, "-")}`}
             >
               {item.label}
             </Link>
@@ -62,7 +64,7 @@ export function PublicHeader() {
         <div className="hidden md:flex items-center gap-3">
           <ThemeToggle />
           {isLoading ? null : isAuthenticated ? (
-            <Button onClick={() => window.location.href = "/app"} data-testid="button-dashboard">
+            <Button onClick={() => (window.location.href = "/app")} data-testid="button-dashboard">
               Dashboard
             </Button>
           ) : (
@@ -110,7 +112,7 @@ export function PublicHeader() {
                 </nav>
                 <div className="flex flex-col gap-2 pt-4 border-t">
                   {isLoading ? null : isAuthenticated ? (
-                    <Button onClick={() => window.location.href = "/app"} className="w-full">
+                    <Button onClick={() => (window.location.href = "/app")} className="w-full">
                       Dashboard
                     </Button>
                   ) : (

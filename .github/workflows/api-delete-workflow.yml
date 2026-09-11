@@ -1,0 +1,75 @@
+name: "API: Delete Workflow"
+
+on:
+  workflow_dispatch:
+    inputs:
+      workflow_id:
+        description: "Workflow ID to delete"
+        required: true
+        type: string
+
+permissions:
+  contents: write
+  actions: write
+
+jobs:
+  delete:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: Install deps
+        run: npm ci --omit=dev --ignore-scripts || npm install better-sqlite3
+
+      - name: Delete workflow record
+        env:
+          WORKFLOW_ID: ${{ inputs.workflow_id }}
+        run: |
+          mkdir -p api-output
+          node - << 'EOF'
+          const Database = require('better-sqlite3');
+          const fs = require('fs');
+
+          const db = new Database('swarm.db');
+          db.pragma('journal_mode = WAL');
+
+          const id = process.env.WORKFLOW_ID;
+          db.prepare('DELETE FROM workflow_defs WHERE id = ?').run(id);
+          db.close();
+
+          // Remove file
+          const filePath = `.swarm-data/workflows/${id}.json`;
+          if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+
+          // Update index
+          const indexPath = '.swarm-data/workflows/index.json';
+          if (fs.existsSync(indexPath)) {
+            const list = JSON.parse(fs.readFileSync(indexPath, 'utf8'));
+            const filtered = list.filter(w => w.id !== id);
+            fs.writeFileSync(indexPath, JSON.stringify(filtered, null, 2));
+          }
+
+          fs.writeFileSync('api-output/result.json', JSON.stringify({ success: true, data: null }));
+          console.log('Deleted workflow:', id);
+          EOF
+
+      - name: Commit
+        run: |
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git config user.name "github-actions[bot]"
+          git add swarm.db .swarm-data/
+          git diff --staged --quiet || (git commit -m "data: delete workflow ${{ inputs.workflow_id }}" && git push)
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: api-delete-workflow-${{ github.run_id }}
+          path: api-output/result.json
+          retention-days: 1
