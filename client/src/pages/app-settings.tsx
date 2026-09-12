@@ -71,6 +71,7 @@ export default function AppSettings() {
   const [knowledgeAgentType, setKnowledgeAgentType] = useState("all");
   const [knowledgeCategory, setKnowledgeCategory] = useState("all");
   const [knowledgeMinConfidence, setKnowledgeMinConfidence] = useState("0");
+  const [deletingKnowledgeId, setDeletingKnowledgeId] = useState<string | null>(null);
 
   // Fetch settings
   const { data: settings, isLoading: settingsLoading } = useQuery({
@@ -202,6 +203,9 @@ export default function AppSettings() {
     mutationFn: async (id: string) => {
       await apiRequest("DELETE", `/api/knowledge/${id}`);
     },
+    onMutate: (id: string) => {
+      setDeletingKnowledgeId(id);
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/knowledge"] });
       toast({ title: "Knowledge entry deleted" });
@@ -212,6 +216,9 @@ export default function AppSettings() {
         description: error.message,
         variant: "destructive",
       });
+    },
+    onSettled: () => {
+      setDeletingKnowledgeId(null);
     },
   });
 
@@ -599,7 +606,9 @@ export default function AppSettings() {
                         size="icon"
                         variant="ghost"
                         onClick={() => deleteKnowledgeMutation.mutate(entry.id)}
-                        disabled={deleteKnowledgeMutation.isPending}
+                        disabled={
+                          deleteKnowledgeMutation.isPending && deletingKnowledgeId === entry.id
+                        }
                         aria-label="Delete knowledge entry"
                       >
                         <Trash2 className="w-4 h-4" />

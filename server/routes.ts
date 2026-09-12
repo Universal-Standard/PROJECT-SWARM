@@ -1196,6 +1196,11 @@ Be concise, practical, and provide actionable guidance. When relevant, suggest s
 
       res.json(knowledge);
     } catch (error: any) {
+      if (error instanceof z.ZodError) {
+        return res
+          .status(400)
+          .json({ error: error.issues[0]?.message || "Invalid query parameters" });
+      }
       res.status(500).json({ error: getErrorMessage(error) });
     }
   });
@@ -1212,6 +1217,11 @@ Be concise, practical, and provide actionable guidance. When relevant, suggest s
 
       res.status(204).send();
     } catch (error: any) {
+      if (error instanceof z.ZodError) {
+        return res
+          .status(400)
+          .json({ error: error.issues[0]?.message || "Invalid request parameters" });
+      }
       res.status(500).json({ error: getErrorMessage(error) });
     }
   });
