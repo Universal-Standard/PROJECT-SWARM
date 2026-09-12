@@ -168,7 +168,7 @@ export class WorkflowOrchestrator {
             }
           }
 
-          await storage.createAgentMessage({
+          const agentMessage = await storage.createAgentMessage({
             executionId: execution.id,
             agentId: agent.id,
             role: "assistant",
@@ -186,7 +186,13 @@ export class WorkflowOrchestrator {
             );
           }
           // Emit agent message
-          wsManager.emitMessage(execution.id, agent.id, agent.name, "assistant", result.content);
+          wsManager.emitMessage(execution.id, agent.id, agent.name, "assistant", result.content, {
+            messageId: agentMessage.id,
+            tokenCount: agentMessage.tokenCount ?? undefined,
+            fromAgentId: agentMessage.fromAgentId ?? undefined,
+            toAgentId: agentMessage.toAgentId ?? undefined,
+            messageTimestamp: new Date(agentMessage.timestamp).toISOString(),
+          });
 
           // Extract and store new knowledge from agent response
           await this.extractAndStoreKnowledge(workflow.userId, agent, result.content, execution.id);
