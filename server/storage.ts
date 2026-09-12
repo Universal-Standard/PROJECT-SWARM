@@ -126,6 +126,7 @@ export interface IStorage {
   // Knowledge Base
   createKnowledgeEntry(entry: InsertKnowledgeEntry): Promise<KnowledgeEntry>;
   getKnowledgeByUserId(userId: string): Promise<KnowledgeEntry[]>;
+  getKnowledgeMetadata(userId: string): Promise<{ agentTypes: string[]; categories: string[] }>;
   getKnowledgeByAgentType(userId: string, agentType: string): Promise<KnowledgeEntry[]>;
   getKnowledgeByCategory(userId: string, category: string): Promise<KnowledgeEntry[]>;
   searchKnowledge(
@@ -498,6 +499,30 @@ export class DatabaseStorage implements IStorage {
       .from(knowledgeEntries)
       .where(eq(knowledgeEntries.userId, userId))
       .orderBy(desc(knowledgeEntries.createdAt));
+  }
+
+  async getKnowledgeMetadata(
+    userId: string
+  ): Promise<{ agentTypes: string[]; categories: string[] }> {
+    const [agentTypeRows, categoryRows] = await Promise.all([
+      db
+        .select({ value: knowledgeEntries.agentType })
+        .from(knowledgeEntries)
+        .where(eq(knowledgeEntries.userId, userId))
+        .groupBy(knowledgeEntries.agentType)
+        .orderBy(knowledgeEntries.agentType),
+      db
+        .select({ value: knowledgeEntries.category })
+        .from(knowledgeEntries)
+        .where(eq(knowledgeEntries.userId, userId))
+        .groupBy(knowledgeEntries.category)
+        .orderBy(knowledgeEntries.category),
+    ]);
+
+    return {
+      agentTypes: agentTypeRows.map((row) => row.value).filter(Boolean),
+      categories: categoryRows.map((row) => row.value).filter(Boolean),
+    };
   }
 
   async getKnowledgeByAgentType(userId: string, agentType: string): Promise<KnowledgeEntry[]> {

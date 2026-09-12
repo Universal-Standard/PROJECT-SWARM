@@ -5,6 +5,13 @@ export interface ExtractedLearning {
   confidence: number;
 }
 
+const PROMPT_INJECTION_PATTERNS = [
+  /\b(?:ignore|disregard|override)\b[\s\S]{0,80}\b(?:instructions?|prompts?)\b/i,
+  /\b(?:you are now|act as)\b/i,
+  /\b(?:system|developer|assistant|user)\s*:/i,
+  /\b(?:do not|don't)\b[\s\S]{0,80}\b(?:follow|obey)\b[\s\S]{0,80}\b(?:instructions?|prompts?)\b/i,
+];
+
 function clampConfidence(value: number): number {
   return Math.min(100, Math.max(0, Math.round(value)));
 }
@@ -29,6 +36,7 @@ export function extractKnowledgeLearnings(response: string): ExtractedLearning[]
   ) => {
     const normalized = content?.trim();
     if (!normalized || normalized.length < 10) return;
+    if (PROMPT_INJECTION_PATTERNS.some((pattern) => pattern.test(normalized))) return;
 
     const key = `${category}:${normalized.toLowerCase()}`;
     if (dedupe.has(key)) return;

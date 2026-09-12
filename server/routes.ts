@@ -1208,16 +1208,8 @@ Be concise, practical, and provide actionable guidance. When relevant, suggest s
   app.get("/api/knowledge/metadata", isAuthenticated, async (req: any, res) => {
     try {
       const userId = getUserId(req);
-      const entries = await storage.getKnowledgeByUserId(userId);
-
-      const agentTypes = Array.from(
-        new Set(entries.map((entry) => entry.agentType).filter(Boolean))
-      ).sort((a, b) => a.localeCompare(b));
-      const categories = Array.from(
-        new Set(entries.map((entry) => entry.category).filter(Boolean))
-      ).sort((a, b) => a.localeCompare(b));
-
-      res.json({ agentTypes, categories });
+      const metadata = await storage.getKnowledgeMetadata(userId);
+      res.json(metadata);
     } catch (error: any) {
       res.status(500).json({ error: getErrorMessage(error) });
     }

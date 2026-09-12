@@ -73,6 +73,7 @@ export default function AppSettings() {
     gemini: false,
   });
   const [knowledgeQuery, setKnowledgeQuery] = useState("");
+  const [debouncedKnowledgeQuery, setDebouncedKnowledgeQuery] = useState("");
   const [knowledgeAgentType, setKnowledgeAgentType] = useState("all");
   const [knowledgeCategory, setKnowledgeCategory] = useState("all");
   const [knowledgeMinConfidence, setKnowledgeMinConfidence] = useState("0");
@@ -94,7 +95,7 @@ export default function AppSettings() {
     queryKey: [
       "/api/knowledge",
       {
-        query: knowledgeQuery,
+        query: debouncedKnowledgeQuery,
         agentType: knowledgeAgentType,
         category: knowledgeCategory,
         minConfidence: knowledgeMinConfidence,
@@ -103,7 +104,7 @@ export default function AppSettings() {
     enabled: isAuthenticated,
     queryFn: async () => {
       const params = new URLSearchParams();
-      if (knowledgeQuery.trim()) params.set("query", knowledgeQuery.trim());
+      if (debouncedKnowledgeQuery.trim()) params.set("query", debouncedKnowledgeQuery.trim());
       if (knowledgeAgentType !== "all") params.set("agentType", knowledgeAgentType);
       if (knowledgeCategory !== "all") params.set("category", knowledgeCategory);
       if (knowledgeMinConfidence !== "0") params.set("minConfidence", knowledgeMinConfidence);
@@ -130,6 +131,16 @@ export default function AppSettings() {
       return res.json();
     },
   });
+
+  useEffect(() => {
+    const timeout = window.setTimeout(() => {
+      setDebouncedKnowledgeQuery(knowledgeQuery);
+    }, 300);
+
+    return () => {
+      window.clearTimeout(timeout);
+    };
+  }, [knowledgeQuery]);
 
   const { data: knowledgeMetadata } = useQuery<KnowledgeMetadata>({
     queryKey: ["/api/knowledge/metadata"],
@@ -243,6 +254,7 @@ export default function AppSettings() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/knowledge"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/knowledge/metadata"] });
       toast({ title: "Knowledge entry deleted" });
     },
     onError: (error: unknown) => {
