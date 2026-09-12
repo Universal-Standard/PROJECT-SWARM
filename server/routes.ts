@@ -172,6 +172,14 @@ export async function registerRoutes(app: Express) {
             hasToken = !!user.githubAccessToken;
             isExpired = isGitHubTokenExpired(user);
           }
+        } else {
+          await revokeGitHubToken(userId);
+          const revokedUser = await storage.getUser(userId);
+          if (revokedUser) {
+            user = revokedUser;
+          }
+          hasToken = false;
+          isExpired = true;
         }
       }
 
