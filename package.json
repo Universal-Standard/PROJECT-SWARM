@@ -12,6 +12,7 @@
     "db:push": "drizzle-kit push",
     "db:indexes": "tsx scripts/apply-indexes.ts",
     "db:verify-indexes": "tsx scripts/verify-indexes.ts",
+    "db:migrate-github-auth": "tsx scripts/migrate-github-auth.ts",
     "prepare": "husky",
     "lint": "eslint . --ext .ts,.tsx",
     "lint:fix": "eslint . --ext .ts,.tsx --fix",

@@ -21,6 +21,7 @@ import {
   revokeGitHubToken,
   getGitHubToken,
   isGitHubTokenExpired,
+  refreshGitHubToken,
 } from "./auth/github-oauth";
 import { withGitHubAuth, type GitHubAuthRequest } from "./middleware/github-auth";
 import type { WorkflowNode, ChatMessage } from "./types/workflow";
@@ -147,14 +148,32 @@ export async function registerRoutes(app: Express) {
   app.get("/api/auth/github/status", isAuthenticated, async (req: any, res) => {
     try {
       const userId = getUserId(req);
-      const user = await storage.getUser(userId);
+      let user = await storage.getUser(userId);
 
       if (!user) {
         return res.json({ connected: false });
       }
 
       const hasToken = !!user.githubAccessToken;
-      const isExpired = isGitHubTokenExpired(user);
+      let isExpired = isGitHubTokenExpired(user);
+
+      if (hasToken && isExpired) {
+        const refreshed = await refreshGitHubToken(user);
+        if (refreshed) {
+          await storeGitHubTokens(
+            userId,
+            refreshed.accessToken,
+            refreshed.refreshToken,
+            refreshed.expiresAt
+          );
+          const refreshedUser = await storage.getUser(userId);
+          if (refreshedUser) {
+            user = refreshedUser;
+            isExpired = isGitHubTokenExpired(user);
+          }
+        }
+      }
+
       const maskedToken = hasToken ? maskToken(getGitHubToken(user)) : null;
 
       res.json({

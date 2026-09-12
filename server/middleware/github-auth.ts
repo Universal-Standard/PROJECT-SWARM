@@ -1,5 +1,11 @@
 import type { Request, Response, NextFunction } from "express";
-import { getOctokitForUser, isGitHubTokenExpired } from "../auth/github-oauth";
+import {
+  getOctokitForUser,
+  isGitHubTokenExpired,
+  refreshGitHubToken,
+  revokeGitHubToken,
+  storeGitHubTokens,
+} from "../auth/github-oauth";
 import { storage } from "../storage";
 import { logger } from "../lib/logger";
 
@@ -27,7 +33,7 @@ export async function withGitHubAuth(
     }
 
     const userId = req.user.claims.sub;
-    const user = await storage.getUser(userId);
+    let user = await storage.getUser(userId);
 
     if (!user) {
       res.status(404).json({
@@ -46,14 +52,33 @@ export async function withGitHubAuth(
       return;
     }
 
-    // Check if token is expired
+    // Check if token is expired and try refresh first
     if (isGitHubTokenExpired(user)) {
-      res.status(403).json({
-        error: "GitHub token expired",
-        message: "Your GitHub token has expired. Please reconnect your account",
-        requiresAuth: true,
-      });
-      return;
+      const refreshed = await refreshGitHubToken(user);
+      if (!refreshed) {
+        await revokeGitHubToken(userId);
+        res.status(403).json({
+          error: "GitHub token expired",
+          message: "Your GitHub token has expired. Please reconnect your account",
+          requiresAuth: true,
+        });
+        return;
+      }
+
+      await storeGitHubTokens(
+        userId,
+        refreshed.accessToken,
+        refreshed.refreshToken,
+        refreshed.expiresAt
+      );
+      const refreshedUser = await storage.getUser(userId);
+      if (!refreshedUser) {
+        res.status(404).json({
+          error: "User not found",
+        });
+        return;
+      }
+      user = refreshedUser;
     }
 
     // Get Octokit instance for the user
