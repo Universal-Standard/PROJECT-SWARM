@@ -6,7 +6,7 @@ import {
   type WorkflowVersion,
   type InsertWorkflowVersion,
 } from "@shared/schema";
-import { eq, desc, and } from "drizzle-orm";
+import { eq, desc } from "drizzle-orm";
 import type { WorkflowNode, WorkflowEdge } from "../types/workflow";
 import { logger } from "./logger";
 
@@ -33,6 +33,14 @@ interface WorkflowData {
   description: string | null;
 }
 
+interface CreateVersionOptions {
+  parentVersionId?: string | null;
+  branchName?: string;
+  name?: string | null;
+  dataOverride?: WorkflowData;
+  isActive?: boolean;
+}
+
 export class WorkflowVersionManager {
   /**
    * Create a new version of a workflow
@@ -40,22 +48,9 @@ export class WorkflowVersionManager {
   async createVersion(
     workflowId: string,
     userId: string,
-    commitMessage?: string
+    commitMessage?: string,
+    options?: CreateVersionOptions
   ): Promise<WorkflowVersion> {
-    // Get current workflow data
-    const workflow = await db.query.workflows.findFirst({
-      where: eq(workflows.id, workflowId),
-    });
-
-    if (!workflow) {
-      throw new Error("Workflow not found");
-    }
-
-    // Get workflow agents
-    const workflowAgents = await db.query.agents.findMany({
-      where: eq(agents.workflowId, workflowId),
-    });
-
     // Get latest version number
     const latestVersions = await db.query.workflowVersions.findMany({
       where: eq(workflowVersions.workflowId, workflowId),
@@ -66,27 +61,52 @@ export class WorkflowVersionManager {
     const latestVersion = latestVersions[0];
     const newVersionNumber = (latestVersion?.version || 0) + 1;
 
-    // Prepare workflow data
-    const workflowData: WorkflowData = {
-      nodes: workflow.nodes as WorkflowNode[],
-      edges: workflow.edges as WorkflowEdge[],
-      agents: workflowAgents.map((agent) => ({
-        id: agent.id,
-        name: agent.name,
-        role: agent.role,
-        description: agent.description,
-        provider: agent.provider,
-        model: agent.model,
-        systemPrompt: agent.systemPrompt,
-        temperature: agent.temperature,
-        maxTokens: agent.maxTokens,
-        capabilities: agent.capabilities,
-        nodeId: agent.nodeId,
-        position: agent.position,
-      })),
-      name: workflow.name,
-      description: workflow.description,
-    };
+    let workflowData = options?.dataOverride;
+    if (!workflowData) {
+      // Get current workflow data
+      const workflow = await db.query.workflows.findFirst({
+        where: eq(workflows.id, workflowId),
+      });
+
+      if (!workflow) {
+        throw new Error("Workflow not found");
+      }
+
+      // Get workflow agents
+      const workflowAgents = await db.query.agents.findMany({
+        where: eq(agents.workflowId, workflowId),
+      });
+
+      // Prepare workflow data
+      workflowData = {
+        nodes: workflow.nodes as WorkflowNode[],
+        edges: workflow.edges as WorkflowEdge[],
+        agents: workflowAgents.map((agent) => ({
+          id: agent.id,
+          name: agent.name,
+          role: agent.role,
+          description: agent.description,
+          provider: agent.provider,
+          model: agent.model,
+          systemPrompt: agent.systemPrompt,
+          temperature: agent.temperature,
+          maxTokens: agent.maxTokens,
+          capabilities: agent.capabilities,
+          nodeId: agent.nodeId,
+          position: agent.position,
+        })),
+        name: workflow.name,
+        description: workflow.description,
+      };
+    }
+
+    const nextIsActive = options?.isActive ?? true;
+    if (nextIsActive) {
+      await db
+        .update(workflowVersions)
+        .set({ isActive: false })
+        .where(eq(workflowVersions.workflowId, workflowId));
+    }
 
     // Create version
     const [version] = await db
@@ -96,6 +116,13 @@ export class WorkflowVersionManager {
         userId,
         version: newVersionNumber,
         commitMessage: commitMessage || `Version ${newVersionNumber}`,
+        parentVersionId: options?.parentVersionId ?? latestVersion?.id ?? null,
+        branchName: options?.branchName ?? latestVersion?.branchName ?? "main",
+        name: options?.name ?? `v${newVersionNumber}`,
+        executionCount: 0,
+        successRate: 0,
+        avgDuration: 0,
+        isActive: nextIsActive,
         data: workflowData as unknown,
       })
       .returning();
@@ -173,7 +200,10 @@ export class WorkflowVersionManager {
     }
 
     // Create a new version marking the restoration
-    await this.createVersion(workflowId, userId, `Restored from version ${version.version}`);
+    await this.createVersion(workflowId, userId, `Restored from version ${version.version}`, {
+      parentVersionId: version.id,
+      branchName: version.branchName,
+    });
   }
 
   /**
@@ -202,9 +232,14 @@ export class WorkflowVersionManager {
     if (!version1 || !version2) {
       throw new Error("One or both versions not found");
     }
+    if (version1.workflowId !== version2.workflowId) {
+      throw new Error("Versions must belong to the same workflow");
+    }
 
     const data1 = version1.data as WorkflowData;
     const data2 = version2.data as WorkflowData;
+    const data1Agents = data1.agents || [];
+    const data2Agents = data2.agents || [];
 
     // Calculate differences
     const nodes1Ids = new Set(data1.nodes.map((n) => n.id));
@@ -224,14 +259,14 @@ export class WorkflowVersionManager {
     const edgesAdded = data2.edges.filter((e) => !edges1Ids.has(e.id)).length;
     const edgesRemoved = data1.edges.filter((e) => !edges2Ids.has(e.id)).length;
 
-    const agents1Ids = new Set(data1.agents.map((a) => a.id));
-    const agents2Ids = new Set(data2.agents.map((a) => a.id));
+    const agents1Ids = new Set(data1Agents.map((a) => a.id));
+    const agents2Ids = new Set(data2Agents.map((a) => a.id));
 
-    const agentsAdded = data2.agents.filter((a) => !agents1Ids.has(a.id)).length;
-    const agentsRemoved = data1.agents.filter((a) => !agents2Ids.has(a.id)).length;
-    const agentsModified = data2.agents.filter((a) => {
+    const agentsAdded = data2Agents.filter((a) => !agents1Ids.has(a.id)).length;
+    const agentsRemoved = data1Agents.filter((a) => !agents2Ids.has(a.id)).length;
+    const agentsModified = data2Agents.filter((a) => {
       if (!agents1Ids.has(a.id)) return false;
-      const oldAgent = data1.agents.find((oa) => oa.id === a.id);
+      const oldAgent = data1Agents.find((oa) => oa.id === a.id);
       return JSON.stringify(oldAgent) !== JSON.stringify(a);
     }).length;
 
@@ -254,26 +289,92 @@ export class WorkflowVersionManager {
   /**
    * Tag a version (e.g., "production", "v1.0", "stable") via commit message update
    */
-  async tagVersion(versionId: string, tag: string): Promise<void> {
+  async tagVersion(versionId: string, tag: string | null): Promise<void> {
     const version = await this.getVersion(versionId);
     if (!version) throw new Error("Version not found");
     await db
       .update(workflowVersions)
-      .set({ commitMessage: tag })
+      .set({ tag: tag && tag.trim().length > 0 ? tag : null })
       .where(eq(workflowVersions.id, versionId));
+  }
+
+  /**
+   * Name a version for easier identification
+   */
+  async nameVersion(versionId: string, name: string): Promise<void> {
+    const version = await this.getVersion(versionId);
+    if (!version) throw new Error("Version not found");
+    await db.update(workflowVersions).set({ name }).where(eq(workflowVersions.id, versionId));
+  }
+
+  /**
+   * Branch a workflow from an existing version snapshot
+   */
+  async createBranch(
+    workflowId: string,
+    fromVersionId: string,
+    userId: string,
+    branchName: string,
+    commitMessage?: string
+  ): Promise<WorkflowVersion> {
+    const sourceVersion = await this.getVersion(fromVersionId);
+    if (!sourceVersion) {
+      throw new Error("Source version not found");
+    }
+
+    if (sourceVersion.workflowId !== workflowId) {
+      throw new Error("Source version does not belong to this workflow");
+    }
+
+    return this.createVersion(
+      workflowId,
+      userId,
+      commitMessage || `Created branch ${branchName} from v${sourceVersion.version}`,
+      {
+        parentVersionId: sourceVersion.id,
+        branchName,
+        dataOverride: sourceVersion.data as WorkflowData,
+        isActive: false,
+      }
+    );
   }
 
   /**
    * Update version statistics after execution (no-op: stats not stored in schema)
    */
-  async updateVersionStats(
-    _workflowId: string,
-    _success: boolean,
-    _duration: number
-  ): Promise<void> {
-    // Statistics tracking is not currently persisted in the workflow_versions schema.
-    // This method is intentionally a no-op; implement by adding stats columns to the schema.
-    logger.debug("updateVersionStats called but not implemented — stats not persisted in schema");
+  async updateVersionStats(workflowId: string, success: boolean, duration: number): Promise<void> {
+    const latestVersions = await db.query.workflowVersions.findMany({
+      where: eq(workflowVersions.workflowId, workflowId),
+      orderBy: [desc(workflowVersions.version)],
+      limit: 1,
+    });
+    const currentVersion = latestVersions[0];
+    if (!currentVersion) {
+      logger.debug("Skipping version stats update because no workflow version exists", {
+        workflowId,
+      });
+      return;
+    }
+
+    const previousExecutionCount = currentVersion.executionCount ?? 0;
+    const previousSuccesses = Math.round(
+      ((currentVersion.successRate ?? 0) / 100) * previousExecutionCount
+    );
+    const previousTotalDuration = (currentVersion.avgDuration ?? 0) * previousExecutionCount;
+
+    const executionCount = previousExecutionCount + 1;
+    const successCount = previousSuccesses + (success ? 1 : 0);
+    const successRate = Math.round((successCount / executionCount) * 100);
+    const avgDuration = Math.round((previousTotalDuration + duration) / executionCount);
+
+    await db
+      .update(workflowVersions)
+      .set({
+        executionCount,
+        successRate,
+        avgDuration,
+      })
+      .where(eq(workflowVersions.id, currentVersion.id));
   }
 
   /**
