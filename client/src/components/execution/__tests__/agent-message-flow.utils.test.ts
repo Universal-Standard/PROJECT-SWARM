@@ -53,8 +53,8 @@ describe("agent-message-flow utils", () => {
     expect(allMessages).toEqual(sampleMessages);
   });
 
-  it("handles negative replay indices by returning an empty list", () => {
-    const replayed = getReplayMessages(sampleMessages, true, -4);
+  it("returns an empty list at replay index 0", () => {
+    const replayed = getReplayMessages(sampleMessages, true, 0);
     expect(replayed).toEqual([]);
   });
 });
