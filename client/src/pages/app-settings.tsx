@@ -109,8 +109,17 @@ export default function AppSettings() {
       });
 
       if (!res.ok) {
-        const message = await res.text();
-        throw new Error(message || "Failed to load knowledge base");
+        let errorMessage = "Failed to load knowledge base";
+        try {
+          const errorBody = await res.clone().json();
+          if (errorBody?.error) {
+            errorMessage = errorBody.error;
+          }
+        } catch {
+          const message = await res.text();
+          if (message) errorMessage = message;
+        }
+        throw new Error(errorMessage);
       }
 
       return res.json();
@@ -537,52 +546,73 @@ export default function AppSettings() {
 
           <div className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-              <Input
-                placeholder="Search knowledge..."
-                value={knowledgeQuery}
-                onChange={(e) => setKnowledgeQuery(e.target.value)}
-              />
-              <Select value={knowledgeAgentType} onValueChange={setKnowledgeAgentType}>
-                <SelectTrigger>
-                  <SelectValue placeholder="All agent types" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All agent types</SelectItem>
-                  <SelectItem value="coordinator">Coordinator</SelectItem>
-                  <SelectItem value="coder">Coder</SelectItem>
-                  <SelectItem value="researcher">Researcher</SelectItem>
-                  <SelectItem value="database">Database</SelectItem>
-                  <SelectItem value="security">Security</SelectItem>
-                  <SelectItem value="custom">Custom</SelectItem>
-                  <SelectItem value="general">General</SelectItem>
-                </SelectContent>
-              </Select>
-              <Select value={knowledgeCategory} onValueChange={setKnowledgeCategory}>
-                <SelectTrigger>
-                  <SelectValue placeholder="All categories" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All categories</SelectItem>
-                  <SelectItem value="general">General</SelectItem>
-                  <SelectItem value="coding">Coding</SelectItem>
-                  <SelectItem value="research">Research</SelectItem>
-                  <SelectItem value="security">Security</SelectItem>
-                  <SelectItem value="database">Database</SelectItem>
-                  <SelectItem value="workflow">Workflow</SelectItem>
-                </SelectContent>
-              </Select>
-              <Select value={knowledgeMinConfidence} onValueChange={setKnowledgeMinConfidence}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Min confidence" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="0">Any confidence</SelectItem>
-                  <SelectItem value="60">60%+</SelectItem>
-                  <SelectItem value="70">70%+</SelectItem>
-                  <SelectItem value="80">80%+</SelectItem>
-                  <SelectItem value="90">90%+</SelectItem>
-                </SelectContent>
-              </Select>
+              <div className="space-y-2">
+                <Label htmlFor="knowledge-search" className="sr-only">
+                  Search knowledge
+                </Label>
+                <Input
+                  id="knowledge-search"
+                  placeholder="Search knowledge..."
+                  value={knowledgeQuery}
+                  onChange={(e) => setKnowledgeQuery(e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="knowledge-agent-type" className="sr-only">
+                  Filter by agent type
+                </Label>
+                <Select value={knowledgeAgentType} onValueChange={setKnowledgeAgentType}>
+                  <SelectTrigger id="knowledge-agent-type">
+                    <SelectValue placeholder="All agent types" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All agent types</SelectItem>
+                    <SelectItem value="coordinator">Coordinator</SelectItem>
+                    <SelectItem value="coder">Coder</SelectItem>
+                    <SelectItem value="researcher">Researcher</SelectItem>
+                    <SelectItem value="database">Database</SelectItem>
+                    <SelectItem value="security">Security</SelectItem>
+                    <SelectItem value="custom">Custom</SelectItem>
+                    <SelectItem value="general">General</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="knowledge-category" className="sr-only">
+                  Filter by category
+                </Label>
+                <Select value={knowledgeCategory} onValueChange={setKnowledgeCategory}>
+                  <SelectTrigger id="knowledge-category">
+                    <SelectValue placeholder="All categories" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All categories</SelectItem>
+                    <SelectItem value="general">General</SelectItem>
+                    <SelectItem value="coding">Coding</SelectItem>
+                    <SelectItem value="research">Research</SelectItem>
+                    <SelectItem value="security">Security</SelectItem>
+                    <SelectItem value="database">Database</SelectItem>
+                    <SelectItem value="workflow">Workflow</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="knowledge-min-confidence" className="sr-only">
+                  Filter by minimum confidence
+                </Label>
+                <Select value={knowledgeMinConfidence} onValueChange={setKnowledgeMinConfidence}>
+                  <SelectTrigger id="knowledge-min-confidence">
+                    <SelectValue placeholder="Min confidence" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="0">Any confidence</SelectItem>
+                    <SelectItem value="60">60%+</SelectItem>
+                    <SelectItem value="70">70%+</SelectItem>
+                    <SelectItem value="80">80%+</SelectItem>
+                    <SelectItem value="90">90%+</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
 
             <div className="space-y-3 max-h-96 overflow-y-auto pr-1">
