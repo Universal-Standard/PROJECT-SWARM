@@ -10,9 +10,9 @@ const {
 } = vi.hoisted(() => ({
   storageMock: {
     getWorkflowById: vi.fn(),
-    getExecutionsByWorkflowId: vi.fn(),
     getAgentsByWorkflowId: vi.fn(),
     createExecution: vi.fn(),
+    createExecutionIfNotRunning: vi.fn(),
     updateExecution: vi.fn(),
     createExecutionLog: vi.fn(),
     getRelevantKnowledge: vi.fn(),
@@ -159,9 +159,9 @@ describe("WorkflowOrchestrator", () => {
     vi.clearAllMocks();
 
     storageMock.getWorkflowById.mockResolvedValue(createWorkflow());
-    storageMock.getExecutionsByWorkflowId.mockResolvedValue([]);
     storageMock.getAgentsByWorkflowId.mockResolvedValue(createAgents());
     storageMock.createExecution.mockResolvedValue(createExecution());
+    storageMock.createExecutionIfNotRunning.mockResolvedValue(createExecution());
     storageMock.updateExecution.mockImplementation(async (_id, patch) => ({
       ...createExecution(),
       ...patch,
@@ -274,15 +274,17 @@ describe("WorkflowOrchestrator", () => {
         maxTokens: 1000,
       },
     ]);
-    storageMock.getExecutionsByWorkflowId.mockResolvedValue([]);
-
-    let resolveFirst: (() => void) | undefined;
-    aiExecutorMock.executeAgent.mockReset().mockImplementation(
+    storageMock.createExecutionIfNotRunning.mockImplementation(
       () =>
         new Promise((resolve) => {
-          resolveFirst = () => resolve({ content: "done", tokenCount: 10, finishReason: "stop" });
+          resolveFirst = () => resolve(createExecution());
         })
     );
+
+    let resolveFirst: (() => void) | undefined;
+    aiExecutorMock.executeAgent
+      .mockReset()
+      .mockResolvedValue({ content: "done", tokenCount: 10, finishReason: "stop" });
 
     const orchestrator = new WorkflowOrchestrator();
 
@@ -298,15 +300,14 @@ describe("WorkflowOrchestrator", () => {
   });
 
   it("rejects execution when persistence already has a running workflow execution", async () => {
-    storageMock.getExecutionsByWorkflowId.mockResolvedValue([
-      { id: "exec-running", status: "running" },
-    ]);
+    storageMock.createExecutionIfNotRunning.mockResolvedValue(null);
 
     const orchestrator = new WorkflowOrchestrator();
 
     await expect(orchestrator.executeWorkflow("wf-1", { prompt: "start" })).rejects.toThrow(
       "Workflow wf-1 is already running"
     );
+    expect(storageMock.createExecutionIfNotRunning).toHaveBeenCalled();
     expect(storageMock.createExecution).not.toHaveBeenCalled();
     expect(aiExecutorMock.executeAgent).not.toHaveBeenCalled();
   });

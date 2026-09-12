@@ -82,6 +82,7 @@ export interface IStorage {
 
   // Executions
   createExecution(execution: InsertExecution): Promise<Execution>;
+  createExecutionIfNotRunning(execution: InsertExecution): Promise<Execution | null>;
   getExecutionById(id: string): Promise<Execution | undefined>;
   getExecutionsByWorkflowId(workflowId: string): Promise<Execution[]>;
   getExecutionsByUserId(userId: string): Promise<Execution[]>;
@@ -295,6 +296,27 @@ export class DatabaseStorage implements IStorage {
   async createExecution(execution: InsertExecution): Promise<Execution> {
     const [newExecution] = await db.insert(executions).values(execution).returning();
     return newExecution;
+  }
+
+  async createExecutionIfNotRunning(execution: InsertExecution): Promise<Execution | null> {
+    return await db.transaction(async (tx) => {
+      await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext(${execution.workflowId}))`);
+
+      const [runningExecution] = await tx
+        .select({ id: executions.id })
+        .from(executions)
+        .where(
+          and(eq(executions.workflowId, execution.workflowId), eq(executions.status, "running"))
+        )
+        .limit(1);
+
+      if (runningExecution) {
+        return null;
+      }
+
+      const [newExecution] = await tx.insert(executions).values(execution).returning();
+      return newExecution;
+    });
   }
 
   async getExecutionById(id: string): Promise<Execution | undefined> {
