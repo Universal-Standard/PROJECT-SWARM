@@ -14,6 +14,28 @@ import { useAuth } from "@/hooks/useAuth";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 
+function mergeStreamedWithPersisted<T>(
+  persistedItems: T[],
+  streamedItems: T[],
+  getKey: (item: T) => string
+): T[] {
+  const persistedByKey = new Map<string, number>();
+  persistedItems.forEach((item) => {
+    const key = getKey(item);
+    persistedByKey.set(key, (persistedByKey.get(key) || 0) + 1);
+  });
+
+  const streamedByKey = new Map<string, number>();
+  const dedupedStreamedItems = streamedItems.filter((item) => {
+    const key = getKey(item);
+    const streamCount = (streamedByKey.get(key) || 0) + 1;
+    streamedByKey.set(key, streamCount);
+    return streamCount > (persistedByKey.get(key) || 0);
+  });
+
+  return [...persistedItems, ...dedupedStreamedItems];
+}
+
 export default function ExecutionMonitor() {
   const { id } = useParams<{ id: string }>();
   const { user } = useAuth();
@@ -83,21 +105,28 @@ export default function ExecutionMonitor() {
       timestamp: log.timestamp,
       level: log.level,
       message: log.message,
+      agentId: log.agentId || null,
     }));
 
-    return [...persistedLogs, ...streamLogs];
+    return mergeStreamedWithPersisted(persistedLogs, streamLogs, (log) => {
+      return `${new Date(log.timestamp).toISOString()}|${log.level}|${log.message}|${log.agentId || ""}`;
+    });
   }, [logs, monitorStatus.logs]);
 
   const combinedMessages = useMemo(() => {
     const persistedMessages = messages || [];
     const streamMessages = monitorStatus.messages.map((message, index) => ({
       id: `stream-${index}`,
+      agentId: message.agentId,
       role: message.role,
       content: message.content,
       tokenCount: null,
+      timestamp: message.timestamp,
     }));
 
-    return [...persistedMessages, ...streamMessages];
+    return mergeStreamedWithPersisted(persistedMessages, streamMessages, (message) => {
+      return `${new Date(message.timestamp).toISOString()}|${message.agentId}|${message.role}|${message.content}`;
+    });
   }, [messages, monitorStatus.messages]);
 
   const completedAgentIds = useMemo(() => {
@@ -110,12 +139,45 @@ export default function ExecutionMonitor() {
     return completed;
   }, [monitorStatus.events]);
 
+  const persistedCompletedSteps = useMemo(() => {
+    const completedSteps = new Set<number>();
+    (logs || []).forEach((log) => {
+      const match = log.message.match(/Step\\s+(\\d+)\\s+completed:/);
+      if (match) {
+        completedSteps.add(Number(match[1]));
+      }
+    });
+    return completedSteps.size;
+  }, [logs]);
+
+  const persistedCompletedAgentIds = useMemo(() => {
+    const completedAgentNames = new Set<string>();
+    (logs || []).forEach((log) => {
+      const match = log.message.match(/Step\\s+\\d+\\s+completed:\\s+(.+?)\\s+finished/);
+      if (match) {
+        completedAgentNames.add(match[1]);
+      }
+    });
+
+    return new Set(
+      agents
+        .filter((agent) => completedAgentNames.has(agent.name))
+        .map((agent) => agent.id)
+    );
+  }, [agents, logs]);
+
+  const allCompletedAgentIds = useMemo(() => {
+    const merged = new Set<string>(persistedCompletedAgentIds);
+    completedAgentIds.forEach((agentId) => merged.add(agentId));
+    return merged;
+  }, [completedAgentIds, persistedCompletedAgentIds]);
+
   const completedAgentCount = useMemo(() => {
     if (liveExecutionStatus === "completed") {
       return agents.length;
     }
-    return completedAgentIds.size;
-  }, [agents.length, completedAgentIds, liveExecutionStatus]);
+    return Math.max(allCompletedAgentIds.size, persistedCompletedSteps);
+  }, [agents.length, allCompletedAgentIds.size, liveExecutionStatus, persistedCompletedSteps]);
 
   const progressPercent = agents.length
     ? Math.min(100, Math.round((completedAgentCount / agents.length) * 100))
@@ -203,7 +265,7 @@ export default function ExecutionMonitor() {
             <div className="flex flex-wrap gap-2">
               {agents.map((agent) => {
                 const isRunning = monitorStatus.currentAgent?.id === agent.id;
-                const isCompleted = completedAgentIds.has(agent.id);
+                const isCompleted = allCompletedAgentIds.has(agent.id);
                 return (
                   <Badge
                     key={agent.id}

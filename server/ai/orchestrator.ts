@@ -21,8 +21,6 @@ interface WorkflowEdge {
 }
 
 export class WorkflowOrchestrator {
-  private cancelledExecutions = new Set<string>();
-
   async executeWorkflow(workflowId: string, input: any): Promise<Execution> {
     const { workflow, agents, execution } = await this.prepareExecution(workflowId, input);
     return this.runPreparedExecution(workflowId, input, workflow, agents, execution);
@@ -40,12 +38,9 @@ export class WorkflowOrchestrator {
     return execution;
   }
 
-  cancelExecution(executionId: string): void {
-    this.cancelledExecutions.add(executionId);
-  }
-
-  private throwIfCancelled(executionId: string): void {
-    if (this.cancelledExecutions.has(executionId)) {
+  private async throwIfCancelled(executionId: string): Promise<void> {
+    const execution = await storage.getExecutionById(executionId);
+    if (execution?.status === "cancelled") {
       throw new Error("Execution cancelled by user");
     }
   }
@@ -85,7 +80,7 @@ export class WorkflowOrchestrator {
     execution: Execution
   ): Promise<Execution> {
     try {
-      this.throwIfCancelled(execution.id);
+      await this.throwIfCancelled(execution.id);
 
       // Emit execution started event
       wsManager.emitExecutionStarted(execution.id, workflow.name);
@@ -107,7 +102,7 @@ export class WorkflowOrchestrator {
       const executionOrder = this.topologicalSort(nodes, edges);
 
       for (let stepIndex = 0; stepIndex < executionOrder.length; stepIndex++) {
-        this.throwIfCancelled(execution.id);
+        await this.throwIfCancelled(execution.id);
 
         const nodeId = executionOrder[stepIndex];
         const node = nodes.find((n) => n.id === nodeId);
@@ -191,7 +186,7 @@ export class WorkflowOrchestrator {
             3 // max retries
           );
 
-          this.throwIfCancelled(execution.id);
+          await this.throwIfCancelled(execution.id);
 
           // Track cost for this execution
           const providerUsed = result.provider || agent.provider;
@@ -273,7 +268,7 @@ export class WorkflowOrchestrator {
       const lastNodeId = executionOrder[executionOrder.length - 1];
       const finalResult = nodeResults.get(lastNodeId);
 
-      this.throwIfCancelled(execution.id);
+      await this.throwIfCancelled(execution.id);
 
       const duration = Date.now() - new Date(execution.startedAt).getTime();
       const completedExecution = await storage.updateExecution(execution.id, {
@@ -293,17 +288,19 @@ export class WorkflowOrchestrator {
       // Emit execution completed event
       wsManager.emitExecutionCompleted(execution.id, { result: finalResult?.content || "" });
 
-      this.cancelledExecutions.delete(execution.id);
       return completedExecution!;
     } catch (error: any) {
       const errorMessage = error.message || "Unknown error occurred";
-      const isCancelled = this.cancelledExecutions.has(execution.id);
+      const currentExecution = await storage
+        .getExecutionById(execution.id)
+        .catch(() => undefined);
+      const isCancelled = currentExecution?.status === "cancelled";
 
       try {
         const duration = Date.now() - new Date(execution.startedAt).getTime();
         await storage.updateExecution(execution.id, {
           status: isCancelled ? "cancelled" : "error",
-          error: isCancelled ? null : errorMessage,
+          error: isCancelled ? "Execution cancelled by user" : errorMessage,
         });
 
         if (!isCancelled) {
@@ -329,8 +326,6 @@ export class WorkflowOrchestrator {
         }
       } catch (updateError: any) {
         logger.error("Failed to update execution with error status", updateError);
-      } finally {
-        this.cancelledExecutions.delete(execution.id);
       }
 
       throw error;
@@ -346,7 +341,7 @@ export class WorkflowOrchestrator {
     let lastError: Error | null = null;
 
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
-      this.throwIfCancelled(executionId);
+      await this.throwIfCancelled(executionId);
 
       try {
         return await aiExecutor.executeAgent(agent, context);
@@ -378,7 +373,7 @@ export class WorkflowOrchestrator {
 
         // Wait before retry
         await new Promise((resolve) => setTimeout(resolve, delay));
-        this.throwIfCancelled(executionId);
+        await this.throwIfCancelled(executionId);
       }
     }
 

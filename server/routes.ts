@@ -548,13 +548,12 @@ export async function registerRoutes(app: Express) {
         return res.status(400).json({ error: `Cannot cancel execution with status ${execution.status}` });
       }
 
-      orchestrator.cancelExecution(execution.id);
       const updatedExecution = await storage.updateExecution(execution.id, {
         status: "cancelled",
         error: "Execution cancelled by user",
       });
 
-      res.json(updatedExecution);
+      res.status(202).json(updatedExecution);
     } catch (error: any) {
       res.status(500).json({ error: getErrorMessage(error) });
     }
