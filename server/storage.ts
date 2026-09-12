@@ -508,29 +508,32 @@ export class DatabaseStorage implements IStorage {
   async getKnowledgeMetadata(
     userId: string
   ): Promise<{ agentTypes: string[]; categories: string[] }> {
+    const normalizedAgentType = sql<string>`trim(${knowledgeEntries.agentType})`;
+    const normalizedCategory = sql<string>`trim(${knowledgeEntries.category})`;
+
     const [agentTypeRows, categoryRows] = await Promise.all([
       db
-        .select({ value: knowledgeEntries.agentType })
+        .select({ value: normalizedAgentType })
         .from(knowledgeEntries)
         .where(
           and(
             eq(knowledgeEntries.userId, userId),
-            sql`nullif(trim(${knowledgeEntries.agentType}), '') is not null`
+            sql`nullif(${normalizedAgentType}, '') is not null`
           )
         )
-        .groupBy(knowledgeEntries.agentType)
-        .orderBy(knowledgeEntries.agentType),
+        .groupBy(normalizedAgentType)
+        .orderBy(normalizedAgentType),
       db
-        .select({ value: knowledgeEntries.category })
+        .select({ value: normalizedCategory })
         .from(knowledgeEntries)
         .where(
           and(
             eq(knowledgeEntries.userId, userId),
-            sql`nullif(trim(${knowledgeEntries.category}), '') is not null`
+            sql`nullif(${normalizedCategory}, '') is not null`
           )
         )
-        .groupBy(knowledgeEntries.category)
-        .orderBy(knowledgeEntries.category),
+        .groupBy(normalizedCategory)
+        .orderBy(normalizedCategory),
     ]);
 
     return {
