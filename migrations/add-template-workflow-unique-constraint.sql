@@ -20,6 +20,7 @@ BEGIN
     SELECT 1
     FROM pg_constraint
     WHERE conname = 'templates_workflow_id_unique'
+      AND conrelid = 'templates'::regclass
   ) THEN
     ALTER TABLE templates
     ADD CONSTRAINT templates_workflow_id_unique UNIQUE (workflow_id);
