@@ -6,7 +6,7 @@ import {
   type WorkflowVersion,
   type InsertWorkflowVersion,
 } from "@shared/schema";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, and } from "drizzle-orm";
 import type { WorkflowNode, WorkflowEdge } from "../types/workflow";
 import { logger } from "./logger";
 
@@ -343,12 +343,12 @@ export class WorkflowVersionManager {
    * Update version statistics after execution (no-op: stats not stored in schema)
    */
   async updateVersionStats(workflowId: string, success: boolean, duration: number): Promise<void> {
-    const latestVersions = await db.query.workflowVersions.findMany({
-      where: eq(workflowVersions.workflowId, workflowId),
+    const activeVersions = await db.query.workflowVersions.findMany({
+      where: and(eq(workflowVersions.workflowId, workflowId), eq(workflowVersions.isActive, true)),
       orderBy: [desc(workflowVersions.version)],
       limit: 1,
     });
-    const currentVersion = latestVersions[0];
+    const currentVersion = activeVersions[0];
     if (!currentVersion) {
       logger.debug("Skipping version stats update because no workflow version exists", {
         workflowId,

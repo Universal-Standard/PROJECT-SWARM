@@ -8,6 +8,7 @@ import {
   integer,
   boolean,
   index,
+  foreignKey,
 } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
@@ -252,6 +253,11 @@ export const workflowVersions = pgTable(
       table.version.desc()
     ),
     index("idx_workflow_versions_tag").on(table.tag),
+    foreignKey({
+      columns: [table.parentVersionId],
+      foreignColumns: [table.id],
+      name: "workflow_versions_parent_version_id_fk",
+    }).onDelete("set null"),
   ]
 );
 

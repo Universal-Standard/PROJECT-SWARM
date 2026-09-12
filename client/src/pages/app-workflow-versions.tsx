@@ -212,6 +212,7 @@ export default function WorkflowVersionsPage() {
               </h3>
               <div className="flex flex-wrap gap-2">
                 <select
+                  aria-label="First version to compare"
                   className="border rounded-md px-3 py-2 bg-background text-sm"
                   value={compareVersionA}
                   onChange={(e) => setCompareVersionA(e.target.value)}
@@ -224,6 +225,7 @@ export default function WorkflowVersionsPage() {
                   ))}
                 </select>
                 <select
+                  aria-label="Second version to compare"
                   className="border rounded-md px-3 py-2 bg-background text-sm"
                   value={compareVersionB}
                   onChange={(e) => setCompareVersionB(e.target.value)}

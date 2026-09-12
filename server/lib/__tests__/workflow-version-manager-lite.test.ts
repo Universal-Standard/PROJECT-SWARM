@@ -64,4 +64,32 @@ describe("WorkflowVersionManager minimal behaviors", () => {
       avgDuration: 4200,
     });
   });
+
+  it("only updates the active version when a newer inactive version exists", async () => {
+    const { db } = await import("../../db");
+    vi.mocked(db.query.workflowVersions.findMany).mockResolvedValueOnce([
+      {
+        id: "ver_active",
+        workflowId,
+        version: 2,
+        isActive: true,
+        executionCount: 1,
+        successRate: 100,
+        avgDuration: 3000,
+      },
+    ] as never);
+
+    const where = vi.fn().mockResolvedValue(undefined);
+    const set = vi.fn().mockReturnValue({ where });
+    vi.mocked(db.update).mockReturnValue({ set } as never);
+
+    await manager.updateVersionStats(workflowId, false, 1000);
+
+    expect(where).toHaveBeenCalled();
+    expect(set).toHaveBeenCalledWith({
+      executionCount: 2,
+      successRate: 50,
+      avgDuration: 2000,
+    });
+  });
 });
