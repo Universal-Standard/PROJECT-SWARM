@@ -512,13 +512,23 @@ export class DatabaseStorage implements IStorage {
       db
         .select({ value: knowledgeEntries.agentType })
         .from(knowledgeEntries)
-        .where(eq(knowledgeEntries.userId, userId))
+        .where(
+          and(
+            eq(knowledgeEntries.userId, userId),
+            sql`nullif(trim(${knowledgeEntries.agentType}), '') is not null`
+          )
+        )
         .groupBy(knowledgeEntries.agentType)
         .orderBy(knowledgeEntries.agentType),
       db
         .select({ value: knowledgeEntries.category })
         .from(knowledgeEntries)
-        .where(eq(knowledgeEntries.userId, userId))
+        .where(
+          and(
+            eq(knowledgeEntries.userId, userId),
+            sql`nullif(trim(${knowledgeEntries.category}), '') is not null`
+          )
+        )
         .groupBy(knowledgeEntries.category)
         .orderBy(knowledgeEntries.category),
     ]);
