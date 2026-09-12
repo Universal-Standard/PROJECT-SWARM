@@ -227,6 +227,32 @@ describe("AppRepositories", () => {
     expect(await screen.findByText(/LGTM/)).toBeTruthy();
   });
 
+  it("previews an automated pull request review without submitting it", async () => {
+    apiRequest.mockResolvedValue(
+      createJsonResponse({
+        reviewBody: "## Summary\n- Preview complete",
+        submitted: false,
+      })
+    );
+
+    renderPage();
+
+    fireEvent.click(await screen.findByRole("button", { name: /preview review/i }));
+
+    await waitFor(() => {
+      expect(apiRequest).toHaveBeenCalledWith(
+        "POST",
+        "/api/github/repos/octo/demo/pulls/5/review",
+        {
+          submit: false,
+          additionalContext: undefined,
+        }
+      );
+    });
+
+    expect(await screen.findByText(/Preview complete/)).toBeTruthy();
+  });
+
   it("creates a repository webhook from the configured events", async () => {
     apiRequest.mockResolvedValue(createJsonResponse({ id: 99 }));
 

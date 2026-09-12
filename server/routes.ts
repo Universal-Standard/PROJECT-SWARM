@@ -1155,7 +1155,16 @@ export async function registerRoutes(app: Express) {
           .parse(req.body);
 
         const branchName = normalizeBranchName(payload.name);
-        const sourceBranch = normalizeBranchName(payload.fromBranch || "main");
+        const sourceBranch = payload.fromBranch
+          ? normalizeBranchName(payload.fromBranch)
+          : normalizeBranchName(
+              (
+                await req.octokit!.repos.get({
+                  owner,
+                  repo,
+                })
+              ).data.default_branch
+            );
         const branch = await req.octokit!.repos.getBranch({
           owner,
           repo,

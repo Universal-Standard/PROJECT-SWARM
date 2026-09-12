@@ -22,6 +22,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 
 interface GitHubStatus {
   connected: boolean;
@@ -135,11 +136,15 @@ export default function AppRepositories() {
   const [loadedFileKey, setLoadedFileKey] = useState("");
   const [newRepoName, setNewRepoName] = useState("");
   const [newRepoDescription, setNewRepoDescription] = useState("");
+  const [newRepoIsPrivate, setNewRepoIsPrivate] = useState(true);
   const [newBranchName, setNewBranchName] = useState("");
   const [pullRequestTitle, setPullRequestTitle] = useState("");
   const [pullRequestBody, setPullRequestBody] = useState("");
   const [reviewNotes, setReviewNotes] = useState("");
   const [reviewResult, setReviewResult] = useState("");
+  const [activeReviewPullRequestNumber, setActiveReviewPullRequestNumber] = useState<number | null>(
+    null
+  );
   const [webhookUrl, setWebhookUrl] = useState("");
   const [webhookEvents, setWebhookEvents] = useState("push,pull_request");
 
@@ -277,7 +282,7 @@ export default function AppRepositories() {
       const response = await apiRequest("POST", "/api/github/repos", {
         name: newRepoName,
         description: newRepoDescription,
-        private: false,
+        private: newRepoIsPrivate,
       });
 
       return response.json() as Promise<GitHubRepository>;
@@ -287,6 +292,7 @@ export default function AppRepositories() {
       setSelectedRepositoryFullName(repository.full_name);
       setNewRepoName("");
       setNewRepoDescription("");
+      setNewRepoIsPrivate(true);
       toast({ title: "Repository created", description: repository.full_name });
     },
     onError: (error: Error) => {
@@ -412,16 +418,23 @@ export default function AppRepositories() {
   });
 
   const reviewPullRequestMutation = useMutation({
-    mutationFn: async (pullRequestNumber: number) => {
+    mutationFn: async ({
+      pullRequestNumber,
+      submit,
+    }: {
+      pullRequestNumber: number;
+      submit: boolean;
+    }) => {
       if (!repositoryApiBase) {
         throw new Error("Select a repository first");
       }
 
+      setActiveReviewPullRequestNumber(pullRequestNumber);
       const response = await apiRequest(
         "POST",
         `${repositoryApiBase}/pulls/${pullRequestNumber}/review`,
         {
-          submit: true,
+          submit,
           additionalContext: reviewNotes || undefined,
         }
       );
@@ -429,12 +442,14 @@ export default function AppRepositories() {
       return response.json() as Promise<GitHubReviewResponse>;
     },
     onSuccess: (review) => {
+      setActiveReviewPullRequestNumber(null);
       setReviewResult(review.reviewBody);
       toast({
         title: review.submitted ? "Automated review submitted" : "Automated review generated",
       });
     },
     onError: (error: Error) => {
+      setActiveReviewPullRequestNumber(null);
       toast({
         title: "Failed to run automated review",
         description: error.message,
@@ -556,6 +571,14 @@ export default function AppRepositories() {
                 placeholder="Repository purpose"
                 className="min-h-[96px]"
               />
+            </div>
+            <div className="flex items-center gap-2">
+              <Checkbox
+                id="repo-private"
+                checked={newRepoIsPrivate}
+                onCheckedChange={(checked) => setNewRepoIsPrivate(checked === true)}
+              />
+              <Label htmlFor="repo-private">Create as a private repository</Label>
             </div>
             <Button
               className="w-full"
@@ -954,15 +977,45 @@ export default function AppRepositories() {
                             </div>
                             <Button
                               variant="outline"
-                              onClick={() => reviewPullRequestMutation.mutate(pullRequest.number)}
+                              onClick={() =>
+                                reviewPullRequestMutation.mutate({
+                                  pullRequestNumber: pullRequest.number,
+                                  submit: false,
+                                })
+                              }
                               disabled={reviewPullRequestMutation.isPending}
                             >
-                              {reviewPullRequestMutation.isPending ? (
+                              {reviewPullRequestMutation.isPending &&
+                              activeReviewPullRequestNumber === pullRequest.number ? (
                                 <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                               ) : (
                                 <RefreshCw className="w-4 h-4 mr-2" />
                               )}
-                              Run Review
+                              {reviewPullRequestMutation.isPending &&
+                              activeReviewPullRequestNumber === pullRequest.number
+                                ? "Previewing..."
+                                : "Preview Review"}
+                            </Button>
+                            <Button
+                              variant="outline"
+                              onClick={() =>
+                                reviewPullRequestMutation.mutate({
+                                  pullRequestNumber: pullRequest.number,
+                                  submit: true,
+                                })
+                              }
+                              disabled={reviewPullRequestMutation.isPending}
+                            >
+                              {reviewPullRequestMutation.isPending &&
+                              activeReviewPullRequestNumber === pullRequest.number ? (
+                                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                              ) : (
+                                <RefreshCw className="w-4 h-4 mr-2" />
+                              )}
+                              {reviewPullRequestMutation.isPending &&
+                              activeReviewPullRequestNumber === pullRequest.number
+                                ? "Submitting..."
+                                : "Run Review"}
                             </Button>
                           </div>
                         </div>
