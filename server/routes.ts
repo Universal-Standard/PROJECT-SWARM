@@ -28,6 +28,7 @@ import { encrypt, decrypt, maskToken } from "./auth/encryption";
 import { WorkflowValidationError } from "@shared/errors";
 import { getErrorMessage } from "./types/auth";
 import { executionRateLimiter } from "./middleware/rate-limiter";
+import { buildGitHubReviewPrompt } from "./lib/github-review";
 
 // Execution request schema - only workflowId and input are needed from client
 const executeWorkflowSchema = insertExecutionSchema.pick({ workflowId: true, input: true });
@@ -74,6 +75,25 @@ async function syncAgentsFromNodes(workflowId: string, nodes: WorkflowNode[]) {
 // Helper to get current authenticated user ID
 function getUserId(req: any): string {
   return req.user.claims.sub;
+}
+
+function normalizeBranchName(branchName: string): string {
+  return branchName.replace(/^refs\/heads\//, "");
+}
+
+async function getReviewApiKey(userId: string): Promise<string> {
+  const user = await storage.getUser(userId);
+  const encryptedApiKey = user?.openaiApiKey;
+
+  if (encryptedApiKey) {
+    return decrypt(encryptedApiKey);
+  }
+
+  if (process.env.OPENAI_API_KEY) {
+    return process.env.OPENAI_API_KEY;
+  }
+
+  throw new Error("An OpenAI API key is required to run automated pull request reviews");
 }
 
 export async function registerRoutes(app: Express) {
@@ -1046,12 +1066,366 @@ export async function registerRoutes(app: Express) {
     async (req: GitHubAuthRequest, res) => {
       try {
         const { owner, repo } = req.params;
-        const { path } = req.query;
+        const { path, ref } = z
+          .object({
+            path: z.string().optional(),
+            ref: z.string().optional(),
+          })
+          .parse(req.query);
+
         const { data } = await req.octokit!.repos.getContent({
           owner,
           repo,
-          path: (path as string) || "",
+          path: path || "",
+          ref,
         });
+        res.json(data);
+      } catch (error: any) {
+        res.status(500).json({ error: getErrorMessage(error) });
+      }
+    }
+  );
+
+  app.put(
+    "/api/github/repos/:owner/:repo/contents",
+    isAuthenticated,
+    withGitHubAuth,
+    async (req: GitHubAuthRequest, res) => {
+      try {
+        const { owner, repo } = req.params;
+        const payload = z
+          .object({
+            path: z.string().min(1),
+            message: z.string().min(1).max(200),
+            content: z.string(),
+            branch: z.string().min(1),
+            sha: z.string().optional(),
+          })
+          .parse(req.body);
+
+        const { data } = await req.octokit!.repos.createOrUpdateFileContents({
+          owner,
+          repo,
+          path: payload.path,
+          message: payload.message,
+          content: Buffer.from(payload.content, "utf8").toString("base64"),
+          branch: normalizeBranchName(payload.branch),
+          sha: payload.sha,
+        });
+
+        res.json(data);
+      } catch (error: any) {
+        res.status(500).json({ error: getErrorMessage(error) });
+      }
+    }
+  );
+
+  app.get(
+    "/api/github/repos/:owner/:repo/branches",
+    isAuthenticated,
+    withGitHubAuth,
+    async (req: GitHubAuthRequest, res) => {
+      try {
+        const { owner, repo } = req.params;
+        const { data } = await req.octokit!.repos.listBranches({
+          owner,
+          repo,
+          per_page: 100,
+        });
+
+        res.json(data);
+      } catch (error: any) {
+        res.status(500).json({ error: getErrorMessage(error) });
+      }
+    }
+  );
+
+  app.post(
+    "/api/github/repos/:owner/:repo/branches",
+    isAuthenticated,
+    withGitHubAuth,
+    async (req: GitHubAuthRequest, res) => {
+      try {
+        const { owner, repo } = req.params;
+        const payload = z
+          .object({
+            name: z.string().min(1).max(255),
+            fromBranch: z.string().min(1).max(255).optional(),
+          })
+          .parse(req.body);
+
+        const branchName = normalizeBranchName(payload.name);
+        const sourceBranch = normalizeBranchName(payload.fromBranch || "main");
+        const branch = await req.octokit!.repos.getBranch({
+          owner,
+          repo,
+          branch: sourceBranch,
+        });
+
+        const { data } = await req.octokit!.git.createRef({
+          owner,
+          repo,
+          ref: `refs/heads/${branchName}`,
+          sha: branch.data.commit.sha,
+        });
+
+        res.json(data);
+      } catch (error: any) {
+        res.status(500).json({ error: getErrorMessage(error) });
+      }
+    }
+  );
+
+  app.get(
+    "/api/github/repos/:owner/:repo/commits",
+    isAuthenticated,
+    withGitHubAuth,
+    async (req: GitHubAuthRequest, res) => {
+      try {
+        const { owner, repo } = req.params;
+        const { sha, perPage } = z
+          .object({
+            sha: z.string().optional(),
+            perPage: z
+              .union([z.string(), z.number()])
+              .optional()
+              .transform((value) => {
+                const parsed = Number(value ?? 10);
+                if (Number.isNaN(parsed)) {
+                  return 10;
+                }
+
+                return Math.min(Math.max(parsed, 1), 25);
+              }),
+          })
+          .parse(req.query);
+
+        const { data } = await req.octokit!.repos.listCommits({
+          owner,
+          repo,
+          sha,
+          per_page: perPage,
+        });
+
+        res.json(data);
+      } catch (error: any) {
+        res.status(500).json({ error: getErrorMessage(error) });
+      }
+    }
+  );
+
+  app.get(
+    "/api/github/repos/:owner/:repo/pulls",
+    isAuthenticated,
+    withGitHubAuth,
+    async (req: GitHubAuthRequest, res) => {
+      try {
+        const { owner, repo } = req.params;
+        const { state } = z
+          .object({
+            state: z.enum(["open", "closed", "all"]).optional(),
+          })
+          .parse(req.query);
+
+        const { data } = await req.octokit!.pulls.list({
+          owner,
+          repo,
+          state: state || "open",
+          per_page: 50,
+        });
+
+        res.json(data);
+      } catch (error: any) {
+        res.status(500).json({ error: getErrorMessage(error) });
+      }
+    }
+  );
+
+  app.post(
+    "/api/github/repos/:owner/:repo/pulls",
+    isAuthenticated,
+    withGitHubAuth,
+    async (req: GitHubAuthRequest, res) => {
+      try {
+        const { owner, repo } = req.params;
+        const payload = z
+          .object({
+            title: z.string().min(1).max(256),
+            body: z.string().max(20000).optional(),
+            head: z.string().min(1),
+            base: z.string().min(1),
+            draft: z.boolean().optional(),
+          })
+          .parse(req.body);
+
+        const { data } = await req.octokit!.pulls.create({
+          owner,
+          repo,
+          title: payload.title,
+          body: payload.body,
+          head: normalizeBranchName(payload.head),
+          base: normalizeBranchName(payload.base),
+          draft: payload.draft ?? false,
+        });
+
+        res.json(data);
+      } catch (error: any) {
+        res.status(500).json({ error: getErrorMessage(error) });
+      }
+    }
+  );
+
+  app.post(
+    "/api/github/repos/:owner/:repo/pulls/:pullNumber/review",
+    isAuthenticated,
+    withGitHubAuth,
+    async (req: GitHubAuthRequest, res) => {
+      try {
+        const { owner, repo } = req.params;
+        const pullNumber = z.coerce.number().int().positive().parse(req.params.pullNumber);
+        const userId = getUserId(req);
+        const payload = z
+          .object({
+            submit: z.boolean().optional(),
+            additionalContext: z.string().max(4000).optional(),
+          })
+          .parse(req.body ?? {});
+
+        const [{ data: pullRequest }, { data: files }, { data: commits }] = await Promise.all([
+          req.octokit!.pulls.get({
+            owner,
+            repo,
+            pull_number: pullNumber,
+          }),
+          req.octokit!.pulls.listFiles({
+            owner,
+            repo,
+            pull_number: pullNumber,
+            per_page: 100,
+          }),
+          req.octokit!.pulls.listCommits({
+            owner,
+            repo,
+            pull_number: pullNumber,
+            per_page: 100,
+          }),
+        ]);
+
+        const apiKey = await getReviewApiKey(userId);
+        const prompt = buildGitHubReviewPrompt({
+          repositoryFullName: `${owner}/${repo}`,
+          pullRequestNumber: pullRequest.number,
+          pullRequestTitle: pullRequest.title,
+          pullRequestBody: pullRequest.body,
+          baseBranch: pullRequest.base.ref,
+          headBranch: pullRequest.head.ref,
+          files: files.map((file) => ({
+            filename: file.filename,
+            status: file.status,
+            additions: file.additions,
+            deletions: file.deletions,
+            patch: file.patch,
+          })),
+          commits: commits.map((commit) => ({
+            sha: commit.sha,
+            message: commit.commit.message,
+          })),
+          additionalContext: payload.additionalContext,
+        });
+
+        const { OpenAI } = await import("openai");
+        const openai = new OpenAI({ apiKey });
+        const completion = await openai.chat.completions.create({
+          model: "gpt-4o-mini",
+          temperature: 0.2,
+          max_tokens: 900,
+          messages: [
+            {
+              role: "system",
+              content:
+                "You are a senior software engineer performing a focused pull request review. Prioritize correctness, regressions, security, and missing tests. If no material issues exist, say LGTM.",
+            },
+            { role: "user", content: prompt },
+          ],
+        });
+
+        const reviewBody =
+          completion.choices[0]?.message.content?.trim() ||
+          "Summary\n- Automated review did not return content.\n\nFindings\n- Unable to produce findings.\n\nRecommended Next Step\n- Re-run the review.";
+
+        let submittedReview = null;
+        if (payload.submit ?? true) {
+          const reviewResponse = await req.octokit!.pulls.createReview({
+            owner,
+            repo,
+            pull_number: pullNumber,
+            event: "COMMENT",
+            body: reviewBody,
+          });
+
+          submittedReview = reviewResponse.data;
+        }
+
+        res.json({
+          reviewBody,
+          submitted: payload.submit ?? true,
+          review: submittedReview,
+        });
+      } catch (error: any) {
+        res.status(500).json({ error: getErrorMessage(error) });
+      }
+    }
+  );
+
+  app.get(
+    "/api/github/repos/:owner/:repo/webhooks",
+    isAuthenticated,
+    withGitHubAuth,
+    async (req: GitHubAuthRequest, res) => {
+      try {
+        const { owner, repo } = req.params;
+        const { data } = await req.octokit!.repos.listWebhooks({
+          owner,
+          repo,
+          per_page: 100,
+        });
+
+        res.json(data);
+      } catch (error: any) {
+        res.status(500).json({ error: getErrorMessage(error) });
+      }
+    }
+  );
+
+  app.post(
+    "/api/github/repos/:owner/:repo/webhooks",
+    isAuthenticated,
+    withGitHubAuth,
+    async (req: GitHubAuthRequest, res) => {
+      try {
+        const { owner, repo } = req.params;
+        const payload = z
+          .object({
+            callbackUrl: z.string().url(),
+            events: z.array(z.string().min(1)).min(1).max(20).optional(),
+            secret: z.string().max(255).optional(),
+            active: z.boolean().optional(),
+          })
+          .parse(req.body);
+
+        const { data } = await req.octokit!.repos.createWebhook({
+          owner,
+          repo,
+          active: payload.active ?? true,
+          events: payload.events ?? ["push", "pull_request"],
+          config: {
+            url: payload.callbackUrl,
+            content_type: "json",
+            secret: payload.secret,
+            insecure_ssl: "0",
+          },
+        });
+
         res.json(data);
       } catch (error: any) {
         res.status(500).json({ error: getErrorMessage(error) });
