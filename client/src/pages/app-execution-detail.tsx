@@ -56,11 +56,11 @@ export default function AppExecutionDetail() {
     enabled: !!execution?.workflowId,
   });
 
-  const shouldStream = Boolean(id && execution?.status === "running" && user?.id);
+  const canStream = Boolean(id && user?.id);
   const { status: monitorStatus } = useExecutionMonitor(
-    shouldStream ? id : null,
-    shouldStream ? (user?.id ?? null) : null,
-    { autoConnect: shouldStream }
+    canStream ? id : null,
+    canStream ? (user?.id ?? null) : null,
+    { autoConnect: canStream }
   );
 
   const latestEvent = monitorStatus.events[monitorStatus.events.length - 1];
@@ -94,6 +94,7 @@ export default function AppExecutionDetail() {
         break;
       case "agent_started":
       case "agent_completed":
+        invalidateExecution();
         invalidateLogs();
         invalidateMessages();
         invalidateTimeline();
