@@ -93,6 +93,7 @@ export default function AppExecutionDetail() {
       case "agent_started":
       case "agent_completed":
         invalidateLogs();
+        invalidateMessages();
         invalidateTimeline();
         break;
       case "execution_completed":

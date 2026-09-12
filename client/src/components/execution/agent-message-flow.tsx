@@ -276,7 +276,7 @@ export function AgentMessageFlow({ messages, agents, autoScroll = true }: AgentM
             <div className="space-y-3">
               {visibleMessages.map((message, index) => (
                 <MessageCard
-                  key={message.id}
+                  key={message.id ?? `${new Date(message.timestamp).toISOString()}-${index}`}
                   message={message}
                   agentName={agentMap.get(message.agentId)?.name}
                   fromAgentName={

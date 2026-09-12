@@ -47,4 +47,14 @@ describe("agent-message-flow utils", () => {
     const overBounded = getReplayMessages(sampleMessages, true, 99);
     expect(overBounded).toHaveLength(sampleMessages.length);
   });
+
+  it("returns the full message list when replay mode is disabled", () => {
+    const allMessages = getReplayMessages(sampleMessages, false, 0);
+    expect(allMessages).toEqual(sampleMessages);
+  });
+
+  it("handles negative replay indices by returning an empty list", () => {
+    const replayed = getReplayMessages(sampleMessages, true, -4);
+    expect(replayed).toEqual([]);
+  });
 });
