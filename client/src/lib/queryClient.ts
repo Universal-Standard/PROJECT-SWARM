@@ -42,10 +42,6 @@ const DEFAULT_STATUS_MESSAGES: Record<number, string> = {
 const RETRYABLE_STATUS_CODES = new Set([408, 425, 429, 500, 502, 503, 504]);
 const MAX_QUERY_RETRIES = 3;
 
-function wait(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
 function normalizeValidationIssues(details: unknown): ValidationIssue[] | undefined {
   if (!Array.isArray(details)) {
     return undefined;
@@ -95,38 +91,19 @@ function isRetryableApiError(error: unknown): boolean {
     return RETRYABLE_STATUS_CODES.has(error.statusCode);
   }
 
-  return true;
-}
-
-export function getExponentialBackoffDelay(attempt: number): number {
-  return Math.min(1000 * 2 ** attempt, 10000);
-}
-
-async function fetchWithRetry(
-  input: RequestInfo | URL,
-  init: RequestInit | undefined,
-  maxRetries: number
-): Promise<Response> {
-  let lastError: unknown = null;
-
-  for (let attempt = 0; attempt <= maxRetries; attempt++) {
-    try {
-      const response = await fetch(input, init);
-      await throwIfResNotOk(response);
-      return response;
-    } catch (error) {
-      lastError = error;
-      const shouldRetry = attempt < maxRetries && isRetryableApiError(error);
-
-      if (!shouldRetry) {
-        throw error;
-      }
-
-      await wait(getExponentialBackoffDelay(attempt));
-    }
+  if (error instanceof TypeError) {
+    return true;
   }
 
-  throw lastError instanceof Error ? lastError : new Error("Request failed");
+  return false;
+}
+
+/**
+ * React Query retryDelay receives a zero-based retry index (0, 1, 2...).
+ * This yields retry waits of 1s, 2s, 4s, capped at 10s.
+ */
+export function getExponentialBackoffDelay(retryIndex: number): number {
+  return Math.min(1000 * 2 ** retryIndex, 10000);
 }
 
 async function throwIfResNotOk(res: Response): Promise<void> {
@@ -187,52 +164,31 @@ export async function apiRequest(
     }
   }
 
-  const maxRetries = SAFE_METHODS.has(upperMethod) ? MAX_QUERY_RETRIES : 0;
+  const res = await fetch(url, {
+    method,
+    headers,
+    body: data ? JSON.stringify(data) : undefined,
+    credentials: "include",
+  });
 
-  return await fetchWithRetry(
-    url,
-    {
-      method,
-      headers,
-      body: data ? JSON.stringify(data) : undefined,
-      credentials: "include",
-    },
-    maxRetries
-  );
+  await throwIfResNotOk(res);
+  return res;
 }
 
 type UnauthorizedBehavior = "returnNull" | "throw";
 export const getQueryFn: <T>(options: { on401: UnauthorizedBehavior }) => QueryFunction<T> =
   ({ on401: unauthorizedBehavior }) =>
   async ({ queryKey }) => {
-    const queryUrl = queryKey.join("/") as string;
-    let lastError: unknown = null;
+    const res = await fetch(queryKey.join("/") as string, {
+      credentials: "include",
+    });
 
-    for (let attempt = 0; attempt <= MAX_QUERY_RETRIES; attempt++) {
-      try {
-        const res = await fetch(queryUrl, {
-          credentials: "include",
-        });
-
-        if (unauthorizedBehavior === "returnNull" && res.status === 401) {
-          return null;
-        }
-
-        await throwIfResNotOk(res);
-        return await res.json();
-      } catch (error) {
-        lastError = error;
-        const shouldRetry = attempt < MAX_QUERY_RETRIES && isRetryableApiError(error);
-
-        if (!shouldRetry) {
-          throw error;
-        }
-
-        await wait(getExponentialBackoffDelay(attempt));
-      }
+    if (unauthorizedBehavior === "returnNull" && res.status === 401) {
+      return null;
     }
 
-    throw lastError instanceof Error ? lastError : new Error("Request failed");
+    await throwIfResNotOk(res);
+    return await res.json();
   };
 
 export const queryClient = new QueryClient({
