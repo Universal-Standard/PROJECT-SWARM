@@ -240,17 +240,29 @@ export default function WorkflowVersionsPage() {
               </div>
               {comparison && (
                 <div className="text-sm grid grid-cols-2 md:grid-cols-4 gap-2">
-                  <div className="border rounded p-2">+ Nodes: {comparison.diff.nodesAdded}</div>
-                  <div className="border rounded p-2">- Nodes: {comparison.diff.nodesRemoved}</div>
-                  <div className="border rounded p-2">~ Nodes: {comparison.diff.nodesModified}</div>
-                  <div className="border rounded p-2">+ Edges: {comparison.diff.edgesAdded}</div>
-                  <div className="border rounded p-2">- Edges: {comparison.diff.edgesRemoved}</div>
-                  <div className="border rounded p-2">+ Agents: {comparison.diff.agentsAdded}</div>
                   <div className="border rounded p-2">
-                    - Agents: {comparison.diff.agentsRemoved}
+                    Added nodes: {comparison.diff.nodesAdded}
                   </div>
                   <div className="border rounded p-2">
-                    ~ Agents: {comparison.diff.agentsModified}
+                    Removed nodes: {comparison.diff.nodesRemoved}
+                  </div>
+                  <div className="border rounded p-2">
+                    Modified nodes: {comparison.diff.nodesModified}
+                  </div>
+                  <div className="border rounded p-2">
+                    Added edges: {comparison.diff.edgesAdded}
+                  </div>
+                  <div className="border rounded p-2">
+                    Removed edges: {comparison.diff.edgesRemoved}
+                  </div>
+                  <div className="border rounded p-2">
+                    Added agents: {comparison.diff.agentsAdded}
+                  </div>
+                  <div className="border rounded p-2">
+                    Removed agents: {comparison.diff.agentsRemoved}
+                  </div>
+                  <div className="border rounded p-2">
+                    Modified agents: {comparison.diff.agentsModified}
                   </div>
                 </div>
               )}

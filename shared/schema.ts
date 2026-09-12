@@ -250,6 +250,11 @@ export const workflowVersions = pgTable(
   (table) => [
     index("idx_workflow_versions").on(table.workflowId, table.version.desc()),
     uniqueIndex("idx_workflow_versions_unique_version").on(table.workflowId, table.version),
+    index("idx_workflow_versions_active_lookup").on(
+      table.workflowId,
+      table.isActive,
+      table.version.desc()
+    ),
     index("idx_workflow_versions_branch").on(
       table.workflowId,
       table.branchName,

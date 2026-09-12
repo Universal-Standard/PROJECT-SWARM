@@ -14,10 +14,6 @@ UPDATE workflow_versions
 SET branch_name = 'main'
 WHERE branch_name IS NULL;
 
-UPDATE workflow_versions
-SET success_count = ROUND((COALESCE(success_rate, 0)::numeric / 100) * COALESCE(execution_count, 0))
-WHERE success_count = 0 AND execution_count > 0;
-
 DO $$
 BEGIN
   IF NOT EXISTS (
@@ -36,6 +32,9 @@ END $$;
 -- Helpful indexes for version browsing
 CREATE UNIQUE INDEX IF NOT EXISTS idx_workflow_versions_unique_version
   ON workflow_versions(workflow_id, version);
+
+CREATE INDEX IF NOT EXISTS idx_workflow_versions_active_lookup
+  ON workflow_versions(workflow_id, is_active, version DESC);
 
 CREATE INDEX IF NOT EXISTS idx_workflow_versions_branch
   ON workflow_versions(workflow_id, branch_name, version DESC);
