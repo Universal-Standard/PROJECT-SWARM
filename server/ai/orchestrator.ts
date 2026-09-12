@@ -21,7 +21,39 @@ interface WorkflowEdge {
 }
 
 export class WorkflowOrchestrator {
+  private cancelledExecutions = new Set<string>();
+
   async executeWorkflow(workflowId: string, input: any): Promise<Execution> {
+    const { workflow, agents, execution } = await this.prepareExecution(workflowId, input);
+    return this.runPreparedExecution(workflowId, input, workflow, agents, execution);
+  }
+
+  async startWorkflowExecution(workflowId: string, input: any): Promise<Execution> {
+    const { workflow, agents, execution } = await this.prepareExecution(workflowId, input);
+    void this.runPreparedExecution(workflowId, input, workflow, agents, execution).catch((error) => {
+      logger.error("Background execution failed", {
+        executionId: execution.id,
+        workflowId,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    });
+    return execution;
+  }
+
+  cancelExecution(executionId: string): void {
+    this.cancelledExecutions.add(executionId);
+  }
+
+  private throwIfCancelled(executionId: string): void {
+    if (this.cancelledExecutions.has(executionId)) {
+      throw new Error("Execution cancelled by user");
+    }
+  }
+
+  private async prepareExecution(
+    workflowId: string,
+    input: any
+  ): Promise<{ workflow: Workflow; agents: Agent[]; execution: Execution }> {
     const workflow = await storage.getWorkflowById(workflowId);
     if (!workflow) {
       throw new Error("Workflow not found");
@@ -35,7 +67,6 @@ export class WorkflowOrchestrator {
     }
 
     const agents = await storage.getAgentsByWorkflowId(workflowId);
-
     const execution = await storage.createExecution({
       workflowId,
       userId: workflow.userId,
@@ -43,7 +74,19 @@ export class WorkflowOrchestrator {
       input,
     });
 
+    return { workflow, agents, execution };
+  }
+
+  private async runPreparedExecution(
+    workflowId: string,
+    input: any,
+    workflow: Workflow,
+    agents: Agent[],
+    execution: Execution
+  ): Promise<Execution> {
     try {
+      this.throwIfCancelled(execution.id);
+
       // Emit execution started event
       wsManager.emitExecutionStarted(execution.id, workflow.name);
 
@@ -64,6 +107,8 @@ export class WorkflowOrchestrator {
       const executionOrder = this.topologicalSort(nodes, edges);
 
       for (let stepIndex = 0; stepIndex < executionOrder.length; stepIndex++) {
+        this.throwIfCancelled(execution.id);
+
         const nodeId = executionOrder[stepIndex];
         const node = nodes.find((n) => n.id === nodeId);
         const agent = agentMap.get(nodeId);
@@ -146,6 +191,8 @@ export class WorkflowOrchestrator {
             3 // max retries
           );
 
+          this.throwIfCancelled(execution.id);
+
           // Track cost for this execution
           const providerUsed = result.provider || agent.provider;
           const modelUsed = result.model || agent.model;
@@ -226,6 +273,8 @@ export class WorkflowOrchestrator {
       const lastNodeId = executionOrder[executionOrder.length - 1];
       const finalResult = nodeResults.get(lastNodeId);
 
+      this.throwIfCancelled(execution.id);
+
       const duration = Date.now() - new Date(execution.startedAt).getTime();
       const completedExecution = await storage.updateExecution(execution.id, {
         status: "completed",
@@ -244,33 +293,44 @@ export class WorkflowOrchestrator {
       // Emit execution completed event
       wsManager.emitExecutionCompleted(execution.id, { result: finalResult?.content || "" });
 
+      this.cancelledExecutions.delete(execution.id);
       return completedExecution!;
     } catch (error: any) {
       const errorMessage = error.message || "Unknown error occurred";
+      const isCancelled = this.cancelledExecutions.has(execution.id);
+
       try {
         const duration = Date.now() - new Date(execution.startedAt).getTime();
         await storage.updateExecution(execution.id, {
-          status: "error",
-          error: errorMessage,
+          status: isCancelled ? "cancelled" : "error",
+          error: isCancelled ? null : errorMessage,
         });
 
-        // Update version statistics with failure
-        try {
-          await versionManager.updateVersionStats(workflowId, false, duration);
-        } catch (versionError: any) {
-          logger.error("Error updating version stats", versionError);
+        if (!isCancelled) {
+          // Update version statistics with failure
+          try {
+            await versionManager.updateVersionStats(workflowId, false, duration);
+          } catch (versionError: any) {
+            logger.error("Error updating version stats", versionError);
+          }
         }
 
-        await this.logExecution(
-          execution.id,
-          "error",
-          `Workflow execution failed: ${errorMessage}`
-        );
-
-        // Emit execution failed event
-        wsManager.emitExecutionFailed(execution.id, errorMessage);
+        if (isCancelled) {
+          await this.logExecution(execution.id, "warning", "Workflow execution cancelled by user");
+          wsManager.emitExecutionCancelled(execution.id);
+        } else {
+          await this.logExecution(
+            execution.id,
+            "error",
+            `Workflow execution failed: ${errorMessage}`
+          );
+          // Emit execution failed event
+          wsManager.emitExecutionFailed(execution.id, errorMessage);
+        }
       } catch (updateError: any) {
         logger.error("Failed to update execution with error status", updateError);
+      } finally {
+        this.cancelledExecutions.delete(execution.id);
       }
 
       throw error;
@@ -286,6 +346,8 @@ export class WorkflowOrchestrator {
     let lastError: Error | null = null;
 
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      this.throwIfCancelled(executionId);
+
       try {
         return await aiExecutor.executeAgent(agent, context);
       } catch (error: any) {
@@ -316,6 +378,7 @@ export class WorkflowOrchestrator {
 
         // Wait before retry
         await new Promise((resolve) => setTimeout(resolve, delay));
+        this.throwIfCancelled(executionId);
       }
     }
 
