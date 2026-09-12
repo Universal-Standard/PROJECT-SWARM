@@ -56,4 +56,14 @@ export async function validateInput(payload: unknown): Promise<boolean> {
     expect(learnings).toHaveLength(1);
     expect(learnings[0].content).toContain("Validate request payloads");
   });
+
+  it("keeps non-imperative learnings that mention roles", () => {
+    const response = `
+      Learned: In chat APIs, system: sets global behavior while user: provides task input.
+    `;
+
+    const learnings = extractKnowledgeLearnings(response);
+
+    expect(learnings).toHaveLength(1);
+  });
 });

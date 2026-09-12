@@ -6,9 +6,9 @@ export interface ExtractedLearning {
 }
 
 const PROMPT_INJECTION_PATTERNS = [
-  /\b(?:ignore|disregard|override)\b[\s\S]{0,80}\b(?:instructions?|prompts?)\b/i,
-  /\b(?:you are now|act as)\b/i,
-  /\b(?:system|developer|assistant|user)\s*:/i,
+  /^(?:ignore|disregard|override)\b[\s\S]{0,120}\b(?:instructions?|prompts?|rules|policies)\b/i,
+  /^(?:you are now|act as)\b/i,
+  /^(?:system|developer)\s*:/i,
   /\b(?:do not|don't)\b[\s\S]{0,80}\b(?:follow|obey)\b[\s\S]{0,80}\b(?:instructions?|prompts?)\b/i,
 ];
 
