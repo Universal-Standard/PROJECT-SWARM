@@ -67,6 +67,8 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import type { ValidationError } from "@shared/errors";
 
 const nodeTypes = {
   agent: AgentNode,
@@ -119,7 +121,8 @@ function WorkflowBuilderContent() {
   const zoomControls = useZoomControls();
 
   // Validation
-  const { isValid, hasErrors, warningCount } = useWorkflowValidation(nodes, edges);
+  const { hasErrors, errorCount } = useWorkflowValidation(nodes, edges);
+  const [executionValidationErrors, setExecutionValidationErrors] = useState<ValidationError[]>([]);
 
   // Fetch existing workflow if ID is provided
   const { data: workflow, isLoading } = useQuery<Workflow>({
@@ -376,6 +379,7 @@ function WorkflowBuilderContent() {
       return await res.json();
     },
     onSuccess: (execution) => {
+      setExecutionValidationErrors([]);
       queryClient.invalidateQueries({ queryKey: ["/api/executions"] });
       toast({
         title: "Execution Started",
@@ -385,6 +389,18 @@ function WorkflowBuilderContent() {
       setLocation(`/executions/${execution.id}`);
     },
     onError: (error: Error) => {
+      const bodyMatch = error.message.match(/^\d+:\s*(.*)$/);
+      if (bodyMatch?.[1]) {
+        try {
+          const parsed = JSON.parse(bodyMatch[1]);
+          if (Array.isArray(parsed?.details)) {
+            setExecutionValidationErrors(parsed.details as ValidationError[]);
+            setShowValidation(true);
+          }
+        } catch {
+          // keep default handling for non-JSON error payloads
+        }
+      }
       toast({
         title: "Execution Failed",
         description: error.message || "Failed to execute workflow",
@@ -394,6 +410,16 @@ function WorkflowBuilderContent() {
   });
 
   const handleExecuteClick = () => {
+    if (hasErrors) {
+      setShowValidation(true);
+      toast({
+        title: "Validation Required",
+        description: "Fix workflow validation errors before executing.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     if (!workflowId) {
       toast({
         title: "Save Required",
@@ -818,7 +844,7 @@ function WorkflowBuilderContent() {
         showGrid={showGrid}
         showMinimap={showMinimap}
         showValidation={showValidation}
-        validationErrors={hasErrors ? 1 : 0}
+        validationErrors={errorCount + executionValidationErrors.length}
         onSave={saveWorkflow}
         onExport={() => {
           const data = JSON.stringify({ nodes, edges, name: workflowName }, null, 2);
@@ -1105,6 +1131,18 @@ function WorkflowBuilderContent() {
               <SheetDescription>Check your workflow for errors and warnings</SheetDescription>
             </SheetHeader>
             <div className="mt-6">
+              {executionValidationErrors.length > 0 && (
+                <Alert variant="destructive" className="mb-4">
+                  <AlertTitle>Execution Validation Errors</AlertTitle>
+                  <AlertDescription>
+                    <ul className="list-disc pl-4 space-y-1">
+                      {executionValidationErrors.map((validationError, index) => (
+                        <li key={`${validationError.code}-${index}`}>{validationError.message}</li>
+                      ))}
+                    </ul>
+                  </AlertDescription>
+                </Alert>
+              )}
               <ConnectionValidator
                 nodes={nodes}
                 edges={edges}

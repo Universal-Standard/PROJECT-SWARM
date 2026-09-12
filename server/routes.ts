@@ -527,6 +527,12 @@ export async function registerRoutes(app: Express) {
       if (error.name === "ZodError") {
         return res.status(400).json({ error: "Invalid input", details: error.issues });
       }
+      if (error instanceof WorkflowValidationError) {
+        return res.status(error.statusCode).json({
+          error: error.message,
+          details: error.errors,
+        });
+      }
       res.status(500).json({ error: getErrorMessage(error) });
     }
   });

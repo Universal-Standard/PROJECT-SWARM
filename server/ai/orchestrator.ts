@@ -6,6 +6,7 @@ import { versionManager } from "../lib/workflow-version";
 import { wsManager } from "../websocket";
 import { workflowValidator } from "../lib/workflow-validator";
 import { logger } from "../lib/logger";
+import { WorkflowValidationError } from "@shared/errors";
 
 interface WorkflowNode {
   id: string;
@@ -27,14 +28,13 @@ export class WorkflowOrchestrator {
       throw new Error("Workflow not found");
     }
 
-    // Validate workflow before execution
-    const validationResult = workflowValidator.validate(workflow);
-    if (!validationResult.valid) {
-      const errorMessages = validationResult.errors.map((e) => e.message).join("; ");
-      throw new Error(`Workflow validation failed: ${errorMessages}`);
-    }
-
     const agents = await storage.getAgentsByWorkflowId(workflowId);
+
+    // Validate workflow and associated agent configurations before execution
+    const validationResult = workflowValidator.validate(workflow, agents);
+    if (!validationResult.valid) {
+      throw new WorkflowValidationError(validationResult.errors);
+    }
 
     const execution = await storage.createExecution({
       workflowId,
