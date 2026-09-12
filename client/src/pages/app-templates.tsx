@@ -389,7 +389,7 @@ export default function AppTemplates() {
             />
           </div>
           <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-            <SelectTrigger className="md:w-[220px]">
+            <SelectTrigger className="md:w-[220px]" aria-label="Filter templates by category">
               <SelectValue placeholder="Filter by category" />
             </SelectTrigger>
             <SelectContent>
