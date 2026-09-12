@@ -22,6 +22,33 @@ interface WorkflowEdge {
 
 export class WorkflowOrchestrator {
   async executeWorkflow(workflowId: string, input: any): Promise<Execution> {
+    const { workflow, agents, execution } = await this.prepareExecution(workflowId, input);
+    return this.runPreparedExecution(workflowId, input, workflow, agents, execution);
+  }
+
+  async startWorkflowExecution(workflowId: string, input: any): Promise<Execution> {
+    const { workflow, agents, execution } = await this.prepareExecution(workflowId, input);
+    void this.runPreparedExecution(workflowId, input, workflow, agents, execution).catch((error) => {
+      logger.error("Background execution failed", {
+        executionId: execution.id,
+        workflowId,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    });
+    return execution;
+  }
+
+  private async throwIfCancelled(executionId: string): Promise<void> {
+    const execution = await storage.getExecutionById(executionId);
+    if (execution?.status === "cancelled") {
+      throw new Error("Execution cancelled by user");
+    }
+  }
+
+  private async prepareExecution(
+    workflowId: string,
+    input: any
+  ): Promise<{ workflow: Workflow; agents: Agent[]; execution: Execution }> {
     const workflow = await storage.getWorkflowById(workflowId);
     if (!workflow) {
       throw new Error("Workflow not found");
@@ -35,7 +62,6 @@ export class WorkflowOrchestrator {
     }
 
     const agents = await storage.getAgentsByWorkflowId(workflowId);
-
     const execution = await storage.createExecution({
       workflowId,
       userId: workflow.userId,
@@ -43,7 +69,19 @@ export class WorkflowOrchestrator {
       input,
     });
 
+    return { workflow, agents, execution };
+  }
+
+  private async runPreparedExecution(
+    workflowId: string,
+    input: any,
+    workflow: Workflow,
+    agents: Agent[],
+    execution: Execution
+  ): Promise<Execution> {
     try {
+      await this.throwIfCancelled(execution.id);
+
       // Emit execution started event
       wsManager.emitExecutionStarted(execution.id, workflow.name);
 
@@ -64,6 +102,8 @@ export class WorkflowOrchestrator {
       const executionOrder = this.topologicalSort(nodes, edges);
 
       for (let stepIndex = 0; stepIndex < executionOrder.length; stepIndex++) {
+        await this.throwIfCancelled(execution.id);
+
         const nodeId = executionOrder[stepIndex];
         const node = nodes.find((n) => n.id === nodeId);
         const agent = agentMap.get(nodeId);
@@ -146,6 +186,8 @@ export class WorkflowOrchestrator {
             3 // max retries
           );
 
+          await this.throwIfCancelled(execution.id);
+
           // Track cost for this execution
           const providerUsed = result.provider || agent.provider;
           const modelUsed = result.model || agent.model;
@@ -226,6 +268,8 @@ export class WorkflowOrchestrator {
       const lastNodeId = executionOrder[executionOrder.length - 1];
       const finalResult = nodeResults.get(lastNodeId);
 
+      await this.throwIfCancelled(execution.id);
+
       const duration = Date.now() - new Date(execution.startedAt).getTime();
       const completedExecution = await storage.updateExecution(execution.id, {
         status: "completed",
@@ -247,28 +291,39 @@ export class WorkflowOrchestrator {
       return completedExecution!;
     } catch (error: any) {
       const errorMessage = error.message || "Unknown error occurred";
+      const currentExecution = await storage
+        .getExecutionById(execution.id)
+        .catch(() => undefined);
+      const isCancelled = currentExecution?.status === "cancelled";
+
       try {
         const duration = Date.now() - new Date(execution.startedAt).getTime();
         await storage.updateExecution(execution.id, {
-          status: "error",
-          error: errorMessage,
+          status: isCancelled ? "cancelled" : "error",
+          error: isCancelled ? "Execution cancelled by user" : errorMessage,
         });
 
-        // Update version statistics with failure
-        try {
-          await versionManager.updateVersionStats(workflowId, false, duration);
-        } catch (versionError: any) {
-          logger.error("Error updating version stats", versionError);
+        if (!isCancelled) {
+          // Update version statistics with failure
+          try {
+            await versionManager.updateVersionStats(workflowId, false, duration);
+          } catch (versionError: any) {
+            logger.error("Error updating version stats", versionError);
+          }
         }
 
-        await this.logExecution(
-          execution.id,
-          "error",
-          `Workflow execution failed: ${errorMessage}`
-        );
-
-        // Emit execution failed event
-        wsManager.emitExecutionFailed(execution.id, errorMessage);
+        if (isCancelled) {
+          await this.logExecution(execution.id, "warning", "Workflow execution cancelled by user");
+          wsManager.emitExecutionCancelled(execution.id);
+        } else {
+          await this.logExecution(
+            execution.id,
+            "error",
+            `Workflow execution failed: ${errorMessage}`
+          );
+          // Emit execution failed event
+          wsManager.emitExecutionFailed(execution.id, errorMessage);
+        }
       } catch (updateError: any) {
         logger.error("Failed to update execution with error status", updateError);
       }
@@ -286,6 +341,8 @@ export class WorkflowOrchestrator {
     let lastError: Error | null = null;
 
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      await this.throwIfCancelled(executionId);
+
       try {
         return await aiExecutor.executeAgent(agent, context);
       } catch (error: any) {
@@ -316,6 +373,7 @@ export class WorkflowOrchestrator {
 
         // Wait before retry
         await new Promise((resolve) => setTimeout(resolve, delay));
+        await this.throwIfCancelled(executionId);
       }
     }
 

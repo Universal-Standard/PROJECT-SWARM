@@ -382,7 +382,7 @@ function WorkflowBuilderContent() {
         description: "Your agent swarm is now running.",
       });
       // Navigate to execution monitor
-      setLocation(`/executions/${execution.id}`);
+      setLocation(`/app/executions/${execution.id}`);
     },
     onError: (error: Error) => {
       toast({

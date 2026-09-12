@@ -1,29 +1,189 @@
-import { useQuery } from "@tanstack/react-query";
+import { useMemo } from "react";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { useParams, Link } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
-import { Loader2, CheckCircle2, XCircle, Clock, ArrowRight, ExternalLink } from "lucide-react";
-import type { Execution, ExecutionLog, AgentMessage } from "@shared/schema";
+import { Progress } from "@/components/ui/progress";
+import { Loader2, CheckCircle2, XCircle, Clock, ArrowRight, ExternalLink, Square } from "lucide-react";
+import type { Execution, ExecutionLog, AgentMessage, Agent } from "@shared/schema";
+import { useExecutionMonitor } from "@/hooks/useExecutionMonitor";
+import { useAuth } from "@/hooks/useAuth";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
+
+function mergeStreamedWithPersisted<T>(
+  persistedItems: T[],
+  streamedItems: T[],
+  getKey: (item: T) => string
+): T[] {
+  const persistedByKey = new Map<string, number>();
+  persistedItems.forEach((item) => {
+    const key = getKey(item);
+    persistedByKey.set(key, (persistedByKey.get(key) || 0) + 1);
+  });
+
+  const streamedByKey = new Map<string, number>();
+  const dedupedStreamedItems = streamedItems.filter((item) => {
+    const key = getKey(item);
+    const streamCount = (streamedByKey.get(key) || 0) + 1;
+    streamedByKey.set(key, streamCount);
+    return streamCount > (persistedByKey.get(key) || 0);
+  });
+
+  return [...persistedItems, ...dedupedStreamedItems];
+}
 
 export default function ExecutionMonitor() {
   const { id } = useParams<{ id: string }>();
+  const { user } = useAuth();
+  const { toast } = useToast();
+
+  const { status: monitorStatus } = useExecutionMonitor(id || null, user?.id || null, {
+    autoConnect: !!id && !!user?.id,
+  });
 
   const { data: execution, isLoading: executionLoading } = useQuery<Execution>({
     queryKey: ["/api/executions", id],
+    refetchInterval: monitorStatus.status === "connected" ? false : 2000,
   });
 
   const { data: logs, isLoading: logsLoading } = useQuery<ExecutionLog[]>({
     queryKey: [`/api/executions/${id}/logs`],
-    refetchInterval: 2000,
   });
 
   const { data: messages, isLoading: messagesLoading } = useQuery<AgentMessage[]>({
     queryKey: [`/api/executions/${id}/messages`],
-    refetchInterval: 2000,
   });
+
+  const { data: agents = [] } = useQuery<Agent[]>({
+    queryKey: ["/api/workflows", execution?.workflowId, "agents"],
+    enabled: !!execution?.workflowId,
+  });
+
+  const cancelMutation = useMutation({
+    mutationFn: async () => {
+      if (!id) throw new Error("Execution id is required");
+      const response = await apiRequest("POST", `/api/executions/${id}/cancel`);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/executions", id] });
+      toast({
+        title: "Execution cancelled",
+        description: "The execution has been marked for cancellation.",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Cancellation failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const liveExecutionStatus = useMemo(() => {
+    let nextStatus = execution?.status || "pending";
+
+    for (const event of monitorStatus.events) {
+      if (event.type === "execution_started") nextStatus = "running";
+      if (event.type === "execution_completed") nextStatus = "completed";
+      if (event.type === "execution_failed") nextStatus = "error";
+      if (event.type === "execution_cancelled") nextStatus = "cancelled";
+    }
+
+    return nextStatus;
+  }, [execution?.status, monitorStatus.events]);
+
+  const combinedLogs = useMemo(() => {
+    const persistedLogs = logs || [];
+    const streamLogs = monitorStatus.logs.map((log, index) => ({
+      id: `stream-${index}`,
+      timestamp: log.timestamp,
+      level: log.level,
+      message: log.message,
+      agentId: log.agentId || null,
+    }));
+
+    return mergeStreamedWithPersisted(persistedLogs, streamLogs, (log) => {
+      return `${new Date(log.timestamp).toISOString()}|${log.level}|${log.message}|${log.agentId || ""}`;
+    });
+  }, [logs, monitorStatus.logs]);
+
+  const combinedMessages = useMemo(() => {
+    const persistedMessages = messages || [];
+    const streamMessages = monitorStatus.messages.map((message, index) => ({
+      id: `stream-${index}`,
+      agentId: message.agentId,
+      role: message.role,
+      content: message.content,
+      tokenCount: null,
+      timestamp: message.timestamp,
+    }));
+
+    return mergeStreamedWithPersisted(persistedMessages, streamMessages, (message) => {
+      return `${new Date(message.timestamp).toISOString()}|${message.agentId}|${message.role}|${message.content}`;
+    });
+  }, [messages, monitorStatus.messages]);
+
+  const completedAgentIds = useMemo(() => {
+    const completed = new Set<string>();
+    monitorStatus.events.forEach((event) => {
+      if (event.type === "agent_completed" && event.agentId) {
+        completed.add(event.agentId);
+      }
+    });
+    return completed;
+  }, [monitorStatus.events]);
+
+  const persistedCompletedSteps = useMemo(() => {
+    const completedSteps = new Set<number>();
+    (logs || []).forEach((log) => {
+      const match = log.message.match(/Step\\s+(\\d+)\\s+completed:/);
+      if (match) {
+        completedSteps.add(Number(match[1]));
+      }
+    });
+    return completedSteps.size;
+  }, [logs]);
+
+  const persistedCompletedAgentIds = useMemo(() => {
+    const completedAgentNames = new Set<string>();
+    (logs || []).forEach((log) => {
+      const match = log.message.match(/Step\\s+\\d+\\s+completed:\\s+(.+?)\\s+finished/);
+      if (match) {
+        completedAgentNames.add(match[1]);
+      }
+    });
+
+    return new Set(
+      agents
+        .filter((agent) => completedAgentNames.has(agent.name))
+        .map((agent) => agent.id)
+    );
+  }, [agents, logs]);
+
+  const allCompletedAgentIds = useMemo(() => {
+    const merged = new Set<string>(persistedCompletedAgentIds);
+    completedAgentIds.forEach((agentId) => merged.add(agentId));
+    return merged;
+  }, [completedAgentIds, persistedCompletedAgentIds]);
+
+  const completedAgentCount = useMemo(() => {
+    if (liveExecutionStatus === "completed") {
+      return agents.length;
+    }
+    return Math.max(allCompletedAgentIds.size, persistedCompletedSteps);
+  }, [agents.length, allCompletedAgentIds.size, liveExecutionStatus, persistedCompletedSteps]);
+
+  const progressPercent = agents.length
+    ? Math.min(100, Math.round((completedAgentCount / agents.length) * 100))
+    : liveExecutionStatus === "completed"
+      ? 100
+      : 0;
 
   if (executionLoading) {
     return (
@@ -45,12 +205,14 @@ export default function ExecutionMonitor() {
     pending: { icon: Clock, color: "text-amber-500", bg: "bg-amber-500/10" },
     running: { icon: Loader2, color: "text-primary", bg: "bg-primary/10" },
     completed: { icon: CheckCircle2, color: "text-green-500", bg: "bg-green-500/10" },
+    cancelled: { icon: Square, color: "text-muted-foreground", bg: "bg-muted" },
     error: { icon: XCircle, color: "text-destructive", bg: "bg-destructive/10" },
   };
 
   const config =
-    statusConfig[execution.status as keyof typeof statusConfig] || statusConfig.pending;
+    statusConfig[liveExecutionStatus as keyof typeof statusConfig] || statusConfig.pending;
   const StatusIcon = config.icon;
+  const isTerminal = ["completed", "error", "cancelled"].includes(liveExecutionStatus);
 
   return (
     <div className="h-full flex flex-col p-6 gap-6">
@@ -60,6 +222,17 @@ export default function ExecutionMonitor() {
           <p className="text-muted-foreground">Execution ID: {execution.id}</p>
         </div>
         <div className="flex items-center gap-2">
+          <Badge variant="outline">{monitorStatus.status}</Badge>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => cancelMutation.mutate()}
+            disabled={cancelMutation.isPending || isTerminal}
+            data-testid="button-cancel-running-execution"
+          >
+            <Square className="w-4 h-4 mr-2" />
+            Cancel
+          </Button>
           <Link href={`/app/executions/${execution.id}/detail`}>
             <Button variant="outline" size="sm">
               <ExternalLink className="w-4 h-4 mr-2" />
@@ -71,12 +244,42 @@ export default function ExecutionMonitor() {
             data-testid="badge-execution-status"
           >
             <StatusIcon
-              className={`w-4 h-4 ${execution.status === "running" ? "animate-spin" : ""}`}
+              className={`w-4 h-4 ${liveExecutionStatus === "running" ? "animate-spin" : ""}`}
             />
-            {execution.status.toUpperCase()}
+            {liveExecutionStatus.toUpperCase()}
           </Badge>
         </div>
       </div>
+
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-lg">Execution Progress</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center justify-between text-sm">
+            <span>{completedAgentCount} / {agents.length || "?"} agents completed</span>
+            <span>{progressPercent}%</span>
+          </div>
+          <Progress value={progressPercent} />
+          {agents.length > 0 && (
+            <div className="flex flex-wrap gap-2">
+              {agents.map((agent) => {
+                const isRunning = monitorStatus.currentAgent?.id === agent.id;
+                const isCompleted = allCompletedAgentIds.has(agent.id);
+                return (
+                  <Badge
+                    key={agent.id}
+                    variant="outline"
+                    className={isRunning ? "border-primary text-primary" : isCompleted ? "border-green-500 text-green-500" : ""}
+                  >
+                    {agent.name}: {isCompleted ? "completed" : isRunning ? "running" : "pending"}
+                  </Badge>
+                );
+              })}
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 flex-1 overflow-hidden">
         <Card className="flex flex-col overflow-hidden">
@@ -89,21 +292,21 @@ export default function ExecutionMonitor() {
                 <div className="flex items-center justify-center py-8">
                   <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
                 </div>
-              ) : logs && logs.length > 0 ? (
+              ) : combinedLogs.length > 0 ? (
                 <div className="space-y-2 font-mono text-sm">
-                  {logs.map((log) => {
+                  {combinedLogs.map((log, index) => {
                     const levelColors = {
                       info: "text-muted-foreground",
                       warning: "text-amber-500",
                       error: "text-destructive",
                     };
                     return (
-                      <div key={log.id} className="flex gap-3" data-testid={`log-${log.id}`}>
+                      <div key={log.id || `log-${index}`} className="flex gap-3" data-testid={`log-${log.id || index}`}>
                         <span className="text-muted-foreground shrink-0">
                           {new Date(log.timestamp).toLocaleTimeString()}
                         </span>
                         <span
-                          className={`font-medium shrink-0 uppercase ${levelColors[log.level as keyof typeof levelColors]}`}
+                          className={`font-medium shrink-0 uppercase ${levelColors[log.level as keyof typeof levelColors] || "text-muted-foreground"}`}
                         >
                           [{log.level}]
                         </span>
@@ -131,10 +334,10 @@ export default function ExecutionMonitor() {
                 <div className="flex items-center justify-center py-8">
                   <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
                 </div>
-              ) : messages && messages.length > 0 ? (
+              ) : combinedMessages.length > 0 ? (
                 <div className="space-y-4">
-                  {messages.map((message, index) => (
-                    <div key={message.id} data-testid={`message-${message.id}`}>
+                  {combinedMessages.map((message, index) => (
+                    <div key={message.id || `message-${index}`} data-testid={`message-${message.id || index}`}>
                       {index > 0 && <Separator className="my-4" />}
                       <div className="space-y-2">
                         <div className="flex items-center justify-between">
