@@ -1,5 +1,5 @@
 import type { Express } from "express";
-import { storage } from "./storage";
+import { storage, WorkflowNotFoundError } from "./storage";
 import {
   insertWorkflowSchema,
   insertAgentSchema,
@@ -31,6 +31,29 @@ import { executionRateLimiter } from "./middleware/rate-limiter";
 
 // Execution request schema - only workflowId and input are needed from client
 const executeWorkflowSchema = insertExecutionSchema.pick({ workflowId: true, input: true });
+const updateTemplateSchema = z
+  .object({
+    name: z.string().min(1).max(255).optional(),
+    description: z.string().optional(),
+    category: z.string().optional(),
+    thumbnailUrl: z.string().url().optional().nullable(),
+    featured: z.boolean().optional(),
+  })
+  .strict();
+
+function isTemplateWorkflowUniqueViolation(error: unknown): boolean {
+  if (!error || typeof error !== "object") {
+    return false;
+  }
+
+  const databaseError = error as { code?: unknown; constraint?: unknown; message?: unknown };
+  return (
+    databaseError.code === "23505" &&
+    (databaseError.constraint === "templates_workflow_id_unique" ||
+      databaseError.message ===
+        'duplicate key value violates unique constraint "templates_workflow_id_unique"')
+  );
+}
 
 // Sync Agent records from workflow nodes
 async function syncAgentsFromNodes(workflowId: string, nodes: WorkflowNode[]) {
@@ -813,13 +836,27 @@ export async function registerRoutes(app: Express) {
         return res.status(403).json({ error: "Forbidden" });
       }
 
-      // Mark workflow as template
-      await storage.updateWorkflow(data.workflowId, { isTemplate: true });
+      const existingTemplate = await storage.getTemplateByWorkflowId(data.workflowId);
+      if (existingTemplate) {
+        return res.status(409).json({ error: "Workflow already has a template" });
+      }
 
-      const template = await storage.createTemplate(data);
-      res.json(template);
+      const result = await storage.createTemplateForWorkflow(data);
+      if (!result.created) {
+        return res.status(409).json({ error: "Workflow already has a template" });
+      }
+      res.status(201).json(result.template);
     } catch (error: any) {
-      res.status(400).json({ error: getErrorMessage(error) });
+      if (error.name === "ZodError") {
+        return res.status(400).json({ error: "Invalid input", details: error.issues });
+      }
+      if (error instanceof WorkflowNotFoundError) {
+        return res.status(404).json({ error: "Template workflow not found" });
+      }
+      if (isTemplateWorkflowUniqueViolation(error)) {
+        return res.status(409).json({ error: "Workflow already has a template" });
+      }
+      res.status(500).json({ error: getErrorMessage(error) });
     }
   });
 
@@ -837,16 +874,6 @@ export async function registerRoutes(app: Express) {
       if (!workflow || workflow.userId !== userId) {
         return res.status(403).json({ error: "Forbidden" });
       }
-
-      const updateTemplateSchema = z
-        .object({
-          name: z.string().min(1).max(255).optional(),
-          description: z.string().optional(),
-          category: z.string().optional(),
-          thumbnailUrl: z.string().url().optional().nullable(),
-          featured: z.boolean().optional(),
-        })
-        .strict();
 
       const validated = updateTemplateSchema.parse(req.body);
 
@@ -991,6 +1018,7 @@ export async function registerRoutes(app: Express) {
       });
 
       const workflow = await storage.createWorkflow(workflowData);
+      await syncAgentsFromNodes(workflow.id, workflow.nodes as WorkflowNode[]);
 
       // Increment template usage count
       await storage.updateTemplateUsageCount(req.params.id);
