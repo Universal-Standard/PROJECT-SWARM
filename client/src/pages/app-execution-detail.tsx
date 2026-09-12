@@ -86,9 +86,11 @@ export default function AppExecutionDetail() {
     switch (latestEvent.type) {
       case "log":
         invalidateLogs();
+        invalidateTimeline();
         break;
       case "message":
         invalidateMessages();
+        invalidateTimeline();
         break;
       case "agent_started":
       case "agent_completed":

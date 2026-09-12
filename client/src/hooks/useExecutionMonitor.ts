@@ -96,7 +96,8 @@ export function useExecutionMonitor(
     // Determine WebSocket URL based on current location
     const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
     const host = window.location.host;
-    const wsUrl = `${protocol}//${host}/ws?executionId=${executionId}&userId=${userId}`;
+    const params = new URLSearchParams({ executionId, userId });
+    const wsUrl = `${protocol}//${host}/ws?${params.toString()}`;
 
     console.log("[useExecutionMonitor] Connecting to:", wsUrl);
 

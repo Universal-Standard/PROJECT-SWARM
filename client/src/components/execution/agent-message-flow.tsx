@@ -230,8 +230,19 @@ export function AgentMessageFlow({ messages, agents, autoScroll = true }: AgentM
             <Button
               size="sm"
               variant="outline"
-              onClick={() => setIsReplaying((current) => !current)}
-              disabled={replayIndex >= filteredMessages.length && !isReplaying}
+              onClick={() => {
+                setIsReplaying((current) => {
+                  if (current) {
+                    return false;
+                  }
+
+                  if (replayIndex >= filteredMessages.length) {
+                    setReplayIndex(0);
+                  }
+
+                  return true;
+                });
+              }}
             >
               {isReplaying ? (
                 <>
