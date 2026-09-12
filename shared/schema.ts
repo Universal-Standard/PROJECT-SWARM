@@ -241,6 +241,7 @@ export const workflowVersions = pgTable(
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
     executionCount: integer("execution_count").default(0).notNull(),
+    successCount: integer("success_count").default(0).notNull(),
     successRate: integer("success_rate").default(0).notNull(),
     avgDuration: integer("avg_duration").default(0).notNull(),
     isActive: boolean("is_active").default(false).notNull(),

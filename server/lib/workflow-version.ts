@@ -49,7 +49,12 @@ export class WorkflowVersionManager {
     const nextIsActive = options?.isActive ?? true;
 
     return db.transaction(async (tx) => {
-      await tx.execute(sql`SELECT id FROM workflows WHERE id = ${workflowId} FOR UPDATE`);
+      const workflowLock = await tx.execute(
+        sql`SELECT id FROM workflows WHERE id = ${workflowId} FOR UPDATE`
+      );
+      if (workflowLock.rows.length === 0) {
+        throw new Error("Workflow not found");
+      }
 
       // Get latest version number while workflow lock is held
       const latestVersions = await tx.query.workflowVersions.findMany({
@@ -118,6 +123,7 @@ export class WorkflowVersionManager {
           branchName: options?.branchName ?? latestVersion?.branchName ?? "main",
           name: options?.name ?? `v${newVersionNumber}`,
           executionCount: 0,
+          successCount: 0,
           successRate: 0,
           avgDuration: 0,
           isActive: nextIsActive,
@@ -344,7 +350,7 @@ export class WorkflowVersionManager {
   async updateVersionStats(workflowId: string, success: boolean, duration: number): Promise<void> {
     await db.transaction(async (tx) => {
       const result = await tx.execute(sql`
-        SELECT id, execution_count, success_rate, avg_duration
+        SELECT id, execution_count, success_count, success_rate, avg_duration
         FROM workflow_versions
         WHERE workflow_id = ${workflowId} AND is_active = true
         ORDER BY version DESC
@@ -355,6 +361,7 @@ export class WorkflowVersionManager {
         | {
             id: string;
             execution_count: number | string | null;
+            success_count: number | string | null;
             success_rate: number | string | null;
             avg_duration: number | string | null;
           }
@@ -368,9 +375,7 @@ export class WorkflowVersionManager {
       }
 
       const previousExecutionCount = Number(currentVersion.execution_count ?? 0);
-      const previousSuccesses = Math.round(
-        (Number(currentVersion.success_rate ?? 0) / 100) * previousExecutionCount
-      );
+      const previousSuccesses = Number(currentVersion.success_count ?? 0);
       const previousTotalDuration =
         Number(currentVersion.avg_duration ?? 0) * previousExecutionCount;
 
@@ -383,6 +388,7 @@ export class WorkflowVersionManager {
         .update(workflowVersions)
         .set({
           executionCount,
+          successCount,
           successRate,
           avgDuration,
         })

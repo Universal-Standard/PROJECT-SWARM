@@ -49,7 +49,15 @@ describe("WorkflowVersionManager minimal behaviors", () => {
   it("updates execution stats for the active version", async () => {
     const { db } = await import("../../db");
     const execute = vi.fn().mockResolvedValue({
-      rows: [{ id: versionId, execution_count: 4, success_rate: 75, avg_duration: 4000 }],
+      rows: [
+        {
+          id: versionId,
+          execution_count: 4,
+          success_count: 3,
+          success_rate: 75,
+          avg_duration: 4000,
+        },
+      ],
     });
     const where = vi.fn().mockResolvedValue(undefined);
     const set = vi.fn().mockReturnValue({ where });
@@ -66,6 +74,7 @@ describe("WorkflowVersionManager minimal behaviors", () => {
 
     expect(set).toHaveBeenCalledWith({
       executionCount: 5,
+      successCount: 4,
       successRate: 80,
       avgDuration: 4200,
     });
@@ -74,7 +83,15 @@ describe("WorkflowVersionManager minimal behaviors", () => {
   it("keeps rounded historical success rate stable across updates", async () => {
     const { db } = await import("../../db");
     const execute = vi.fn().mockResolvedValue({
-      rows: [{ id: "ver_round", execution_count: 3, success_rate: 67, avg_duration: 3000 }],
+      rows: [
+        {
+          id: "ver_round",
+          execution_count: 3,
+          success_count: 2,
+          success_rate: 67,
+          avg_duration: 3000,
+        },
+      ],
     });
     const where = vi.fn().mockResolvedValue(undefined);
     const set = vi.fn().mockReturnValue({ where });
@@ -91,6 +108,7 @@ describe("WorkflowVersionManager minimal behaviors", () => {
 
     expect(set).toHaveBeenCalledWith({
       executionCount: 4,
+      successCount: 3,
       successRate: 75,
       avgDuration: 3000,
     });

@@ -5,6 +5,7 @@ ALTER TABLE workflow_versions
   ADD COLUMN IF NOT EXISTS name TEXT,
   ADD COLUMN IF NOT EXISTS tag TEXT,
   ADD COLUMN IF NOT EXISTS execution_count INTEGER NOT NULL DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS success_count INTEGER NOT NULL DEFAULT 0,
   ADD COLUMN IF NOT EXISTS success_rate INTEGER NOT NULL DEFAULT 0,
   ADD COLUMN IF NOT EXISTS avg_duration INTEGER NOT NULL DEFAULT 0;
 
@@ -12,6 +13,10 @@ ALTER TABLE workflow_versions
 UPDATE workflow_versions
 SET branch_name = 'main'
 WHERE branch_name IS NULL;
+
+UPDATE workflow_versions
+SET success_count = ROUND((COALESCE(success_rate, 0)::numeric / 100) * COALESCE(execution_count, 0))
+WHERE success_count = 0 AND execution_count > 0;
 
 DO $$
 BEGIN
