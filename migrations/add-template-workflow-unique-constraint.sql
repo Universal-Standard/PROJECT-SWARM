@@ -1,3 +1,19 @@
+WITH ranked_templates AS (
+  SELECT
+    id,
+    ROW_NUMBER() OVER (
+      PARTITION BY workflow_id
+      ORDER BY created_at ASC, id ASC
+    ) AS duplicate_rank
+  FROM templates
+)
+DELETE FROM templates
+WHERE id IN (
+  SELECT id
+  FROM ranked_templates
+  WHERE duplicate_rank > 1
+);
+
 DO $$
 BEGIN
   IF NOT EXISTS (
