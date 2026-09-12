@@ -21,27 +21,45 @@ interface WorkflowEdge {
 }
 
 export class WorkflowOrchestrator {
+  private readonly activeWorkflowExecutions = new Set<string>();
+
   async executeWorkflow(workflowId: string, input: any): Promise<Execution> {
-    const workflow = await storage.getWorkflowById(workflowId);
-    if (!workflow) {
-      throw new Error("Workflow not found");
+    if (this.activeWorkflowExecutions.has(workflowId)) {
+      throw new Error(`Workflow ${workflowId} is already running`);
     }
 
-    // Validate workflow before execution
-    const validationResult = workflowValidator.validate(workflow);
-    if (!validationResult.valid) {
-      const errorMessages = validationResult.errors.map((e) => e.message).join("; ");
-      throw new Error(`Workflow validation failed: ${errorMessages}`);
+    this.activeWorkflowExecutions.add(workflowId);
+
+    let workflow: Workflow;
+    let agents: Agent[];
+    let execution: Execution;
+
+    try {
+      const foundWorkflow = await storage.getWorkflowById(workflowId);
+      if (!foundWorkflow) {
+        throw new Error("Workflow not found");
+      }
+
+      // Validate workflow before execution
+      const validationResult = workflowValidator.validate(foundWorkflow);
+      if (!validationResult.valid) {
+        const errorMessages = validationResult.errors.map((e) => e.message).join("; ");
+        throw new Error(`Workflow validation failed: ${errorMessages}`);
+      }
+
+      workflow = foundWorkflow;
+      agents = await storage.getAgentsByWorkflowId(workflowId);
+
+      execution = await storage.createExecution({
+        workflowId,
+        userId: workflow.userId,
+        status: "running",
+        input,
+      });
+    } catch (error) {
+      this.activeWorkflowExecutions.delete(workflowId);
+      throw error;
     }
-
-    const agents = await storage.getAgentsByWorkflowId(workflowId);
-
-    const execution = await storage.createExecution({
-      workflowId,
-      userId: workflow.userId,
-      status: "running",
-      input,
-    });
 
     try {
       // Emit execution started event
@@ -244,6 +262,7 @@ export class WorkflowOrchestrator {
       // Emit execution completed event
       wsManager.emitExecutionCompleted(execution.id, { result: finalResult?.content || "" });
 
+      this.activeWorkflowExecutions.delete(workflowId);
       return completedExecution!;
     } catch (error: any) {
       const errorMessage = error.message || "Unknown error occurred";
@@ -273,6 +292,7 @@ export class WorkflowOrchestrator {
         logger.error("Failed to update execution with error status", updateError);
       }
 
+      this.activeWorkflowExecutions.delete(workflowId);
       throw error;
     }
   }
