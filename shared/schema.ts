@@ -108,6 +108,7 @@ export const executions = pgTable("executions", {
   workflowId: varchar("workflow_id")
     .notNull()
     .references(() => workflows.id, { onDelete: "cascade" }),
+  workflowVersionId: varchar("workflow_version_id"),
   userId: varchar("user_id")
     .notNull()
     .references(() => users.id, { onDelete: "cascade" }),

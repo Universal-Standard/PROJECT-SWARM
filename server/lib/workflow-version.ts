@@ -1,6 +1,6 @@
 import { db } from "../db";
 import { workflowVersions, workflows, agents, type WorkflowVersion } from "@shared/schema";
-import { eq, desc, sql } from "drizzle-orm";
+import { eq, desc, sql, and } from "drizzle-orm";
 import type { WorkflowNode, WorkflowEdge } from "../types/workflow";
 import { logger } from "./logger";
 
@@ -105,10 +105,16 @@ export class WorkflowVersionManager {
       }
 
       if (nextIsActive) {
+        const targetBranchName = options?.branchName ?? latestVersion?.branchName ?? "main";
         await tx
           .update(workflowVersions)
           .set({ isActive: false })
-          .where(eq(workflowVersions.workflowId, workflowId));
+          .where(
+            and(
+              eq(workflowVersions.workflowId, workflowId),
+              eq(workflowVersions.branchName, targetBranchName)
+            )
+          );
       }
 
       // Create version
@@ -141,6 +147,27 @@ export class WorkflowVersionManager {
   async getVersions(workflowId: string): Promise<WorkflowVersion[]> {
     return await db.query.workflowVersions.findMany({
       where: eq(workflowVersions.workflowId, workflowId),
+      orderBy: [desc(workflowVersions.version)],
+    });
+  }
+
+  /**
+   * Get active version for a workflow/branch
+   */
+  async getActiveVersion(
+    workflowId: string,
+    branchName?: string
+  ): Promise<WorkflowVersion | undefined> {
+    const whereClause = branchName
+      ? and(
+          eq(workflowVersions.workflowId, workflowId),
+          eq(workflowVersions.isActive, true),
+          eq(workflowVersions.branchName, branchName)
+        )
+      : and(eq(workflowVersions.workflowId, workflowId), eq(workflowVersions.isActive, true));
+
+    return db.query.workflowVersions.findFirst({
+      where: whereClause,
       orderBy: [desc(workflowVersions.version)],
     });
   }
@@ -339,21 +366,20 @@ export class WorkflowVersionManager {
         parentVersionId: sourceVersion.id,
         branchName,
         dataOverride: sourceVersion.data as WorkflowData,
-        isActive: false,
+        isActive: true,
       }
     );
   }
 
   /**
-   * Update version statistics after execution (no-op: stats not stored in schema)
+   * Update version statistics after execution
    */
-  async updateVersionStats(workflowId: string, success: boolean, duration: number): Promise<void> {
+  async updateVersionStats(versionId: string, success: boolean, duration: number): Promise<void> {
     await db.transaction(async (tx) => {
       const result = await tx.execute(sql`
         SELECT id, execution_count, success_count, success_rate, avg_duration
         FROM workflow_versions
-        WHERE workflow_id = ${workflowId} AND is_active = true
-        ORDER BY version DESC
+        WHERE id = ${versionId}
         LIMIT 1
         FOR UPDATE
       `);
@@ -368,8 +394,8 @@ export class WorkflowVersionManager {
         | undefined;
 
       if (!currentVersion) {
-        logger.debug("Skipping version stats update because no active workflow version exists", {
-          workflowId,
+        logger.debug("Skipping version stats update because workflow version was not found", {
+          versionId,
         });
         return;
       }

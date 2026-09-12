@@ -70,7 +70,7 @@ describe("WorkflowVersionManager minimal behaviors", () => {
       } as never);
     });
 
-    await manager.updateVersionStats(workflowId, true, 5000);
+    await manager.updateVersionStats(versionId, true, 5000);
 
     expect(set).toHaveBeenCalledWith({
       executionCount: 5,
@@ -104,7 +104,7 @@ describe("WorkflowVersionManager minimal behaviors", () => {
       } as never);
     });
 
-    await manager.updateVersionStats(workflowId, true, 3000);
+    await manager.updateVersionStats("ver_round", true, 3000);
 
     expect(set).toHaveBeenCalledWith({
       executionCount: 4,
@@ -138,7 +138,7 @@ describe("WorkflowVersionManager minimal behaviors", () => {
       } as never);
     });
 
-    await manager.updateVersionStats(workflowId, false, 1000);
+    await manager.updateVersionStats("ver_fail", false, 1000);
 
     expect(set).toHaveBeenCalledWith({
       executionCount: 3,
@@ -160,7 +160,7 @@ describe("WorkflowVersionManager minimal behaviors", () => {
       } as never);
     });
 
-    await manager.updateVersionStats(workflowId, true, 1000);
+    await manager.updateVersionStats(versionId, true, 1000);
 
     expect(update).not.toHaveBeenCalled();
   });
