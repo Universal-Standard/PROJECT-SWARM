@@ -56,9 +56,11 @@ const {
 } = vi.hoisted(() => ({
   storageMock: {
     getWorkflowById: vi.fn(),
+    getExecutionById: vi.fn(),
     getAgentsByWorkflowId: vi.fn(),
     createExecution: vi.fn(),
     createExecutionIfNotRunning: vi.fn(),
+    updateExecutionStatusIfCurrent: vi.fn(),
     updateExecution: vi.fn(),
     createExecutionLog: vi.fn(),
     getRelevantKnowledge: vi.fn(),
@@ -205,9 +207,14 @@ describe("WorkflowOrchestrator", () => {
     vi.clearAllMocks();
 
     storageMock.getWorkflowById.mockResolvedValue(createWorkflow());
+    storageMock.getExecutionById.mockResolvedValue(createExecution());
     storageMock.getAgentsByWorkflowId.mockResolvedValue(createAgents());
     storageMock.createExecution.mockResolvedValue(createExecution());
     storageMock.createExecutionIfNotRunning.mockResolvedValue(createExecution());
+    storageMock.updateExecutionStatusIfCurrent.mockImplementation(async (_id, _status, patch) => ({
+      ...createExecution(),
+      ...patch,
+    }));
     storageMock.updateExecution.mockImplementation(async (_id, patch) => ({
       ...createExecution(),
       ...patch,
@@ -249,8 +256,9 @@ describe("WorkflowOrchestrator", () => {
       { role: "user", content: "second" },
     ]);
 
-    expect(storageMock.updateExecution).toHaveBeenCalledWith(
+    expect(storageMock.updateExecutionStatusIfCurrent).toHaveBeenCalledWith(
       "exec-1",
+      ["running"],
       expect.objectContaining({
         status: "completed",
         output: { result: "third" },
@@ -284,8 +292,9 @@ describe("WorkflowOrchestrator", () => {
       "provider timeout"
     );
 
-    expect(storageMock.updateExecution).toHaveBeenCalledWith(
+    expect(storageMock.updateExecutionStatusIfCurrent).toHaveBeenCalledWith(
       "exec-1",
+      ["running"],
       expect.objectContaining({
         status: "error",
         error: "provider timeout",
@@ -358,5 +367,23 @@ describe("WorkflowOrchestrator", () => {
     expect(storageMock.createExecutionIfNotRunning).toHaveBeenCalled();
     expect(storageMock.createExecution).not.toHaveBeenCalled();
     expect(aiExecutorMock.executeAgent).not.toHaveBeenCalled();
+  });
+
+  it("returns latest terminal execution when completion transition loses a race", async () => {
+    storageMock.updateExecutionStatusIfCurrent
+      .mockResolvedValueOnce(undefined)
+      .mockResolvedValueOnce(undefined);
+    storageMock.getExecutionById.mockResolvedValue({
+      ...createExecution(),
+      status: "completed",
+      output: { result: "already-finished" },
+    });
+
+    const orchestrator = new WorkflowOrchestrator();
+
+    const result = await orchestrator.executeWorkflow("wf-1", { prompt: "start" });
+
+    expect(result.status).toBe("completed");
+    expect(result.output).toEqual({ result: "already-finished" });
   });
 });

@@ -86,6 +86,11 @@ export interface IStorage {
   getExecutionById(id: string): Promise<Execution | undefined>;
   getExecutionsByWorkflowId(workflowId: string): Promise<Execution[]>;
   getExecutionsByUserId(userId: string): Promise<Execution[]>;
+  updateExecutionStatusIfCurrent(
+    id: string,
+    expectedCurrentStatuses: string[],
+    execution: Partial<InsertExecution>
+  ): Promise<Execution | undefined>;
   updateExecution(id: string, execution: Partial<InsertExecution>): Promise<Execution | undefined>;
   deleteExecution(id: string): Promise<void>;
   deleteExecutionsByUserId(userId: string): Promise<number>;
@@ -340,6 +345,23 @@ export class DatabaseStorage implements IStorage {
       .from(executions)
       .where(eq(executions.userId, userId))
       .orderBy(desc(executions.startedAt));
+  }
+
+  async updateExecutionStatusIfCurrent(
+    id: string,
+    expectedCurrentStatuses: string[],
+    execution: Partial<InsertExecution>
+  ): Promise<Execution | undefined> {
+    if (expectedCurrentStatuses.length === 0) {
+      return undefined;
+    }
+
+    const [updated] = await db
+      .update(executions)
+      .set(execution)
+      .where(and(eq(executions.id, id), inArray(executions.status, expectedCurrentStatuses)))
+      .returning();
+    return updated;
   }
 
   async updateExecution(
