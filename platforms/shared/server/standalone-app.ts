@@ -3,9 +3,9 @@ import session from "express-session";
 import MemoryStore from "memorystore";
 import cors from "cors";
 import crypto from "crypto";
-import { storage } from "../../../server/storage";
+import { doubleCsrf } from "csrf-csrf";
+import { storage, WorkflowNotFoundError } from "../../../server/storage";
 import { orchestrator } from "../../../server/ai/orchestrator";
-import { csrfProtection, generateToken } from "../../../server/middleware/csrf";
 import { workflowValidator } from "../../../server/lib/workflow-validator";
 import { logger } from "../../../server/lib/logger";
 import {
@@ -36,6 +36,23 @@ const updateTemplateSchema = z
     featured: z.boolean().optional(),
   })
   .strict();
+
+const { generateCsrfToken, doubleCsrfProtection } = doubleCsrf({
+  getSecret: () => process.env.SESSION_SECRET || "dev-csrf-secret-not-for-production",
+  getSessionIdentifier: (req: Request) => {
+    const sessionData = (req as { session?: { id?: string } }).session;
+    return sessionData?.id || req.ip || "anonymous";
+  },
+  cookieName: process.env.NODE_ENV === "production" ? "__Host-csrf" : "csrf",
+  cookieOptions: {
+    httpOnly: true,
+    sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+    path: "/",
+  },
+  size: 64,
+  ignoredMethods: ["GET", "HEAD", "OPTIONS"],
+});
 
 function isTemplateWorkflowUniqueViolation(error: unknown): boolean {
   if (!error || typeof error !== "object") {
@@ -169,10 +186,16 @@ export function createStandaloneApp() {
   );
 
   app.get("/api/csrf-token", (req, res) => {
-    const token = generateToken(req, res);
+    const token = generateCsrfToken(req, res);
     res.json({ csrfToken: token });
   });
-  app.use(csrfProtection);
+  app.use((req: Request, res: Response, next: NextFunction) => {
+    if (req.path.startsWith("/api/webhooks/trigger/") || req.path === "/api/csrf-token") {
+      return next();
+    }
+
+    doubleCsrfProtection(req, res, next);
+  });
 
   // Health check
   app.get("/api/health", (req, res) => {
@@ -530,7 +553,7 @@ export function createStandaloneApp() {
       if (err.name === "ZodError") {
         return res.status(400).json({ error: "Invalid input", details: err.issues });
       }
-      if (err.name === "WorkflowNotFoundError") {
+      if (err instanceof WorkflowNotFoundError) {
         return res.status(404).json({ error: "Template workflow not found" });
       }
       if (isTemplateWorkflowUniqueViolation(err)) {

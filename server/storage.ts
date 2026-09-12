@@ -57,7 +57,7 @@ import {
 } from "@shared/schema";
 import { eq, desc, and, or, inArray, gte, lte, sql } from "drizzle-orm";
 
-class WorkflowNotFoundError extends Error {
+export class WorkflowNotFoundError extends Error {
   constructor(message = "Template workflow not found") {
     super(message);
     this.name = "WorkflowNotFoundError";

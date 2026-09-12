@@ -1,5 +1,5 @@
 import type { Express } from "express";
-import { storage } from "./storage";
+import { storage, WorkflowNotFoundError } from "./storage";
 import {
   insertWorkflowSchema,
   insertAgentSchema,
@@ -847,7 +847,7 @@ export async function registerRoutes(app: Express) {
       if (error.name === "ZodError") {
         return res.status(400).json({ error: "Invalid input", details: error.issues });
       }
-      if (error.name === "WorkflowNotFoundError") {
+      if (error instanceof WorkflowNotFoundError) {
         return res.status(404).json({ error: "Template workflow not found" });
       }
       if (isTemplateWorkflowUniqueViolation(error)) {
