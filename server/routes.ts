@@ -842,7 +842,7 @@ export async function registerRoutes(app: Express) {
       }
 
       const template = await storage.createTemplateForWorkflow(data);
-      res.json(template);
+      res.status(201).json(template);
     } catch (error: any) {
       if (error.name === "ZodError") {
         return res.status(400).json({ error: "Invalid input", details: error.issues });
@@ -1015,6 +1015,7 @@ export async function registerRoutes(app: Express) {
       });
 
       const workflow = await storage.createWorkflow(workflowData);
+      await syncAgentsFromNodes(workflow.id, workflow.nodes as WorkflowNode[]);
 
       // Increment template usage count
       await storage.updateTemplateUsageCount(req.params.id);

@@ -548,7 +548,7 @@ export function createStandaloneApp() {
       }
 
       const template = await storage.createTemplateForWorkflow(data);
-      res.json(template);
+      res.status(201).json(template);
     } catch (err: any) {
       if (err.name === "ZodError") {
         return res.status(400).json({ error: "Invalid input", details: err.issues });
@@ -646,6 +646,7 @@ export function createStandaloneApp() {
       });
 
       const workflow = await storage.createWorkflow(workflowData);
+      await syncAgentsFromNodes(workflow.id, workflow.nodes as WorkflowNode[]);
       await storage.updateTemplateUsageCount(req.params.id);
       res.json(workflow);
     } catch (err: any) {
