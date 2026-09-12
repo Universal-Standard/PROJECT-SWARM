@@ -18,12 +18,6 @@ async function migrateGitHubAuth(): Promise<void> {
     try {
       await client.query("BEGIN");
 
-      await client.query(`
-        ALTER TABLE users ADD COLUMN IF NOT EXISTS github_access_token text;
-        ALTER TABLE users ADD COLUMN IF NOT EXISTS github_refresh_token text;
-        ALTER TABLE users ADD COLUMN IF NOT EXISTS github_token_expiry timestamp;
-      `);
-
       const result = await client.query(`
         UPDATE users
         SET github_access_token = NULL,

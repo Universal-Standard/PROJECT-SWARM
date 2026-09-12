@@ -81,6 +81,7 @@ describe("github-oauth token lifecycle", () => {
 
   it("refreshes token using encrypted refresh token", async () => {
     const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
       json: async () => ({
         access_token: "refreshed-access-token",
         refresh_token: "rotated-refresh-token",
@@ -103,5 +104,25 @@ describe("github-oauth token lifecycle", () => {
     const body = JSON.parse(request.body as string);
     expect(body.grant_type).toBe("refresh_token");
     expect(body.refresh_token).toBe("existing-refresh-token");
+  });
+
+  it("returns null on non-JSON refresh response", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: false,
+        json: async () => {
+          throw new Error("invalid json");
+        },
+      })
+    );
+
+    const refreshed = await refreshGitHubToken(
+      createUser({
+        githubRefreshToken: encrypt("existing-refresh-token"),
+      })
+    );
+
+    expect(refreshed).toBeNull();
   });
 });

@@ -180,8 +180,15 @@ export async function refreshGitHubToken(user: User): Promise<{
     }),
   });
 
-  const data = await response.json();
-  if (data.error || !data.access_token) {
+  let data: Record<string, unknown>;
+  try {
+    data = await response.json();
+  } catch {
+    logger.warn("GitHub token refresh returned non-JSON response");
+    return null;
+  }
+
+  if (!response.ok || data.error || !data.access_token) {
     logger.warn("GitHub token refresh failed", data.error || "missing_access_token");
     return null;
   }
@@ -192,8 +199,8 @@ export async function refreshGitHubToken(user: User): Promise<{
       : undefined;
 
   return {
-    accessToken: data.access_token,
-    refreshToken: data.refresh_token || decryptedRefreshToken,
+    accessToken: String(data.access_token),
+    refreshToken: data.refresh_token ? String(data.refresh_token) : decryptedRefreshToken,
     expiresAt,
   };
 }

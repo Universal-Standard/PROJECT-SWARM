@@ -154,7 +154,7 @@ export async function registerRoutes(app: Express) {
         return res.json({ connected: false });
       }
 
-      const hasToken = !!user.githubAccessToken;
+      let hasToken = !!user.githubAccessToken;
       let isExpired = isGitHubTokenExpired(user);
 
       if (hasToken && isExpired) {
@@ -169,6 +169,7 @@ export async function registerRoutes(app: Express) {
           const refreshedUser = await storage.getUser(userId);
           if (refreshedUser) {
             user = refreshedUser;
+            hasToken = !!user.githubAccessToken;
             isExpired = isGitHubTokenExpired(user);
           }
         }
