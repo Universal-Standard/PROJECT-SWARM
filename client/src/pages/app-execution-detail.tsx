@@ -1,4 +1,5 @@
-import { useQuery } from "@tanstack/react-query";
+import { useEffect } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useParams, Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -7,6 +8,9 @@ import { ExecutionMetrics } from "@/components/execution/execution-metrics";
 import { ExecutionTimeline } from "@/components/execution/execution-timeline";
 import { LogViewer } from "@/components/execution/log-viewer";
 import { AgentMessageFlow } from "@/components/execution/agent-message-flow";
+import { AgentCommunicationGraph } from "@/components/execution/agent-communication-graph";
+import { useExecutionMonitor } from "@/hooks/useExecutionMonitor";
+import { useAuth } from "@/hooks/useAuth";
 import type { Execution, ExecutionLog, AgentMessage, Agent } from "@shared/schema";
 
 interface TimelineResponse {
@@ -28,6 +32,8 @@ const formatOutput = (data: any): string => {
 
 export default function AppExecutionDetail() {
   const { id } = useParams<{ id: string }>();
+  const queryClient = useQueryClient();
+  const { user } = useAuth();
 
   const { data: execution, isLoading: executionLoading } = useQuery<Execution>({
     queryKey: ["/api/executions", id],
@@ -35,23 +41,71 @@ export default function AppExecutionDetail() {
 
   const { data: logs, isLoading: logsLoading } = useQuery<ExecutionLog[]>({
     queryKey: [`/api/executions/${id}/logs`],
-    refetchInterval: execution?.status === "running" ? 2000 : false,
   });
 
   const { data: messages, isLoading: messagesLoading } = useQuery<AgentMessage[]>({
     queryKey: [`/api/executions/${id}/messages`],
-    refetchInterval: execution?.status === "running" ? 2000 : false,
   });
 
   const { data: timelineData } = useQuery<TimelineResponse>({
     queryKey: [`/api/executions/${id}/timeline`],
-    refetchInterval: execution?.status === "running" ? 2000 : false,
   });
 
   const { data: agents } = useQuery<Agent[]>({
     queryKey: [`/api/workflows/${execution?.workflowId}/agents`],
     enabled: !!execution?.workflowId,
   });
+
+  const shouldStream = Boolean(id && execution?.status === "running" && user?.id);
+  const { status: monitorStatus } = useExecutionMonitor(
+    shouldStream ? id : null,
+    shouldStream ? (user?.id ?? null) : null,
+    { autoConnect: shouldStream }
+  );
+
+  const latestEvent = monitorStatus.events[monitorStatus.events.length - 1];
+
+  useEffect(() => {
+    if (!id || !latestEvent || latestEvent.executionId !== id) {
+      return;
+    }
+
+    const invalidateExecution = () => {
+      void queryClient.invalidateQueries({ queryKey: ["/api/executions", id] });
+    };
+    const invalidateLogs = () => {
+      void queryClient.invalidateQueries({ queryKey: [`/api/executions/${id}/logs`] });
+    };
+    const invalidateMessages = () => {
+      void queryClient.invalidateQueries({ queryKey: [`/api/executions/${id}/messages`] });
+    };
+    const invalidateTimeline = () => {
+      void queryClient.invalidateQueries({ queryKey: [`/api/executions/${id}/timeline`] });
+    };
+
+    switch (latestEvent.type) {
+      case "log":
+        invalidateLogs();
+        break;
+      case "message":
+        invalidateMessages();
+        break;
+      case "agent_started":
+      case "agent_completed":
+        invalidateLogs();
+        invalidateTimeline();
+        break;
+      case "execution_completed":
+      case "execution_failed":
+        invalidateExecution();
+        invalidateLogs();
+        invalidateMessages();
+        invalidateTimeline();
+        break;
+      default:
+        break;
+    }
+  }, [id, latestEvent, queryClient]);
 
   if (executionLoading) {
     return (
@@ -107,6 +161,7 @@ export default function AppExecutionDetail() {
           <TabsTrigger value="timeline">Timeline</TabsTrigger>
           <TabsTrigger value="logs">Logs</TabsTrigger>
           <TabsTrigger value="messages">Messages</TabsTrigger>
+          <TabsTrigger value="graph">Graph</TabsTrigger>
           <TabsTrigger value="output">Output</TabsTrigger>
         </TabsList>
 
@@ -144,6 +199,16 @@ export default function AppExecutionDetail() {
               agents={agents}
               autoScroll={execution.status === "running"}
             />
+          )}
+        </TabsContent>
+
+        <TabsContent value="graph" className="flex-1 overflow-hidden mt-4">
+          {!agents ? (
+            <div className="flex items-center justify-center h-full">
+              <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+            </div>
+          ) : (
+            <AgentCommunicationGraph messages={messages || []} agents={agents} />
           )}
         </TabsContent>
 

@@ -1,13 +1,21 @@
-import { useState, useMemo, useRef, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Search, Download, Filter } from 'lucide-react';
-import { MessageCard } from './message-card';
-import type { AgentMessage, Agent } from '@shared/schema';
+import { useState, useMemo, useRef, useEffect } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Slider } from "@/components/ui/slider";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Search, Download, Filter, Play, Pause, RotateCcw } from "lucide-react";
+import { MessageCard } from "./message-card";
+import { filterAgentMessages, getReplayMessages } from "./agent-message-flow.utils";
+import type { AgentMessage, Agent } from "@shared/schema";
 
 interface AgentMessageFlowProps {
   messages: AgentMessage[];
@@ -16,52 +24,87 @@ interface AgentMessageFlowProps {
 }
 
 export function AgentMessageFlow({ messages, agents, autoScroll = true }: AgentMessageFlowProps) {
-  const [searchQuery, setSearchQuery] = useState('');
-  const [filterAgent, setFilterAgent] = useState<string>('all');
-  const [filterRole, setFilterRole] = useState<string>('all');
+  const [searchQuery, setSearchQuery] = useState("");
+  const [filterAgent, setFilterAgent] = useState<string>("all");
+  const [filterRole, setFilterRole] = useState<string>("all");
+  const [isReplayMode, setIsReplayMode] = useState(false);
+  const [isReplaying, setIsReplaying] = useState(false);
+  const [replayIndex, setReplayIndex] = useState(0);
+  const [replaySpeed, setReplaySpeed] = useState<"1" | "2" | "4">("1");
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
     if (autoScroll && scrollRef.current) {
-      const scrollElement = scrollRef.current.querySelector('[data-radix-scroll-area-viewport]');
+      const scrollElement = scrollRef.current.querySelector("[data-radix-scroll-area-viewport]");
       if (scrollElement) {
         scrollElement.scrollTop = scrollElement.scrollHeight;
       }
     }
   }, [messages, autoScroll]);
 
-  // Create agent lookup map
   const agentMap = useMemo(() => {
     const map = new Map<string, Agent>();
-    agents.forEach(agent => map.set(agent.id, agent));
+    agents.forEach((agent) => map.set(agent.id, agent));
     return map;
   }, [agents]);
 
-  // Filter and search messages
   const filteredMessages = useMemo(() => {
-    return messages.filter(message => {
-      // Search filter
-      if (searchQuery && !message.content.toLowerCase().includes(searchQuery.toLowerCase())) {
-        return false;
-      }
-
-      // Agent filter
-      if (filterAgent !== 'all' && message.agentId !== filterAgent) {
-        return false;
-      }
-
-      // Role filter
-      if (filterRole !== 'all' && message.role !== filterRole) {
-        return false;
-      }
-
-      return true;
-    });
+    return filterAgentMessages(messages, { searchQuery, filterAgent, filterRole });
   }, [messages, searchQuery, filterAgent, filterRole]);
 
+  useEffect(() => {
+    if (!isReplayMode) {
+      setReplayIndex(filteredMessages.length);
+      setIsReplaying(false);
+      return;
+    }
+
+    setReplayIndex((current) => Math.min(current, filteredMessages.length));
+    if (filteredMessages.length === 0) {
+      setIsReplaying(false);
+    }
+  }, [filteredMessages.length, isReplayMode]);
+
+  useEffect(() => {
+    if (!isReplayMode || !isReplaying) {
+      return;
+    }
+
+    if (replayIndex >= filteredMessages.length) {
+      setIsReplaying(false);
+      return;
+    }
+
+    const speed = Number(replaySpeed);
+    const timeout = window.setTimeout(
+      () => {
+        setReplayIndex((current) => Math.min(current + 1, filteredMessages.length));
+      },
+      Math.max(1000 / speed, 100)
+    );
+
+    return () => window.clearTimeout(timeout);
+  }, [isReplayMode, isReplaying, replayIndex, replaySpeed, filteredMessages.length]);
+
+  const visibleMessages = useMemo(
+    () => getReplayMessages(filteredMessages, isReplayMode, replayIndex),
+    [filteredMessages, isReplayMode, replayIndex]
+  );
+
+  const handleToggleReplayMode = () => {
+    if (isReplayMode) {
+      setIsReplayMode(false);
+      setIsReplaying(false);
+      return;
+    }
+
+    setIsReplayMode(true);
+    setReplayIndex(0);
+    setIsReplaying(false);
+  };
+
   const exportMessages = () => {
-    const data = filteredMessages.map(msg => ({
+    const data = visibleMessages.map((msg) => ({
       timestamp: msg.timestamp,
       agent: agentMap.get(msg.agentId)?.name || msg.agentId,
       role: msg.role,
@@ -69,9 +112,9 @@ export function AgentMessageFlow({ messages, agents, autoScroll = true }: AgentM
       tokenCount: msg.tokenCount,
     }));
 
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
+    const a = document.createElement("a");
     a.href = url;
     a.download = `messages-${Date.now()}.json`;
     document.body.appendChild(a);
@@ -81,23 +124,23 @@ export function AgentMessageFlow({ messages, agents, autoScroll = true }: AgentM
   };
 
   const exportCsv = () => {
-    const headers = ['Timestamp', 'Agent', 'Role', 'Token Count', 'Content'];
-    const rows = filteredMessages.map(msg => [
+    const headers = ["Timestamp", "Agent", "Role", "Token Count", "Content"];
+    const rows = visibleMessages.map((msg) => [
       new Date(msg.timestamp).toISOString(),
       agentMap.get(msg.agentId)?.name || msg.agentId,
       msg.role,
-      msg.tokenCount?.toString() || '',
-      msg.content.replace(/"/g, '""'), // Escape quotes
+      msg.tokenCount?.toString() || "",
+      msg.content.replace(/"/g, '""'),
     ]);
 
     const csv = [
-      headers.join(','),
-      ...rows.map(row => row.map(cell => `"${cell}"`).join(','))
-    ].join('\n');
+      headers.join(","),
+      ...rows.map((row) => row.map((cell) => `"${cell}"`).join(",")),
+    ].join("\n");
 
-    const blob = new Blob([csv], { type: 'text/csv' });
+    const blob = new Blob([csv], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
+    const a = document.createElement("a");
     a.href = url;
     a.download = `messages-${Date.now()}.csv`;
     document.body.appendChild(a);
@@ -112,7 +155,19 @@ export function AgentMessageFlow({ messages, agents, autoScroll = true }: AgentM
         <div className="flex items-center justify-between">
           <CardTitle className="text-lg">Agent Messages</CardTitle>
           <div className="flex items-center gap-2">
-            <Badge variant="secondary">{filteredMessages.length} messages</Badge>
+            <Badge variant="secondary">
+              {isReplayMode
+                ? `${visibleMessages.length}/${filteredMessages.length}`
+                : filteredMessages.length}{" "}
+              messages
+            </Badge>
+            <Button
+              size="sm"
+              variant={isReplayMode ? "default" : "outline"}
+              onClick={handleToggleReplayMode}
+            >
+              Replay
+            </Button>
             <Button size="sm" variant="outline" onClick={exportMessages}>
               <Download className="w-4 h-4 mr-1" />
               JSON
@@ -140,7 +195,7 @@ export function AgentMessageFlow({ messages, agents, autoScroll = true }: AgentM
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All agents</SelectItem>
-              {agents.map(agent => (
+              {agents.map((agent) => (
                 <SelectItem key={agent.id} value={agent.id}>
                   {agent.name}
                 </SelectItem>
@@ -159,27 +214,88 @@ export function AgentMessageFlow({ messages, agents, autoScroll = true }: AgentM
             </SelectContent>
           </Select>
         </div>
+        {isReplayMode && filteredMessages.length > 0 && (
+          <div className="flex flex-wrap items-center gap-3 mt-3">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => {
+                setReplayIndex(0);
+                setIsReplaying(false);
+              }}
+            >
+              <RotateCcw className="w-4 h-4 mr-1" />
+              Reset
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setIsReplaying((current) => !current)}
+              disabled={replayIndex >= filteredMessages.length && !isReplaying}
+            >
+              {isReplaying ? (
+                <>
+                  <Pause className="w-4 h-4 mr-1" />
+                  Pause
+                </>
+              ) : (
+                <>
+                  <Play className="w-4 h-4 mr-1" />
+                  Play
+                </>
+              )}
+            </Button>
+            <div className="flex-1 min-w-[220px]">
+              <Slider
+                value={[replayIndex]}
+                min={0}
+                max={filteredMessages.length}
+                step={1}
+                onValueChange={(value) => setReplayIndex(value[0] ?? 0)}
+              />
+            </div>
+            <Select
+              value={replaySpeed}
+              onValueChange={(value) => setReplaySpeed(value as "1" | "2" | "4")}
+            >
+              <SelectTrigger className="w-[100px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="1">1x</SelectItem>
+                <SelectItem value="2">2x</SelectItem>
+                <SelectItem value="4">4x</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        )}
       </CardHeader>
       <CardContent className="flex-1 overflow-hidden p-0">
         <ScrollArea className="h-full px-6 pb-6" ref={scrollRef}>
-          {filteredMessages.length > 0 ? (
+          {visibleMessages.length > 0 ? (
             <div className="space-y-3">
-              {filteredMessages.map((message, index) => (
+              {visibleMessages.map((message, index) => (
                 <MessageCard
                   key={message.id}
                   message={message}
                   agentName={agentMap.get(message.agentId)?.name}
-                  fromAgentName={message.fromAgentId ? agentMap.get(message.fromAgentId)?.name : undefined}
-                  toAgentName={message.toAgentId ? agentMap.get(message.toAgentId)?.name : undefined}
+                  fromAgentName={
+                    message.fromAgentId ? agentMap.get(message.fromAgentId)?.name : undefined
+                  }
+                  toAgentName={
+                    message.toAgentId ? agentMap.get(message.toAgentId)?.name : undefined
+                  }
                   index={index}
                 />
               ))}
             </div>
           ) : (
             <div className="flex items-center justify-center h-32 text-muted-foreground">
-              {searchQuery || filterAgent !== 'all' || filterRole !== 'all'
-                ? 'No messages match your filters'
-                : 'No messages yet'}
+              {searchQuery || filterAgent !== "all" || filterRole !== "all"
+                ? "No messages match your filters"
+                : isReplayMode
+                  ? "Start replay to view messages"
+                  : "No messages yet"}
             </div>
           )}
         </ScrollArea>
