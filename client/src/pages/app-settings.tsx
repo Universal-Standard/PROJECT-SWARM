@@ -8,6 +8,7 @@ import {
   LogOut,
   Key,
   Trash2,
+  Brain,
   Download,
   Github,
   Check,
@@ -15,7 +16,7 @@ import {
   Eye,
   EyeOff,
 } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -41,6 +42,21 @@ import {
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 
+interface KnowledgeEntry {
+  id: string;
+  agentType: string;
+  category: string;
+  content: string;
+  context?: string | null;
+  confidence: number | null;
+  createdAt: string;
+}
+
+interface KnowledgeMetadata {
+  agentTypes: string[];
+  categories: string[];
+}
+
 export default function AppSettings() {
   const { user, isLoading: authLoading, isAuthenticated } = useAuth();
   const { toast } = useToast();
@@ -56,6 +72,12 @@ export default function AppSettings() {
     anthropic: false,
     gemini: false,
   });
+  const [knowledgeQuery, setKnowledgeQuery] = useState("");
+  const [debouncedKnowledgeQuery, setDebouncedKnowledgeQuery] = useState("");
+  const [knowledgeAgentType, setKnowledgeAgentType] = useState("all");
+  const [knowledgeCategory, setKnowledgeCategory] = useState("all");
+  const [knowledgeMinConfidence, setKnowledgeMinConfidence] = useState("0");
+  const [deletingKnowledgeId, setDeletingKnowledgeId] = useState<string | null>(null);
 
   // Fetch settings
   const { data: settings, isLoading: settingsLoading } = useQuery({
@@ -68,6 +90,82 @@ export default function AppSettings() {
     queryKey: ["/api/auth/github/status"],
     enabled: isAuthenticated,
   });
+
+  const {
+    data: knowledgeEntries = [],
+    isLoading: knowledgeLoading,
+    error: knowledgeError,
+  } = useQuery<KnowledgeEntry[]>({
+    queryKey: [
+      "/api/knowledge",
+      {
+        query: debouncedKnowledgeQuery,
+        agentType: knowledgeAgentType,
+        category: knowledgeCategory,
+        minConfidence: knowledgeMinConfidence,
+      },
+    ],
+    enabled: isAuthenticated,
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      if (debouncedKnowledgeQuery.trim()) params.set("query", debouncedKnowledgeQuery.trim());
+      if (knowledgeAgentType !== "all") params.set("agentType", knowledgeAgentType);
+      if (knowledgeCategory !== "all") params.set("category", knowledgeCategory);
+      if (knowledgeMinConfidence !== "0") params.set("minConfidence", knowledgeMinConfidence);
+      params.set("limit", "100");
+
+      const res = await fetch(`/api/knowledge?${params.toString()}`, {
+        credentials: "include",
+      });
+
+      if (!res.ok) {
+        let errorMessage = "Failed to load knowledge base";
+        try {
+          const errorBody = await res.clone().json();
+          if (errorBody?.error) {
+            errorMessage = errorBody.error;
+          }
+        } catch {
+          const message = await res.text();
+          if (message) errorMessage = message;
+        }
+        throw new Error(errorMessage);
+      }
+
+      return res.json();
+    },
+  });
+
+  useEffect(() => {
+    const timeout = window.setTimeout(() => {
+      setDebouncedKnowledgeQuery(knowledgeQuery);
+    }, 300);
+
+    return () => {
+      window.clearTimeout(timeout);
+    };
+  }, [knowledgeQuery]);
+
+  const { data: knowledgeMetadata } = useQuery<KnowledgeMetadata>({
+    queryKey: ["/api/knowledge/metadata"],
+    enabled: isAuthenticated,
+  });
+
+  const knowledgeAgentTypeOptions = useMemo(() => {
+    const types = new Set(knowledgeMetadata?.agentTypes || []);
+    if (knowledgeAgentType !== "all") {
+      types.add(knowledgeAgentType);
+    }
+    return Array.from(types).sort((a, b) => a.localeCompare(b));
+  }, [knowledgeMetadata, knowledgeAgentType]);
+
+  const knowledgeCategoryOptions = useMemo(() => {
+    const categories = new Set(knowledgeMetadata?.categories || []);
+    if (knowledgeCategory !== "all") {
+      categories.add(knowledgeCategory);
+    }
+    return Array.from(categories).sort((a, b) => a.localeCompare(b));
+  }, [knowledgeMetadata, knowledgeCategory]);
 
   // Update settings mutation
   const updateSettingsMutation = useMutation({
@@ -148,6 +246,31 @@ export default function AppSettings() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/auth/github/status"] });
       toast({ title: "GitHub disconnected successfully" });
+    },
+  });
+
+  const deleteKnowledgeMutation = useMutation({
+    mutationFn: async (id: string) => {
+      await apiRequest("DELETE", `/api/knowledge/${id}`);
+    },
+    onMutate: (id: string) => {
+      setDeletingKnowledgeId(id);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/knowledge"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/knowledge/metadata"] });
+      toast({ title: "Knowledge entry deleted" });
+    },
+    onError: (error: unknown) => {
+      const errorMessage = error instanceof Error ? error.message : "Unknown error";
+      toast({
+        title: "Failed to delete knowledge entry",
+        description: errorMessage,
+        variant: "destructive",
+      });
+    },
+    onSettled: () => {
+      setDeletingKnowledgeId(null);
     },
   });
 
@@ -453,6 +576,132 @@ export default function AppSettings() {
                   }
                 }}
               />
+            </div>
+          </div>
+        </Card>
+
+        {/* Knowledge Base */}
+        <Card className="p-6">
+          <div className="flex items-center gap-3 mb-6">
+            <Brain className="w-5 h-5 text-primary" />
+            <h2 className="text-xl font-semibold">Knowledge Base</h2>
+          </div>
+
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+              <div className="space-y-2">
+                <Label htmlFor="knowledge-search" className="sr-only">
+                  Search knowledge
+                </Label>
+                <Input
+                  id="knowledge-search"
+                  placeholder="Search knowledge..."
+                  value={knowledgeQuery}
+                  onChange={(e) => setKnowledgeQuery(e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="knowledge-agent-type" className="sr-only">
+                  Filter by agent type
+                </Label>
+                <Select value={knowledgeAgentType} onValueChange={setKnowledgeAgentType}>
+                  <SelectTrigger id="knowledge-agent-type">
+                    <SelectValue placeholder="All agent types" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All agent types</SelectItem>
+                    {knowledgeAgentTypeOptions.map((agentType) => (
+                      <SelectItem key={agentType} value={agentType}>
+                        {agentType.charAt(0).toUpperCase() + agentType.slice(1)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="knowledge-category" className="sr-only">
+                  Filter by category
+                </Label>
+                <Select value={knowledgeCategory} onValueChange={setKnowledgeCategory}>
+                  <SelectTrigger id="knowledge-category">
+                    <SelectValue placeholder="All categories" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All categories</SelectItem>
+                    {knowledgeCategoryOptions.map((category) => (
+                      <SelectItem key={category} value={category}>
+                        {category.charAt(0).toUpperCase() + category.slice(1)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="knowledge-min-confidence" className="sr-only">
+                  Filter by minimum confidence
+                </Label>
+                <Select value={knowledgeMinConfidence} onValueChange={setKnowledgeMinConfidence}>
+                  <SelectTrigger id="knowledge-min-confidence">
+                    <SelectValue placeholder="Min confidence" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="0">Any confidence</SelectItem>
+                    <SelectItem value="60">60%+</SelectItem>
+                    <SelectItem value="70">70%+</SelectItem>
+                    <SelectItem value="80">80%+</SelectItem>
+                    <SelectItem value="90">90%+</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="space-y-3 max-h-96 overflow-y-auto pr-1">
+              {knowledgeLoading ? (
+                <div className="text-sm text-muted-foreground">Loading knowledge entries...</div>
+              ) : knowledgeError ? (
+                <div className="text-sm text-destructive">
+                  {knowledgeError instanceof Error
+                    ? knowledgeError.message
+                    : "Failed to load knowledge entries."}
+                </div>
+              ) : knowledgeEntries.length === 0 ? (
+                <div className="text-sm text-muted-foreground">
+                  No knowledge entries found for the selected filters.
+                </div>
+              ) : (
+                knowledgeEntries.map((entry) => (
+                  <div key={entry.id} className="border rounded-lg p-3 space-y-2">
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="space-y-1">
+                        <div className="text-sm font-medium">{entry.content}</div>
+                        {entry.context && (
+                          <div className="text-xs text-muted-foreground">{entry.context}</div>
+                        )}
+                      </div>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        onClick={() => deleteKnowledgeMutation.mutate(entry.id)}
+                        disabled={
+                          deleteKnowledgeMutation.isPending && deletingKnowledgeId === entry.id
+                        }
+                        aria-label="Delete knowledge entry"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    </div>
+                    <div className="text-xs text-muted-foreground flex flex-wrap items-center gap-2">
+                      <span className="capitalize">{entry.agentType}</span>
+                      <span>•</span>
+                      <span className="capitalize">{entry.category}</span>
+                      <span>•</span>
+                      <span>{entry.confidence ?? 0}% confidence</span>
+                      <span>•</span>
+                      <span>{new Date(entry.createdAt).toLocaleString()}</span>
+                    </div>
+                  </div>
+                ))
+              )}
             </div>
           </div>
         </Card>

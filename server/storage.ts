@@ -57,6 +57,10 @@ import {
 } from "@shared/schema";
 import { eq, desc, and, or, inArray, gte, lte, sql } from "drizzle-orm";
 
+function isNonEmptyString(value: string | null): value is string {
+  return typeof value === "string" && value.length > 0;
+}
+
 export interface IStorage {
   // Users (Replit Auth)
   getUser(id: string): Promise<User | undefined>;
@@ -126,8 +130,20 @@ export interface IStorage {
   // Knowledge Base
   createKnowledgeEntry(entry: InsertKnowledgeEntry): Promise<KnowledgeEntry>;
   getKnowledgeByUserId(userId: string): Promise<KnowledgeEntry[]>;
+  getKnowledgeMetadata(userId: string): Promise<{ agentTypes: string[]; categories: string[] }>;
   getKnowledgeByAgentType(userId: string, agentType: string): Promise<KnowledgeEntry[]>;
   getKnowledgeByCategory(userId: string, category: string): Promise<KnowledgeEntry[]>;
+  searchKnowledge(
+    userId: string,
+    filters?: {
+      agentType?: string;
+      category?: string;
+      query?: string;
+      minConfidence?: number;
+      limit?: number;
+    }
+  ): Promise<KnowledgeEntry[]>;
+  deleteKnowledgeEntry(userId: string, id: string): Promise<boolean>;
   getRelevantKnowledge(
     userId: string,
     agentType: string,
@@ -489,6 +505,43 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(knowledgeEntries.createdAt));
   }
 
+  async getKnowledgeMetadata(
+    userId: string
+  ): Promise<{ agentTypes: string[]; categories: string[] }> {
+    const normalizedAgentType = sql<string>`trim(${knowledgeEntries.agentType})`;
+    const normalizedCategory = sql<string>`trim(${knowledgeEntries.category})`;
+
+    const [agentTypeRows, categoryRows] = await Promise.all([
+      db
+        .select({ value: normalizedAgentType })
+        .from(knowledgeEntries)
+        .where(
+          and(
+            eq(knowledgeEntries.userId, userId),
+            sql`nullif(${normalizedAgentType}, '') is not null`
+          )
+        )
+        .groupBy(normalizedAgentType)
+        .orderBy(normalizedAgentType),
+      db
+        .select({ value: normalizedCategory })
+        .from(knowledgeEntries)
+        .where(
+          and(
+            eq(knowledgeEntries.userId, userId),
+            sql`nullif(${normalizedCategory}, '') is not null`
+          )
+        )
+        .groupBy(normalizedCategory)
+        .orderBy(normalizedCategory),
+    ]);
+
+    return {
+      agentTypes: agentTypeRows.map((row) => row.value).filter(isNonEmptyString),
+      categories: categoryRows.map((row) => row.value).filter(isNonEmptyString),
+    };
+  }
+
   async getKnowledgeByAgentType(userId: string, agentType: string): Promise<KnowledgeEntry[]> {
     return await db
       .select()
@@ -503,6 +556,58 @@ export class DatabaseStorage implements IStorage {
       .from(knowledgeEntries)
       .where(and(eq(knowledgeEntries.userId, userId), eq(knowledgeEntries.category, category)))
       .orderBy(desc(knowledgeEntries.confidence), desc(knowledgeEntries.createdAt));
+  }
+
+  async searchKnowledge(
+    userId: string,
+    filters: {
+      agentType?: string;
+      category?: string;
+      query?: string;
+      minConfidence?: number;
+      limit?: number;
+    } = {}
+  ): Promise<KnowledgeEntry[]> {
+    const conditions = [eq(knowledgeEntries.userId, userId)];
+
+    if (filters.agentType) {
+      conditions.push(eq(knowledgeEntries.agentType, filters.agentType));
+    }
+
+    if (filters.category) {
+      conditions.push(eq(knowledgeEntries.category, filters.category));
+    }
+
+    if (typeof filters.minConfidence === "number") {
+      conditions.push(gte(knowledgeEntries.confidence, filters.minConfidence));
+    }
+
+    if (filters.query?.trim()) {
+      const searchTerm = `%${filters.query.trim().toLowerCase()}%`;
+      conditions.push(
+        or(
+          sql`lower(${knowledgeEntries.content}) like ${searchTerm}`,
+          sql`lower(coalesce(${knowledgeEntries.context}, '')) like ${searchTerm}`
+        )!
+      );
+    }
+
+    const limit = Math.min(Math.max(filters.limit ?? 50, 1), 200);
+
+    return await db
+      .select()
+      .from(knowledgeEntries)
+      .where(and(...conditions))
+      .orderBy(desc(knowledgeEntries.confidence), desc(knowledgeEntries.createdAt))
+      .limit(limit);
+  }
+
+  async deleteKnowledgeEntry(userId: string, id: string): Promise<boolean> {
+    const deleted = await db
+      .delete(knowledgeEntries)
+      .where(and(eq(knowledgeEntries.id, id), eq(knowledgeEntries.userId, userId)))
+      .returning({ id: knowledgeEntries.id });
+    return deleted.length > 0;
   }
 
   async getRelevantKnowledge(
