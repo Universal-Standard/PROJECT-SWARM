@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import type { Template } from "@shared/schema";
 import {
+  ALL_TEMPLATE_CATEGORY_FILTER,
   computeTemplateAnalytics,
+  encodeTemplateCategoryFilter,
   filterTemplates,
   getTemplateCategories,
 } from "@/pages/app-templates.utils";
@@ -50,7 +52,7 @@ describe("app templates utils", () => {
   it("filters by search term, category, and featured flag", () => {
     const filtered = filterTemplates(templates, {
       searchTerm: "support",
-      categoryFilter: "support",
+      categoryFilter: encodeTemplateCategoryFilter("support"),
       showFeaturedOnly: true,
     });
 
@@ -58,7 +60,7 @@ describe("app templates utils", () => {
   });
 
   it("returns sorted unique category list with all option", () => {
-    expect(getTemplateCategories(templates)).toEqual(["all", "sales", "support"]);
+    expect(getTemplateCategories(templates)).toEqual(["sales", "support"]);
   });
 
   it("computes usage, featured count, and top category", () => {
@@ -82,7 +84,7 @@ describe("app templates utils", () => {
     expect(
       filterTemplates(withBlankCategory, {
         searchTerm: "",
-        categoryFilter: "all",
+        categoryFilter: ALL_TEMPLATE_CATEGORY_FILTER,
         showFeaturedOnly: false,
       })
     ).toHaveLength(4);
@@ -106,14 +108,40 @@ describe("app templates utils", () => {
       }),
     ];
 
-    expect(getTemplateCategories(mixedCaseTemplates)).toEqual(["all", "support"]);
+    expect(getTemplateCategories(mixedCaseTemplates)).toEqual(["support"]);
     expect(
       filterTemplates(mixedCaseTemplates, {
         searchTerm: "",
-        categoryFilter: "SUPPORT",
+        categoryFilter: encodeTemplateCategoryFilter("SUPPORT"),
         showFeaturedOnly: false,
       })
     ).toHaveLength(2);
     expect(computeTemplateAnalytics(mixedCaseTemplates).topCategory).toBe("support");
+  });
+
+  it("keeps the all category distinct from the all-categories filter", () => {
+    const allCategoryTemplates = [
+      createTemplate({
+        id: "t-7",
+        workflowId: "w-7",
+        name: "All Hands",
+        category: "all",
+      }),
+      createTemplate({
+        id: "t-8",
+        workflowId: "w-8",
+        name: "General Purpose",
+        category: "general",
+      }),
+    ];
+
+    expect(getTemplateCategories(allCategoryTemplates)).toEqual(["all", "general"]);
+    expect(
+      filterTemplates(allCategoryTemplates, {
+        searchTerm: "",
+        categoryFilter: encodeTemplateCategoryFilter("all"),
+        showFeaturedOnly: false,
+      }).map((template) => template.id)
+    ).toEqual(["t-7"]);
   });
 });

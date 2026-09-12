@@ -20,7 +20,9 @@ import {
 import { LayoutTemplate, Star, Download, Plus, Search, Eye, Pencil, Sparkles } from "lucide-react";
 import type { Template, Workflow } from "@shared/schema";
 import {
+  ALL_TEMPLATE_CATEGORY_FILTER,
   computeTemplateAnalytics,
+  encodeTemplateCategoryFilter,
   filterTemplates,
   getTemplateCategories,
 } from "@/pages/app-templates.utils";
@@ -51,7 +53,7 @@ export default function AppTemplates() {
   const { toast } = useToast();
 
   const [searchTerm, setSearchTerm] = useState("");
-  const [categoryFilter, setCategoryFilter] = useState("all");
+  const [categoryFilter, setCategoryFilter] = useState(ALL_TEMPLATE_CATEGORY_FILTER);
   const [showFeaturedOnly, setShowFeaturedOnly] = useState(false);
 
   const [selectedWorkflowId, setSelectedWorkflowId] = useState("");
@@ -114,16 +116,10 @@ export default function AppTemplates() {
       return;
     }
 
-    if (!newTemplateName.trim()) {
-      setNewTemplateName(workflow.name);
-    }
-    if (!newTemplateDescription.trim() && workflow.description) {
-      setNewTemplateDescription(workflow.description);
-    }
-    if (!newTemplateCategory.trim() || newTemplateCategory === "general") {
-      setNewTemplateCategory(workflow.category || "general");
-    }
-  }, [selectedWorkflowId, workflows, newTemplateName, newTemplateDescription, newTemplateCategory]);
+    setNewTemplateName(workflow.name);
+    setNewTemplateDescription(workflow.description || "");
+    setNewTemplateCategory(workflow.category || "general");
+  }, [selectedWorkflowId, workflows]);
 
   const categories = useMemo(() => getTemplateCategories(templates || []), [templates]);
 
@@ -223,7 +219,7 @@ export default function AppTemplates() {
       await queryClient.invalidateQueries({ queryKey: ["/api/workflows"] });
       toast({
         title: "Workflow created",
-        description: `Created \"${workflow.name}\" from template.`,
+        description: `Created "${workflow.name}" from template.`,
       });
       setLocation(`/app/workflow-builder/${workflow.id}`);
     },
@@ -387,6 +383,7 @@ export default function AppTemplates() {
             <Input
               value={searchTerm}
               onChange={(event) => setSearchTerm(event.target.value)}
+              aria-label="Search templates"
               placeholder="Search templates"
               className="pl-9"
             />
@@ -396,9 +393,10 @@ export default function AppTemplates() {
               <SelectValue placeholder="Filter by category" />
             </SelectTrigger>
             <SelectContent>
+              <SelectItem value={ALL_TEMPLATE_CATEGORY_FILTER}>All categories</SelectItem>
               {categories.map((category) => (
-                <SelectItem key={category} value={category}>
-                  {category === "all" ? "All categories" : category}
+                <SelectItem key={category} value={encodeTemplateCategoryFilter(category)}>
+                  {category}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -464,15 +462,21 @@ export default function AppTemplates() {
 
                 {isEditing ? (
                   <div className="space-y-3 mb-4">
-                    <Input value={editName} onChange={(event) => setEditName(event.target.value)} />
+                    <Input
+                      value={editName}
+                      onChange={(event) => setEditName(event.target.value)}
+                      aria-label="Template name"
+                    />
                     <Input
                       value={editDescription}
                       onChange={(event) => setEditDescription(event.target.value)}
+                      aria-label="Template description"
                       placeholder="Description"
                     />
                     <Input
                       value={editCategory}
                       onChange={(event) => setEditCategory(event.target.value)}
+                      aria-label="Template category"
                       placeholder="Category"
                     />
                     <div className="flex items-center gap-2">

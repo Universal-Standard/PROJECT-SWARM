@@ -1,5 +1,8 @@
 import type { Template } from "@shared/schema";
 
+export const ALL_TEMPLATE_CATEGORY_FILTER = "__all_categories__";
+const TEMPLATE_CATEGORY_FILTER_PREFIX = "category:";
+
 export interface TemplateFilterOptions {
   searchTerm: string;
   categoryFilter: string;
@@ -12,6 +15,10 @@ export interface TemplateAnalytics {
   topCategory: string;
 }
 
+export function encodeTemplateCategoryFilter(category: string): string {
+  return `${TEMPLATE_CATEGORY_FILTER_PREFIX}${category}`;
+}
+
 export function getTemplateCategories(templates: Template[]): string[] {
   const categorySet = new Set<string>();
 
@@ -22,7 +29,7 @@ export function getTemplateCategories(templates: Template[]): string[] {
     }
   });
 
-  return ["all", ...Array.from(categorySet).sort()];
+  return Array.from(categorySet).sort();
 }
 
 export function filterTemplates(
@@ -30,7 +37,12 @@ export function filterTemplates(
   { searchTerm, categoryFilter, showFeaturedOnly }: TemplateFilterOptions
 ): Template[] {
   const normalizedSearch = searchTerm.trim().toLowerCase();
-  const normalizedCategoryFilter = categoryFilter.trim().toLowerCase();
+  const normalizedCategoryFilter =
+    categoryFilter === ALL_TEMPLATE_CATEGORY_FILTER
+      ? null
+      : categoryFilter.startsWith(TEMPLATE_CATEGORY_FILTER_PREFIX)
+        ? categoryFilter.slice(TEMPLATE_CATEGORY_FILTER_PREFIX.length).trim().toLowerCase()
+        : categoryFilter.trim().toLowerCase();
 
   return templates.filter((template) => {
     const normalizedCategory = (template.category || "").trim().toLowerCase();
@@ -40,7 +52,7 @@ export function filterTemplates(
       (template.description || "").toLowerCase().includes(normalizedSearch) ||
       normalizedCategory.includes(normalizedSearch);
     const matchesCategory =
-      normalizedCategoryFilter === "all" || normalizedCategory === normalizedCategoryFilter;
+      normalizedCategoryFilter === null || normalizedCategory === normalizedCategoryFilter;
     const matchesFeatured = !showFeaturedOnly || template.featured;
 
     return matchesSearch && matchesCategory && matchesFeatured;
