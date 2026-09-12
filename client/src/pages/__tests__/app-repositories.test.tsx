@@ -1,3 +1,4 @@
+import "@testing-library/jest-dom/vitest";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -151,14 +152,14 @@ describe("AppRepositories", () => {
 
     renderPage();
 
-    expect(await screen.findByText("Repositories")).toBeInTheDocument();
-    expect(await screen.findByText("octo/demo")).toBeInTheDocument();
-    expect(await screen.findByText("feat: initial commit")).toBeInTheDocument();
-    expect(await screen.findByText("Add repository editor")).toBeInTheDocument();
-    expect(await screen.findByText("https://example.com/webhook")).toBeInTheDocument();
+    expect(await screen.findByText("Repositories")).toBeTruthy();
+    expect(await screen.findByText("octo/demo")).toBeTruthy();
+    expect(await screen.findByText("feat: initial commit")).toBeTruthy();
+    expect(await screen.findByRole("button", { name: /run review/i })).toBeTruthy();
+    expect(await screen.findByText("https://example.com/webhook")).toBeTruthy();
 
     fireEvent.click(await screen.findByText("README.md"));
-    expect(await screen.findByDisplayValue("Hello repo!")).toBeInTheDocument();
+    expect(await screen.findByDisplayValue("Hello repo!")).toBeTruthy();
 
     fireEvent.change(screen.getByTestId("repository-file-editor"), {
       target: { value: "Hello repo! Updated." },
@@ -181,7 +182,7 @@ describe("AppRepositories", () => {
 
     renderPage();
 
-    expect(await screen.findByText("octo/demo")).toBeInTheDocument();
+    expect(await screen.findByText("octo/demo")).toBeTruthy();
 
     fireEvent.change(screen.getByLabelText("Create branch from current branch"), {
       target: { value: "feature/new-branch" },
@@ -189,14 +190,10 @@ describe("AppRepositories", () => {
     fireEvent.click(screen.getByTestId("button-create-branch"));
 
     await waitFor(() => {
-      expect(apiRequest).toHaveBeenCalledWith(
-        "POST",
-        "/api/github/repos/octo/demo/branches",
-        {
-          name: "feature/new-branch",
-          fromBranch: "main",
-        }
-      );
+      expect(apiRequest).toHaveBeenCalledWith("POST", "/api/github/repos/octo/demo/branches", {
+        name: "feature/new-branch",
+        fromBranch: "main",
+      });
     });
   });
 });
