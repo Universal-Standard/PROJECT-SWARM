@@ -9,6 +9,7 @@ import {
   boolean,
   index,
   foreignKey,
+  uniqueIndex,
 } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
@@ -247,6 +248,7 @@ export const workflowVersions = pgTable(
   },
   (table) => [
     index("idx_workflow_versions").on(table.workflowId, table.version.desc()),
+    uniqueIndex("idx_workflow_versions_unique_version").on(table.workflowId, table.version),
     index("idx_workflow_versions_branch").on(
       table.workflowId,
       table.branchName,

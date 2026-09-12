@@ -29,6 +29,9 @@ BEGIN
 END $$;
 
 -- Helpful indexes for version browsing
+CREATE UNIQUE INDEX IF NOT EXISTS idx_workflow_versions_unique_version
+  ON workflow_versions(workflow_id, version);
+
 CREATE INDEX IF NOT EXISTS idx_workflow_versions_branch
   ON workflow_versions(workflow_id, branch_name, version DESC);
 

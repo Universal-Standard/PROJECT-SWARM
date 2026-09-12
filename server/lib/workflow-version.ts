@@ -1,12 +1,6 @@
 import { db } from "../db";
-import {
-  workflowVersions,
-  workflows,
-  agents,
-  type WorkflowVersion,
-  type InsertWorkflowVersion,
-} from "@shared/schema";
-import { eq, desc, and } from "drizzle-orm";
+import { workflowVersions, workflows, agents, type WorkflowVersion } from "@shared/schema";
+import { eq, desc, sql } from "drizzle-orm";
 import type { WorkflowNode, WorkflowEdge } from "../types/workflow";
 import { logger } from "./logger";
 
@@ -51,83 +45,88 @@ export class WorkflowVersionManager {
     commitMessage?: string,
     options?: CreateVersionOptions
   ): Promise<WorkflowVersion> {
-    // Get latest version number
-    const latestVersions = await db.query.workflowVersions.findMany({
-      where: eq(workflowVersions.workflowId, workflowId),
-      orderBy: [desc(workflowVersions.version)],
-      limit: 1,
-    });
-
-    const latestVersion = latestVersions[0];
-    const newVersionNumber = (latestVersion?.version || 0) + 1;
-
     let workflowData = options?.dataOverride;
-    if (!workflowData) {
-      // Get current workflow data
-      const workflow = await db.query.workflows.findFirst({
-        where: eq(workflows.id, workflowId),
+    const nextIsActive = options?.isActive ?? true;
+
+    return db.transaction(async (tx) => {
+      await tx.execute(sql`SELECT id FROM workflows WHERE id = ${workflowId} FOR UPDATE`);
+
+      // Get latest version number while workflow lock is held
+      const latestVersions = await tx.query.workflowVersions.findMany({
+        where: eq(workflowVersions.workflowId, workflowId),
+        orderBy: [desc(workflowVersions.version)],
+        limit: 1,
       });
 
-      if (!workflow) {
-        throw new Error("Workflow not found");
+      const latestVersion = latestVersions[0];
+      const newVersionNumber = (latestVersion?.version || 0) + 1;
+
+      if (!workflowData) {
+        // Get current workflow data
+        const workflow = await tx.query.workflows.findFirst({
+          where: eq(workflows.id, workflowId),
+        });
+
+        if (!workflow) {
+          throw new Error("Workflow not found");
+        }
+
+        // Get workflow agents
+        const workflowAgents = await tx.query.agents.findMany({
+          where: eq(agents.workflowId, workflowId),
+        });
+
+        // Prepare workflow data
+        workflowData = {
+          nodes: workflow.nodes as WorkflowNode[],
+          edges: workflow.edges as WorkflowEdge[],
+          agents: workflowAgents.map((agent) => ({
+            id: agent.id,
+            name: agent.name,
+            role: agent.role,
+            description: agent.description,
+            provider: agent.provider,
+            model: agent.model,
+            systemPrompt: agent.systemPrompt,
+            temperature: agent.temperature,
+            maxTokens: agent.maxTokens,
+            capabilities: agent.capabilities,
+            nodeId: agent.nodeId,
+            position: agent.position,
+          })),
+          name: workflow.name,
+          description: workflow.description,
+        };
       }
 
-      // Get workflow agents
-      const workflowAgents = await db.query.agents.findMany({
-        where: eq(agents.workflowId, workflowId),
-      });
+      if (nextIsActive) {
+        await tx
+          .update(workflowVersions)
+          .set({ isActive: false })
+          .where(eq(workflowVersions.workflowId, workflowId));
+      }
 
-      // Prepare workflow data
-      workflowData = {
-        nodes: workflow.nodes as WorkflowNode[],
-        edges: workflow.edges as WorkflowEdge[],
-        agents: workflowAgents.map((agent) => ({
-          id: agent.id,
-          name: agent.name,
-          role: agent.role,
-          description: agent.description,
-          provider: agent.provider,
-          model: agent.model,
-          systemPrompt: agent.systemPrompt,
-          temperature: agent.temperature,
-          maxTokens: agent.maxTokens,
-          capabilities: agent.capabilities,
-          nodeId: agent.nodeId,
-          position: agent.position,
-        })),
-        name: workflow.name,
-        description: workflow.description,
-      };
-    }
+      // Create version
+      const [version] = await tx
+        .insert(workflowVersions)
+        .values({
+          workflowId,
+          userId,
+          version: newVersionNumber,
+          commitMessage: commitMessage || `Version ${newVersionNumber}`,
+          parentVersionId: options?.parentVersionId ?? latestVersion?.id ?? null,
+          branchName: options?.branchName ?? latestVersion?.branchName ?? "main",
+          name: options?.name ?? `v${newVersionNumber}`,
+          executionCount: 0,
+          successRate: 0,
+          avgDuration: 0,
+          isActive: nextIsActive,
+          data: workflowData as unknown,
+        })
+        .returning();
 
-    const nextIsActive = options?.isActive ?? true;
-    if (nextIsActive) {
-      await db
-        .update(workflowVersions)
-        .set({ isActive: false })
-        .where(eq(workflowVersions.workflowId, workflowId));
-    }
-
-    // Create version
-    const [version] = await db
-      .insert(workflowVersions)
-      .values({
-        workflowId,
-        userId,
-        version: newVersionNumber,
-        commitMessage: commitMessage || `Version ${newVersionNumber}`,
-        parentVersionId: options?.parentVersionId ?? latestVersion?.id ?? null,
-        branchName: options?.branchName ?? latestVersion?.branchName ?? "main",
-        name: options?.name ?? `v${newVersionNumber}`,
-        executionCount: 0,
-        successRate: 0,
-        avgDuration: 0,
-        isActive: nextIsActive,
-        data: workflowData as unknown,
-      })
-      .returning();
-
-    return version;
+      return version;
+    });
   }
 
   /**
@@ -343,38 +342,52 @@ export class WorkflowVersionManager {
    * Update version statistics after execution (no-op: stats not stored in schema)
    */
   async updateVersionStats(workflowId: string, success: boolean, duration: number): Promise<void> {
-    const activeVersions = await db.query.workflowVersions.findMany({
-      where: and(eq(workflowVersions.workflowId, workflowId), eq(workflowVersions.isActive, true)),
-      orderBy: [desc(workflowVersions.version)],
-      limit: 1,
+    await db.transaction(async (tx) => {
+      const result = await tx.execute(sql`
+        SELECT id, execution_count, success_rate, avg_duration
+        FROM workflow_versions
+        WHERE workflow_id = ${workflowId} AND is_active = true
+        ORDER BY version DESC
+        LIMIT 1
+        FOR UPDATE
+      `);
+      const currentVersion = result.rows[0] as
+        | {
+            id: string;
+            execution_count: number | string | null;
+            success_rate: number | string | null;
+            avg_duration: number | string | null;
+          }
+        | undefined;
+
+      if (!currentVersion) {
+        logger.debug("Skipping version stats update because no active workflow version exists", {
+          workflowId,
+        });
+        return;
+      }
+
+      const previousExecutionCount = Number(currentVersion.execution_count ?? 0);
+      const previousSuccesses = Math.round(
+        (Number(currentVersion.success_rate ?? 0) / 100) * previousExecutionCount
+      );
+      const previousTotalDuration =
+        Number(currentVersion.avg_duration ?? 0) * previousExecutionCount;
+
+      const executionCount = previousExecutionCount + 1;
+      const successCount = previousSuccesses + (success ? 1 : 0);
+      const successRate = Math.round((successCount / executionCount) * 100);
+      const avgDuration = Math.round((previousTotalDuration + duration) / executionCount);
+
+      await tx
+        .update(workflowVersions)
+        .set({
+          executionCount,
+          successRate,
+          avgDuration,
+        })
+        .where(eq(workflowVersions.id, String(currentVersion.id)));
     });
-    const currentVersion = activeVersions[0];
-    if (!currentVersion) {
-      logger.debug("Skipping version stats update because no workflow version exists", {
-        workflowId,
-      });
-      return;
-    }
-
-    const previousExecutionCount = currentVersion.executionCount ?? 0;
-    const previousSuccesses = Math.round(
-      ((currentVersion.successRate ?? 0) / 100) * previousExecutionCount
-    );
-    const previousTotalDuration = (currentVersion.avgDuration ?? 0) * previousExecutionCount;
-
-    const executionCount = previousExecutionCount + 1;
-    const successCount = previousSuccesses + (success ? 1 : 0);
-    const successRate = Math.round((successCount / executionCount) * 100);
-    const avgDuration = Math.round((previousTotalDuration + duration) / executionCount);
-
-    await db
-      .update(workflowVersions)
-      .set({
-        executionCount,
-        successRate,
-        avgDuration,
-      })
-      .where(eq(workflowVersions.id, currentVersion.id));
   }
 
   /**

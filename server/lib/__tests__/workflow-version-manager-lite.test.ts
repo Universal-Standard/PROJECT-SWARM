@@ -4,9 +4,16 @@ import { WorkflowVersionManager } from "../workflow-version";
 vi.mock("../../db", () => ({
   db: {
     update: vi.fn(),
+    transaction: vi.fn(),
     query: {
       workflowVersions: {
         findFirst: vi.fn(),
+        findMany: vi.fn(),
+      },
+      workflows: {
+        findFirst: vi.fn(),
+      },
+      agents: {
         findMany: vi.fn(),
       },
     },
@@ -39,22 +46,21 @@ describe("WorkflowVersionManager minimal behaviors", () => {
     expect(set).toHaveBeenCalledWith({ tag: null });
   });
 
-  it("updates execution stats on latest version", async () => {
+  it("updates execution stats for the active version", async () => {
     const { db } = await import("../../db");
-    vi.mocked(db.query.workflowVersions.findMany).mockResolvedValueOnce([
-      {
-        id: versionId,
-        workflowId,
-        version: 2,
-        executionCount: 4,
-        successRate: 75,
-        avgDuration: 4000,
-      },
-    ] as never);
-
+    const execute = vi.fn().mockResolvedValue({
+      rows: [{ id: versionId, execution_count: 4, success_rate: 75, avg_duration: 4000 }],
+    });
     const where = vi.fn().mockResolvedValue(undefined);
     const set = vi.fn().mockReturnValue({ where });
-    vi.mocked(db.update).mockReturnValue({ set } as never);
+    const update = vi.fn().mockReturnValue({ set });
+
+    vi.mocked(db.transaction).mockImplementation(async (callback) => {
+      return callback({
+        execute,
+        update,
+      } as never);
+    });
 
     await manager.updateVersionStats(workflowId, true, 5000);
 
@@ -65,31 +71,28 @@ describe("WorkflowVersionManager minimal behaviors", () => {
     });
   });
 
-  it("only updates the active version when a newer inactive version exists", async () => {
+  it("keeps rounded historical success rate stable across updates", async () => {
     const { db } = await import("../../db");
-    vi.mocked(db.query.workflowVersions.findMany).mockResolvedValueOnce([
-      {
-        id: "ver_active",
-        workflowId,
-        version: 2,
-        isActive: true,
-        executionCount: 1,
-        successRate: 100,
-        avgDuration: 3000,
-      },
-    ] as never);
-
+    const execute = vi.fn().mockResolvedValue({
+      rows: [{ id: "ver_round", execution_count: 3, success_rate: 67, avg_duration: 3000 }],
+    });
     const where = vi.fn().mockResolvedValue(undefined);
     const set = vi.fn().mockReturnValue({ where });
-    vi.mocked(db.update).mockReturnValue({ set } as never);
+    const update = vi.fn().mockReturnValue({ set });
 
-    await manager.updateVersionStats(workflowId, false, 1000);
+    vi.mocked(db.transaction).mockImplementation(async (callback) => {
+      return callback({
+        execute,
+        update,
+      } as never);
+    });
 
-    expect(where).toHaveBeenCalled();
+    await manager.updateVersionStats(workflowId, true, 3000);
+
     expect(set).toHaveBeenCalledWith({
-      executionCount: 2,
-      successRate: 50,
-      avgDuration: 2000,
+      executionCount: 4,
+      successRate: 75,
+      avgDuration: 3000,
     });
   });
 });
