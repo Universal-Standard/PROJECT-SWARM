@@ -4,6 +4,7 @@ import {
   getGitHubToken,
   isGitHubTokenExpired,
   refreshGitHubToken,
+  revokeGitHubToken,
   storeGitHubTokens,
 } from "./auth/github-oauth";
 
@@ -16,6 +17,7 @@ export async function getGitHubClient(userId: string): Promise<Octokit> {
   if (isGitHubTokenExpired(user)) {
     const refreshed = await refreshGitHubToken(user);
     if (!refreshed) {
+      await revokeGitHubToken(userId);
       throw new Error("GitHub token expired. Reconnect GitHub account.");
     }
 

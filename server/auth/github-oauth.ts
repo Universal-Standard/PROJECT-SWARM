@@ -134,6 +134,32 @@ export function isGitHubTokenExpired(user: User): boolean {
  * @param userId User ID
  */
 export async function revokeGitHubToken(userId: string): Promise<void> {
+  const user = await storage.getUser(userId);
+  const accessToken = user ? getGitHubToken(user) : null;
+
+  if (accessToken && GITHUB_CLIENT_ID && GITHUB_CLIENT_SECRET) {
+    try {
+      const basicAuth = Buffer.from(`${GITHUB_CLIENT_ID}:${GITHUB_CLIENT_SECRET}`).toString(
+        "base64"
+      );
+      await fetch(`https://api.github.com/applications/${GITHUB_CLIENT_ID}/token`, {
+        method: "DELETE",
+        headers: {
+          Accept: "application/vnd.github+json",
+          Authorization: `Basic ${basicAuth}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          access_token: accessToken,
+        }),
+      });
+    } catch (error) {
+      logger.warn("Failed to revoke GitHub token at provider", {
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
+
   await storage.updateUser(userId, {
     githubAccessToken: null,
     githubRefreshToken: null,
