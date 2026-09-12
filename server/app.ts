@@ -3,7 +3,12 @@ import { registerRoutes } from "./routes";
 import { errorHandler, notFoundHandler } from "./middleware/error-handler";
 import { configureHelmet } from "./middleware/helmet";
 import { corsMiddleware } from "./middleware/cors";
-import { globalRateLimiter } from "./middleware/rate-limiter";
+import {
+  apiRateLimiter,
+  authRateLimiter,
+  globalRateLimiter,
+  webhookRateLimiter,
+} from "./middleware/rate-limiter";
 import { registerHealthRoutes } from "./routes/health";
 import { registerCronRoutes } from "./routes/cron";
 
@@ -57,6 +62,9 @@ export async function createApp(): Promise<Express> {
 
   // Global rate limiting
   app.use(globalRateLimiter);
+  app.use("/api/auth", authRateLimiter);
+  app.use("/api/webhooks/trigger", webhookRateLimiter);
+  app.use("/api", apiRateLimiter);
 
   app.use(express.json());
   app.use(express.urlencoded({ extended: false }));

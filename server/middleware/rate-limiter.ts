@@ -79,6 +79,11 @@ export const apiRateLimiter = rateLimit({
     error: "Too many API requests, please slow down.",
     retryAfter: "60 seconds",
   },
+  skip: (req: Request) =>
+    req.path === "/auth" ||
+    req.path.startsWith("/auth/") ||
+    req.path === "/webhooks/trigger" ||
+    req.path.startsWith("/webhooks/trigger/"),
   standardHeaders: true,
   legacyHeaders: false,
 });
@@ -101,11 +106,7 @@ export const webhookRateLimiter = rateLimit({
 /**
  * Create custom rate limiter with specific configuration
  */
-export function createRateLimiter(options: {
-  windowMs: number;
-  max: number;
-  message?: string;
-}) {
+export function createRateLimiter(options: { windowMs: number; max: number; message?: string }) {
   return rateLimit({
     windowMs: options.windowMs,
     max: options.max,

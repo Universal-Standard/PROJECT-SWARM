@@ -58,6 +58,9 @@ test.describe("Health Endpoints", () => {
     expect(response.status()).toBe(200);
 
     const body = await response.json();
-    expect(body).toHaveProperty("ready");
+    expect(body).toHaveProperty("status", "ready");
+    if (body.checks) {
+      expect(body.checks).toHaveProperty("database", "connected");
+    }
   });
 });
