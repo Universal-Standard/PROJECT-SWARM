@@ -59,7 +59,7 @@ export function corsMiddleware(req: Request, res: Response, next: NextFunction) 
     res.setHeader("Access-Control-Allow-Origin", allowOrigin);
   }
 
-  if (allowCredentials) {
+  if (allowCredentials && allowOrigin && allowOrigin !== "*") {
     // Allow credentials (cookies, authorization headers) only for specific origins
     res.setHeader("Access-Control-Allow-Credentials", "true");
   }
