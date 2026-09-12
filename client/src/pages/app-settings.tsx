@@ -52,6 +52,11 @@ interface KnowledgeEntry {
   createdAt: string;
 }
 
+interface KnowledgeMetadata {
+  agentTypes: string[];
+  categories: string[];
+}
+
 export default function AppSettings() {
   const { user, isLoading: authLoading, isAuthenticated } = useAuth();
   const { toast } = useToast();
@@ -126,18 +131,26 @@ export default function AppSettings() {
     },
   });
 
+  const { data: knowledgeMetadata } = useQuery<KnowledgeMetadata>({
+    queryKey: ["/api/knowledge/metadata"],
+    enabled: isAuthenticated,
+  });
+
   const knowledgeAgentTypeOptions = useMemo(() => {
-    const types = new Set<string>();
-    knowledgeEntries.forEach((entry) => {
-      if (entry.agentType) {
-        types.add(entry.agentType);
-      }
-    });
+    const types = new Set(knowledgeMetadata?.agentTypes || []);
     if (knowledgeAgentType !== "all") {
       types.add(knowledgeAgentType);
     }
     return Array.from(types).sort((a, b) => a.localeCompare(b));
-  }, [knowledgeEntries, knowledgeAgentType]);
+  }, [knowledgeMetadata, knowledgeAgentType]);
+
+  const knowledgeCategoryOptions = useMemo(() => {
+    const categories = new Set(knowledgeMetadata?.categories || []);
+    if (knowledgeCategory !== "all") {
+      categories.add(knowledgeCategory);
+    }
+    return Array.from(categories).sort((a, b) => a.localeCompare(b));
+  }, [knowledgeMetadata, knowledgeCategory]);
 
   // Update settings mutation
   const updateSettingsMutation = useMutation({
@@ -232,10 +245,11 @@ export default function AppSettings() {
       queryClient.invalidateQueries({ queryKey: ["/api/knowledge"] });
       toast({ title: "Knowledge entry deleted" });
     },
-    onError: (error: any) => {
+    onError: (error: unknown) => {
+      const errorMessage = error instanceof Error ? error.message : "Unknown error";
       toast({
         title: "Failed to delete knowledge entry",
-        description: error.message,
+        description: errorMessage,
         variant: "destructive",
       });
     },
@@ -598,12 +612,11 @@ export default function AppSettings() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All categories</SelectItem>
-                    <SelectItem value="general">General</SelectItem>
-                    <SelectItem value="coding">Coding</SelectItem>
-                    <SelectItem value="research">Research</SelectItem>
-                    <SelectItem value="security">Security</SelectItem>
-                    <SelectItem value="database">Database</SelectItem>
-                    <SelectItem value="workflow">Workflow</SelectItem>
+                    {knowledgeCategoryOptions.map((category) => (
+                      <SelectItem key={category} value={category}>
+                        {category.charAt(0).toUpperCase() + category.slice(1)}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
