@@ -113,4 +113,55 @@ describe("WorkflowVersionManager minimal behaviors", () => {
       avgDuration: 3000,
     });
   });
+
+  it("updates success rate for failed executions", async () => {
+    const { db } = await import("../../db");
+    const execute = vi.fn().mockResolvedValue({
+      rows: [
+        {
+          id: "ver_fail",
+          execution_count: 2,
+          success_count: 2,
+          success_rate: 100,
+          avg_duration: 3000,
+        },
+      ],
+    });
+    const where = vi.fn().mockResolvedValue(undefined);
+    const set = vi.fn().mockReturnValue({ where });
+    const update = vi.fn().mockReturnValue({ set });
+
+    vi.mocked(db.transaction).mockImplementation(async (callback) => {
+      return callback({
+        execute,
+        update,
+      } as never);
+    });
+
+    await manager.updateVersionStats(workflowId, false, 1000);
+
+    expect(set).toHaveBeenCalledWith({
+      executionCount: 3,
+      successCount: 2,
+      successRate: 67,
+      avgDuration: 2333,
+    });
+  });
+
+  it("returns early when no active version exists", async () => {
+    const { db } = await import("../../db");
+    const execute = vi.fn().mockResolvedValue({ rows: [] });
+    const update = vi.fn();
+
+    vi.mocked(db.transaction).mockImplementation(async (callback) => {
+      return callback({
+        execute,
+        update,
+      } as never);
+    });
+
+    await manager.updateVersionStats(workflowId, true, 1000);
+
+    expect(update).not.toHaveBeenCalled();
+  });
 });

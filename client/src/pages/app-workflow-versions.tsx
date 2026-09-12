@@ -59,6 +59,16 @@ export default function WorkflowVersionsPage() {
     queryKey: [
       `/api/workflows/${workflowId}/versions/${compareVersionA}/compare/${compareVersionB}`,
     ],
+    queryFn: async () => {
+      const response = await fetch(
+        `/api/workflows/${workflowId}/versions/${compareVersionA}/compare/${compareVersionB}`,
+        { credentials: "include" }
+      );
+      if (!response.ok) {
+        throw new Error("Failed to load version comparison");
+      }
+      return response.json();
+    },
     enabled:
       !!workflowId && !!compareVersionA && !!compareVersionB && compareVersionA !== compareVersionB,
   });
