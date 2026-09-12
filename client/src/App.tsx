@@ -32,24 +32,27 @@ import AppAnalytics from "@/pages/app-analytics";
 import AppWorkflowVersions from "@/pages/app-workflow-versions";
 import AppExecutionDetail from "@/pages/app-execution-detail";
 import AppExecutionCompare from "@/pages/app-execution-compare";
+import { RouteErrorBoundary } from "@/components/ErrorBoundary";
 
 import NotFound from "@/pages/not-found";
 
 function PublicRouter() {
   return (
-    <Switch>
-      <Route path="/" component={Landing} />
-      <Route path="/features" component={Features} />
-      <Route path="/how-it-works" component={HowItWorks} />
-      <Route path="/pricing" component={Pricing} />
-      <Route path="/about" component={About} />
-      <Route path="/privacy" component={Privacy} />
-      <Route path="/terms" component={Terms} />
-      <Route path="/frontend" component={FrontendOverview} />
-      <Route path="/backend" component={BackendOverview} />
-      <Route path="/admin" component={AdminOverview} />
-      <Route component={NotFound} />
-    </Switch>
+    <RouteErrorBoundary>
+      <Switch>
+        <Route path="/" component={Landing} />
+        <Route path="/features" component={Features} />
+        <Route path="/how-it-works" component={HowItWorks} />
+        <Route path="/pricing" component={Pricing} />
+        <Route path="/about" component={About} />
+        <Route path="/privacy" component={Privacy} />
+        <Route path="/terms" component={Terms} />
+        <Route path="/frontend" component={FrontendOverview} />
+        <Route path="/backend" component={BackendOverview} />
+        <Route path="/admin" component={AdminOverview} />
+        <Route component={NotFound} />
+      </Switch>
+    </RouteErrorBoundary>
   );
 }
 
@@ -63,21 +66,23 @@ function AppRouter() {
   }
 
   return (
-    <Switch>
-      <Route path="/app/workflows" component={AppWorkflows} />
-      <Route path="/app/executions" component={AppExecutions} />
-      <Route path="/app/executions/compare" component={AppExecutionCompare} />
-      <Route path="/app/executions/:id/detail" component={AppExecutionDetail} />
-      <Route path="/app/executions/:id" component={ExecutionMonitor} />
-      <Route path="/app/templates" component={AppTemplates} />
-      <Route path="/app/assistant" component={AppAssistant} />
-      <Route path="/app/settings" component={AppSettings} />
-      <Route path="/app/analytics" component={AppAnalytics} />
-      <Route path="/app/workflows/:id/versions" component={AppWorkflowVersions} />
-      <Route path="/app/workflow-builder" component={WorkflowBuilder} />
-      <Route path="/app/workflow-builder/:id" component={WorkflowBuilder} />
-      <Route component={NotFound} />
-    </Switch>
+    <RouteErrorBoundary>
+      <Switch>
+        <Route path="/app/workflows" component={AppWorkflows} />
+        <Route path="/app/executions" component={AppExecutions} />
+        <Route path="/app/executions/compare" component={AppExecutionCompare} />
+        <Route path="/app/executions/:id/detail" component={AppExecutionDetail} />
+        <Route path="/app/executions/:id" component={ExecutionMonitor} />
+        <Route path="/app/templates" component={AppTemplates} />
+        <Route path="/app/assistant" component={AppAssistant} />
+        <Route path="/app/settings" component={AppSettings} />
+        <Route path="/app/analytics" component={AppAnalytics} />
+        <Route path="/app/workflows/:id/versions" component={AppWorkflowVersions} />
+        <Route path="/app/workflow-builder" component={WorkflowBuilder} />
+        <Route path="/app/workflow-builder/:id" component={WorkflowBuilder} />
+        <Route component={NotFound} />
+      </Switch>
+    </RouteErrorBoundary>
   );
 }
 
