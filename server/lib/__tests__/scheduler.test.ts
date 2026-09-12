@@ -165,7 +165,11 @@ describe("WorkflowScheduler", () => {
     const runTimes = scheduler.getNextRunTimes("*/15 * * * *", "UTC", 4);
 
     expect(runTimes).toHaveLength(4);
-    expect(runTimes[1].getTime()).toBeGreaterThan(runTimes[0].getTime());
-    expect(runTimes[3].getTime()).toBeGreaterThan(runTimes[2].getTime());
+    expect(runTimes[1].getTime() - runTimes[0].getTime()).toBe(15 * 60 * 1000);
+    expect(runTimes[2].getTime() - runTimes[1].getTime()).toBe(15 * 60 * 1000);
+    expect(runTimes[3].getTime() - runTimes[2].getTime()).toBe(15 * 60 * 1000);
+    runTimes.forEach((runTime) => {
+      expect(runTime.getUTCMinutes() % 15).toBe(0);
+    });
   });
 });

@@ -62,9 +62,9 @@ export async function createApp(): Promise<Express> {
 
   // Global rate limiting
   app.use(globalRateLimiter);
-  app.use("/api", apiRateLimiter);
   app.use("/api/auth", authRateLimiter);
   app.use("/api/webhooks/trigger", webhookRateLimiter);
+  app.use("/api", apiRateLimiter);
 
   app.use(express.json());
   app.use(express.urlencoded({ extended: false }));
