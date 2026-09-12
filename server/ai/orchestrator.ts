@@ -22,26 +22,35 @@ interface WorkflowEdge {
 
 export class WorkflowOrchestrator {
   async executeWorkflow(workflowId: string, input: any): Promise<Execution> {
-    const workflow = await storage.getWorkflowById(workflowId);
-    if (!workflow) {
+    let workflow: Workflow;
+    let agents: Agent[];
+    let execution: Execution;
+
+    const foundWorkflow = await storage.getWorkflowById(workflowId);
+    if (!foundWorkflow) {
       throw new Error("Workflow not found");
     }
 
     // Validate workflow before execution
-    const validationResult = workflowValidator.validate(workflow);
+    const validationResult = workflowValidator.validate(foundWorkflow);
     if (!validationResult.valid) {
       const errorMessages = validationResult.errors.map((e) => e.message).join("; ");
       throw new Error(`Workflow validation failed: ${errorMessages}`);
     }
 
-    const agents = await storage.getAgentsByWorkflowId(workflowId);
+    workflow = foundWorkflow;
+    agents = await storage.getAgentsByWorkflowId(workflowId);
 
-    const execution = await storage.createExecution({
+    const createdExecution = await storage.createExecutionIfNotRunning({
       workflowId,
       userId: workflow.userId,
       status: "running",
       input,
     });
+    if (!createdExecution) {
+      throw new Error(`Workflow ${workflowId} is already running`);
+    }
+    execution = createdExecution;
 
     try {
       // Emit execution started event
@@ -227,10 +236,14 @@ export class WorkflowOrchestrator {
       const finalResult = nodeResults.get(lastNodeId);
 
       const duration = Date.now() - new Date(execution.startedAt).getTime();
-      const completedExecution = await storage.updateExecution(execution.id, {
-        status: "completed",
-        output: { result: finalResult?.content || "" },
-      });
+      const completedExecution = await storage.updateExecutionStatusIfCurrent(
+        execution.id,
+        ["running"],
+        {
+          status: "completed",
+          output: { result: finalResult?.content || "" },
+        }
+      );
 
       // Update version statistics
       try {
@@ -244,12 +257,22 @@ export class WorkflowOrchestrator {
       // Emit execution completed event
       wsManager.emitExecutionCompleted(execution.id, { result: finalResult?.content || "" });
 
-      return completedExecution!;
+      if (!completedExecution) {
+        const latestExecution = await storage.getExecutionById(execution.id);
+        if (latestExecution && latestExecution.status !== "running") {
+          return latestExecution;
+        }
+        throw new Error(
+          `Execution ${execution.id} state changed before completion could be persisted`
+        );
+      }
+
+      return completedExecution;
     } catch (error: any) {
       const errorMessage = error.message || "Unknown error occurred";
       try {
         const duration = Date.now() - new Date(execution.startedAt).getTime();
-        await storage.updateExecution(execution.id, {
+        await storage.updateExecutionStatusIfCurrent(execution.id, ["running"], {
           status: "error",
           error: errorMessage,
         });
