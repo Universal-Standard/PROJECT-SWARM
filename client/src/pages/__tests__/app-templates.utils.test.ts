@@ -12,7 +12,7 @@ function createTemplate(overrides: Partial<Template>): Template {
     workflowId: overrides.workflowId || "workflow-id",
     name: overrides.name || "Template",
     description: overrides.description ?? null,
-    category: overrides.category || "general",
+    category: overrides.category ?? "general",
     thumbnailUrl: overrides.thumbnailUrl ?? null,
     usageCount: overrides.usageCount ?? 0,
     featured: overrides.featured ?? false,
@@ -67,5 +67,53 @@ describe("app templates utils", () => {
       featuredCount: 1,
       topCategory: "support",
     });
+  });
+
+  it("handles blank categories without throwing", () => {
+    const withBlankCategory = [
+      ...templates,
+      createTemplate({
+        id: "t-4",
+        workflowId: "w-4",
+        category: "",
+      }),
+    ];
+
+    expect(
+      filterTemplates(withBlankCategory, {
+        searchTerm: "",
+        categoryFilter: "all",
+        showFeaturedOnly: false,
+      })
+    ).toHaveLength(4);
+
+    expect(computeTemplateAnalytics(withBlankCategory).topCategory).toBe("support");
+  });
+
+  it("normalizes mixed-case categories for list and filtering", () => {
+    const mixedCaseTemplates = [
+      createTemplate({
+        id: "t-5",
+        workflowId: "w-5",
+        name: "Support Escalation",
+        category: "Support",
+      }),
+      createTemplate({
+        id: "t-6",
+        workflowId: "w-6",
+        name: "Case Routing",
+        category: "support",
+      }),
+    ];
+
+    expect(getTemplateCategories(mixedCaseTemplates)).toEqual(["all", "support"]);
+    expect(
+      filterTemplates(mixedCaseTemplates, {
+        searchTerm: "",
+        categoryFilter: "SUPPORT",
+        showFeaturedOnly: false,
+      })
+    ).toHaveLength(2);
+    expect(computeTemplateAnalytics(mixedCaseTemplates).topCategory).toBe("support");
   });
 });

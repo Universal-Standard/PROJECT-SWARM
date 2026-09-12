@@ -813,6 +813,11 @@ export async function registerRoutes(app: Express) {
         return res.status(403).json({ error: "Forbidden" });
       }
 
+      const existingTemplate = await storage.getTemplateByWorkflowId(data.workflowId);
+      if (existingTemplate) {
+        return res.status(409).json({ error: "Workflow already has a template" });
+      }
+
       // Mark workflow as template
       await storage.updateWorkflow(data.workflowId, { isTemplate: true });
 

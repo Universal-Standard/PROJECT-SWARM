@@ -47,7 +47,7 @@ function getErrorMessage(error: unknown): string {
 
 export default function AppTemplates() {
   const [, setLocation] = useLocation();
-  const { isLoading: authLoading, isAuthenticated } = useAuth();
+  const { user, isLoading: authLoading, isAuthenticated } = useAuth();
   const { toast } = useToast();
 
   const [searchTerm, setSearchTerm] = useState("");
@@ -67,6 +67,12 @@ export default function AppTemplates() {
   const [editFeatured, setEditFeatured] = useState(false);
 
   const [previewTemplateId, setPreviewTemplateId] = useState<string | null>(null);
+  const [previewByTemplateId, setPreviewByTemplateId] = useState<
+    Record<string, TemplateExportData>
+  >({});
+  const [previewLoadingByTemplateId, setPreviewLoadingByTemplateId] = useState<
+    Record<string, boolean>
+  >({});
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
@@ -91,25 +97,12 @@ export default function AppTemplates() {
     enabled: isAuthenticated,
   });
 
-  const { data: previewData } = useQuery<TemplateExportData>({
-    queryKey: previewTemplateId
-      ? ["/api/templates", previewTemplateId, "export"]
-      : ["/api/templates/preview"],
-    enabled: isAuthenticated && Boolean(previewTemplateId),
-  });
-
-  const templateWorkflowIds = useMemo(
-    () => new Set((templates || []).map((template) => template.workflowId)),
-    [templates]
-  );
-
-  const availableWorkflows = useMemo(
-    () =>
-      (workflows || []).filter(
-        (workflow) => !workflow.isTemplate && !templateWorkflowIds.has(workflow.id)
-      ),
-    [workflows, templateWorkflowIds]
-  );
+  const availableWorkflows = useMemo(() => {
+    const templateWorkflowIds = new Set((templates || []).map((template) => template.workflowId));
+    return (workflows || []).filter(
+      (workflow) => !workflow.isTemplate && !templateWorkflowIds.has(workflow.id)
+    );
+  }, [workflows, templates]);
 
   useEffect(() => {
     if (!selectedWorkflowId || !workflows) {
@@ -141,12 +134,21 @@ export default function AppTemplates() {
       showFeaturedOnly,
     });
   }, [templates, searchTerm, categoryFilter, showFeaturedOnly]);
+  const featuredFilteredTemplates = useMemo(
+    () => filteredTemplates.filter((template) => template.featured),
+    [filteredTemplates]
+  );
 
   const analytics = useMemo(() => computeTemplateAnalytics(templates || []), [templates]);
 
   const ownedWorkflowIds = useMemo(
-    () => new Set((workflows || []).map((workflow) => workflow.id)),
-    [workflows]
+    () =>
+      new Set(
+        (workflows || [])
+          .filter((workflow) => (user?.id ? workflow.userId === user.id : true))
+          .map((workflow) => workflow.id)
+      ),
+    [workflows, user?.id]
   );
 
   const createTemplateMutation = useMutation({
@@ -184,7 +186,7 @@ export default function AppTemplates() {
   const updateTemplateMutation = useMutation({
     mutationFn: async () => {
       if (!editingTemplateId) {
-        return;
+        throw new Error("No template selected for editing");
       }
 
       return apiRequest("PUT", `/api/templates/${editingTemplateId}`, {
@@ -228,6 +230,35 @@ export default function AppTemplates() {
     onError: (error: unknown) => {
       toast({
         title: "Failed to use template",
+        description: getErrorMessage(error),
+        variant: "destructive",
+      });
+    },
+  });
+
+  const previewTemplateMutation = useMutation({
+    mutationFn: async (templateId: string) => {
+      const response = await apiRequest("GET", `/api/templates/${templateId}/export`);
+      const payload = (await response.json()) as TemplateExportData;
+      return { templateId, payload };
+    },
+    onSuccess: ({ templateId, payload }) => {
+      setPreviewByTemplateId((current) => ({
+        ...current,
+        [templateId]: payload,
+      }));
+      setPreviewLoadingByTemplateId((current) => ({
+        ...current,
+        [templateId]: false,
+      }));
+    },
+    onError: (error: unknown, templateId: string) => {
+      setPreviewLoadingByTemplateId((current) => ({
+        ...current,
+        [templateId]: false,
+      }));
+      toast({
+        title: "Failed to load preview",
         description: getErrorMessage(error),
         variant: "destructive",
       });
@@ -383,21 +414,19 @@ export default function AppTemplates() {
         </div>
       </Card>
 
-      {filteredTemplates.some((template) => template.featured) && (
+      {featuredFilteredTemplates.length > 0 && (
         <Card className="p-6">
           <div className="flex items-center gap-2 mb-4">
             <Sparkles className="w-4 h-4 text-primary" />
             <h2 className="text-lg font-semibold">Featured templates</h2>
           </div>
           <div className="flex flex-wrap gap-2">
-            {filteredTemplates
-              .filter((template) => template.featured)
-              .map((template) => (
-                <Badge key={`featured-${template.id}`} variant="secondary" className="px-3 py-1">
-                  <Star className="w-3 h-3 mr-1" />
-                  {template.name}
-                </Badge>
-              ))}
+            {featuredFilteredTemplates.map((template) => (
+              <Badge key={`featured-${template.id}`} variant="secondary" className="px-3 py-1">
+                <Star className="w-3 h-3 mr-1" />
+                {template.name}
+              </Badge>
+            ))}
           </div>
         </Card>
       )}
@@ -418,6 +447,8 @@ export default function AppTemplates() {
             const isOwnTemplate = ownedWorkflowIds.has(template.workflowId);
             const isEditing = editingTemplateId === template.id;
             const isPreviewing = previewTemplateId === template.id;
+            const previewData = previewByTemplateId[template.id];
+            const previewLoading = previewLoadingByTemplateId[template.id];
 
             return (
               <Card key={template.id} className="p-6 hover-elevate transition-all">
@@ -488,7 +519,13 @@ export default function AppTemplates() {
                   <span>{template.usageCount} uses</span>
                 </div>
 
-                {isPreviewing && previewData && (
+                {isPreviewing && previewLoading && (
+                  <div className="rounded-md border p-3 bg-muted/30 mb-4 text-xs">
+                    Loading preview...
+                  </div>
+                )}
+
+                {isPreviewing && !previewLoading && previewData && (
                   <div className="rounded-md border p-3 bg-muted/30 mb-4 text-xs space-y-1">
                     <p>
                       <strong>Nodes:</strong> {previewData.workflow.nodes.length}
@@ -505,11 +542,21 @@ export default function AppTemplates() {
                 <div className="grid grid-cols-2 gap-2">
                   <Button
                     variant="outline"
-                    onClick={() =>
-                      setPreviewTemplateId((current) =>
-                        current === template.id ? null : template.id
-                      )
-                    }
+                    onClick={() => {
+                      if (isPreviewing) {
+                        setPreviewTemplateId(null);
+                        return;
+                      }
+
+                      setPreviewTemplateId(template.id);
+                      if (!previewByTemplateId[template.id]) {
+                        setPreviewLoadingByTemplateId((current) => ({
+                          ...current,
+                          [template.id]: true,
+                        }));
+                        previewTemplateMutation.mutate(template.id);
+                      }
+                    }}
                     data-testid={`button-preview-${template.id}`}
                   >
                     <Eye className="w-4 h-4 mr-2" />
@@ -549,8 +596,19 @@ export default function AppTemplates() {
       ) : (
         <Card className="p-12 text-center">
           <LayoutTemplate className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
-          <h3 className="text-xl font-semibold mb-2">No templates match this filter</h3>
-          <p className="text-muted-foreground">Try updating your search or category filters.</p>
+          {templates && templates.length > 0 ? (
+            <>
+              <h3 className="text-xl font-semibold mb-2">No templates match this filter</h3>
+              <p className="text-muted-foreground">Try updating your search or category filters.</p>
+            </>
+          ) : (
+            <>
+              <h3 className="text-xl font-semibold mb-2">No templates available</h3>
+              <p className="text-muted-foreground">
+                Create one from a workflow to start building your library.
+              </p>
+            </>
+          )}
         </Card>
       )}
     </div>

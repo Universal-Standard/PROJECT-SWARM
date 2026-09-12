@@ -108,6 +108,7 @@ export interface IStorage {
   // Templates
   createTemplate(template: InsertTemplate): Promise<Template>;
   getTemplateById(id: string): Promise<Template | undefined>;
+  getTemplateByWorkflowId(workflowId: string): Promise<Template | undefined>;
   getAllTemplates(): Promise<Template[]>;
   getFeaturedTemplates(): Promise<Template[]>;
   updateTemplate(id: string, template: Partial<InsertTemplate>): Promise<Template | undefined>;
@@ -406,6 +407,14 @@ export class DatabaseStorage implements IStorage {
 
   async getTemplateById(id: string): Promise<Template | undefined> {
     const [template] = await db.select().from(templates).where(eq(templates.id, id));
+    return template;
+  }
+
+  async getTemplateByWorkflowId(workflowId: string): Promise<Template | undefined> {
+    const [template] = await db
+      .select()
+      .from(templates)
+      .where(eq(templates.workflowId, workflowId));
     return template;
   }
 

@@ -16,8 +16,9 @@ export function getTemplateCategories(templates: Template[]): string[] {
   const categorySet = new Set<string>();
 
   templates.forEach((template) => {
-    if (template.category?.trim()) {
-      categorySet.add(template.category);
+    const normalizedCategory = (template.category || "").trim().toLowerCase();
+    if (normalizedCategory) {
+      categorySet.add(normalizedCategory);
     }
   });
 
@@ -29,14 +30,17 @@ export function filterTemplates(
   { searchTerm, categoryFilter, showFeaturedOnly }: TemplateFilterOptions
 ): Template[] {
   const normalizedSearch = searchTerm.trim().toLowerCase();
+  const normalizedCategoryFilter = categoryFilter.trim().toLowerCase();
 
   return templates.filter((template) => {
+    const normalizedCategory = (template.category || "").trim().toLowerCase();
     const matchesSearch =
       normalizedSearch.length === 0 ||
       template.name.toLowerCase().includes(normalizedSearch) ||
       (template.description || "").toLowerCase().includes(normalizedSearch) ||
-      template.category.toLowerCase().includes(normalizedSearch);
-    const matchesCategory = categoryFilter === "all" || template.category === categoryFilter;
+      normalizedCategory.includes(normalizedSearch);
+    const matchesCategory =
+      normalizedCategoryFilter === "all" || normalizedCategory === normalizedCategoryFilter;
     const matchesFeatured = !showFeaturedOnly || template.featured;
 
     return matchesSearch && matchesCategory && matchesFeatured;
@@ -48,7 +52,11 @@ export function computeTemplateAnalytics(templates: Template[]): TemplateAnalyti
   const featuredCount = templates.filter((template) => template.featured).length;
 
   const categoryCounts = templates.reduce<Record<string, number>>((acc, template) => {
-    acc[template.category] = (acc[template.category] || 0) + 1;
+    const category = (template.category || "").trim().toLowerCase();
+    if (!category) {
+      return acc;
+    }
+    acc[category] = (acc[category] || 0) + 1;
     return acc;
   }, {});
 
