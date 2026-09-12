@@ -663,7 +663,7 @@ export function createStandaloneApp() {
       });
 
       const workflow = await storage.createWorkflow(workflowData);
-      await syncAgentsFromNodes(workflow.id, workflow.nodes as WorkflowNode[]);
+      await syncAgentsFromNodes(workflow.id, sourceWorkflow.nodes as WorkflowNode[]);
       await storage.updateTemplateUsageCount(req.params.id);
       res.json(workflow);
     } catch (err: any) {
