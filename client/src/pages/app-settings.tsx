@@ -91,7 +91,11 @@ export default function AppSettings() {
     enabled: isAuthenticated,
   });
 
-  const { data: knowledgeEntries = [], isLoading: knowledgeLoading } = useQuery<KnowledgeEntry[]>({
+  const {
+    data: knowledgeEntries = [],
+    isLoading: knowledgeLoading,
+    error: knowledgeError,
+  } = useQuery<KnowledgeEntry[]>({
     queryKey: [
       "/api/knowledge",
       {
@@ -654,6 +658,12 @@ export default function AppSettings() {
             <div className="space-y-3 max-h-96 overflow-y-auto pr-1">
               {knowledgeLoading ? (
                 <div className="text-sm text-muted-foreground">Loading knowledge entries...</div>
+              ) : knowledgeError ? (
+                <div className="text-sm text-destructive">
+                  {knowledgeError instanceof Error
+                    ? knowledgeError.message
+                    : "Failed to load knowledge entries."}
+                </div>
               ) : knowledgeEntries.length === 0 ? (
                 <div className="text-sm text-muted-foreground">
                   No knowledge entries found for the selected filters.

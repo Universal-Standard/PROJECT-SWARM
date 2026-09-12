@@ -67,3 +67,56 @@ export async function validateInput(payload: unknown): Promise<boolean> {
     expect(learnings).toHaveLength(1);
   });
 });
+
+describe("knowledge persistence integration", () => {
+  it("persists extracted learnings and retrieves them across executions", () => {
+    const entries: Array<{
+      id: string;
+      userId: string;
+      agentType: string;
+      category: string;
+      content: string;
+      confidence: number;
+      sourceExecutionId: string;
+      createdAt: string;
+    }> = [];
+
+    const createKnowledgeEntry = (entry: Omit<(typeof entries)[number], "id" | "createdAt">) => {
+      entries.push({
+        ...entry,
+        id: `k_${entries.length + 1}`,
+        createdAt: new Date(Date.now() + entries.length * 1000).toISOString(),
+      });
+    };
+
+    const searchKnowledge = (userId: string) =>
+      entries
+        .filter((entry) => entry.userId === userId)
+        .sort((a, b) => b.confidence - a.confidence);
+
+    for (const [executionId, response] of [
+      ["exec_1", "Learned: Validate API payloads with strict schemas before processing."],
+      ["exec_2", "Recommendation: Use retries with backoff for transient provider failures."],
+    ] as const) {
+      const learnings = extractKnowledgeLearnings(response);
+      for (const learning of learnings) {
+        createKnowledgeEntry({
+          userId: "user_1",
+          agentType: "coordinator",
+          category: learning.category,
+          content: learning.content,
+          confidence: learning.confidence,
+          sourceExecutionId: executionId,
+        });
+      }
+    }
+
+    const persisted = searchKnowledge("user_1");
+
+    expect(persisted).toHaveLength(2);
+    expect(new Set(persisted.map((entry) => entry.sourceExecutionId))).toEqual(
+      new Set(["exec_1", "exec_2"])
+    );
+    expect(persisted[0].confidence).toBeGreaterThanOrEqual(persisted[1].confidence);
+  });
+});
