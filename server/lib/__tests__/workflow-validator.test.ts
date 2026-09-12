@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Agent, Workflow } from "@shared/schema";
+import { WorkflowValidationError } from "@shared/errors";
 import { workflowValidator } from "../workflow-validator";
 
 function createWorkflow(
@@ -154,5 +155,50 @@ describe("workflowValidator", () => {
 
     expect(result.valid).toBe(false);
     expect(result.errors.some((error) => error.code === "MISSING_AGENT_CONFIGURATION")).toBe(true);
+  });
+
+  it("detects incomplete agent configuration fields", () => {
+    const workflow = createWorkflow(
+      [
+        {
+          id: "node-1",
+          type: "agent",
+          data: { role: "Coordinator", provider: "openai", model: "gpt-4o" },
+          position: { x: 0, y: 0 },
+        },
+      ],
+      []
+    );
+
+    const result = workflowValidator.validate(workflow, [createAgent({ provider: "" })]);
+
+    expect(result.valid).toBe(false);
+    expect(result.errors.some((error) => error.code === "MISSING_AGENT_PROVIDER")).toBe(true);
+  });
+
+  it("throws WorkflowValidationError with details from validateOrThrow", () => {
+    const workflow = createWorkflow(
+      [
+        {
+          id: "node-1",
+          type: "agent",
+          data: { role: "Coordinator", provider: "openai", model: "gpt-4o" },
+          position: { x: 0, y: 0 },
+        },
+      ],
+      []
+    );
+
+    expect(() => workflowValidator.validateOrThrow(workflow, [])).toThrow(WorkflowValidationError);
+
+    try {
+      workflowValidator.validateOrThrow(workflow, []);
+    } catch (error) {
+      expect(error).toBeInstanceOf(WorkflowValidationError);
+      const validationError = error as WorkflowValidationError;
+      expect(
+        validationError.errors.some((item) => item.code === "MISSING_AGENT_CONFIGURATION")
+      ).toBe(true);
+    }
   });
 });

@@ -15,8 +15,6 @@ interface WorkflowEdge {
   target: string;
 }
 
-const SUPPORTED_PROVIDERS = new Set(["openai", "anthropic", "gemini"]);
-
 // Schema for validating workflow export/import format
 const nodeSchema = z.object({
   id: z.string(),
@@ -557,15 +555,6 @@ export class WorkflowValidator {
     const errors: ValidationError[] = [];
     const agentNodes = nodes.filter((node) => node.type === "agent");
 
-    if (agentNodes.length === 0) {
-      errors.push({
-        field: "nodes",
-        message: "Workflow must include at least one agent node",
-        code: "MISSING_AGENT_NODES",
-      });
-      return errors;
-    }
-
     const agentByNodeId = new Map<string, Agent>();
     for (const agent of agents) {
       agentByNodeId.set(agent.nodeId, agent);
@@ -603,12 +592,6 @@ export class WorkflowValidator {
           field: `agents[${agent.id}].provider`,
           message: `Agent configuration for node "${node.id}" is missing a provider`,
           code: "MISSING_AGENT_PROVIDER",
-        });
-      } else if (!SUPPORTED_PROVIDERS.has(agent.provider.toLowerCase())) {
-        errors.push({
-          field: `agents[${agent.id}].provider`,
-          message: `Agent configuration for node "${node.id}" uses unsupported provider "${agent.provider}"`,
-          code: "INVALID_AGENT_PROVIDER",
         });
       }
 

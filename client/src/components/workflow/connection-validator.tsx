@@ -31,6 +31,28 @@ export function ConnectionValidator({
 }: ConnectionValidatorProps) {
   const issues = useMemo(() => {
     const foundIssues: ValidationIssue[] = [];
+    const incomingCount = new Map<string, number>();
+    const outgoingCount = new Map<string, number>();
+    const totalConnectionCount = new Map<string, number>();
+    const adjacency = new Map<string, string[]>();
+
+    nodes.forEach((node) => {
+      incomingCount.set(node.id, 0);
+      outgoingCount.set(node.id, 0);
+      totalConnectionCount.set(node.id, 0);
+      adjacency.set(node.id, []);
+    });
+
+    edges.forEach((edge) => {
+      incomingCount.set(edge.target, (incomingCount.get(edge.target) || 0) + 1);
+      outgoingCount.set(edge.source, (outgoingCount.get(edge.source) || 0) + 1);
+      totalConnectionCount.set(edge.source, (totalConnectionCount.get(edge.source) || 0) + 1);
+      totalConnectionCount.set(edge.target, (totalConnectionCount.get(edge.target) || 0) + 1);
+
+      const neighbors = adjacency.get(edge.source) || [];
+      neighbors.push(edge.target);
+      adjacency.set(edge.source, neighbors);
+    });
 
     // Check for circular dependencies
     const detectCycles = () => {
@@ -43,17 +65,17 @@ export function ConnectionValidator({
         recursionStack.add(nodeId);
         path.push(nodeId);
 
-        const outgoingEdges = edges.filter((e) => e.source === nodeId);
+        const neighbors = adjacency.get(nodeId) || [];
 
-        for (const edge of outgoingEdges) {
-          if (!visited.has(edge.target)) {
-            if (dfs(edge.target, [...path])) {
+        for (const neighbor of neighbors) {
+          if (!visited.has(neighbor)) {
+            if (dfs(neighbor, [...path])) {
               return true;
             }
-          } else if (recursionStack.has(edge.target)) {
-            const cycleStart = path.indexOf(edge.target);
+          } else if (recursionStack.has(neighbor)) {
+            const cycleStart = path.indexOf(neighbor);
             if (cycleStart !== -1) {
-              cycles.push([...path.slice(cycleStart), edge.target]);
+              cycles.push([...path.slice(cycleStart), neighbor]);
             }
             return true;
           }
@@ -88,10 +110,10 @@ export function ConnectionValidator({
 
     // Check for orphan nodes (no connections)
     nodes.forEach((node) => {
-      const hasIncoming = edges.some((e) => e.target === node.id);
-      const hasOutgoing = edges.some((e) => e.source === node.id);
+      const hasIncoming = (incomingCount.get(node.id) || 0) > 0;
+      const hasOutgoing = (outgoingCount.get(node.id) || 0) > 0;
 
-      if (!hasIncoming && !hasOutgoing) {
+      if (nodes.length > 1 && !hasIncoming && !hasOutgoing) {
         foundIssues.push({
           id: `orphan-${node.id}`,
           type: "error",
@@ -189,7 +211,7 @@ export function ConnectionValidator({
 
     // Check for nodes with no incoming connections (potential entry points)
     const nodesWithoutIncoming = nodes.filter(
-      (node) => !edges.some((e) => e.target === node.id) && edges.some((e) => e.source === node.id)
+      (node) => (incomingCount.get(node.id) || 0) === 0 && (outgoingCount.get(node.id) || 0) > 0
     );
 
     if (nodesWithoutIncoming.length > 1) {
@@ -204,7 +226,7 @@ export function ConnectionValidator({
 
     // Check for nodes with no outgoing connections (endpoints)
     const nodesWithoutOutgoing = nodes.filter(
-      (node) => !edges.some((e) => e.source === node.id) && edges.some((e) => e.target === node.id)
+      (node) => (outgoingCount.get(node.id) || 0) === 0 && (incomingCount.get(node.id) || 0) > 0
     );
 
     if (nodesWithoutOutgoing.length === 0 && nodes.length > 0 && edges.length > 0) {
@@ -220,13 +242,13 @@ export function ConnectionValidator({
     // Check for maximum connections per node (reasonable limit)
     const MAX_CONNECTIONS = 10;
     nodes.forEach((node) => {
-      const connections = edges.filter((e) => e.source === node.id || e.target === node.id);
-      if (connections.length > MAX_CONNECTIONS) {
+      const connectionCount = totalConnectionCount.get(node.id) || 0;
+      if (connectionCount > MAX_CONNECTIONS) {
         foundIssues.push({
           id: `max-connections-${node.id}`,
           type: "warning",
           title: "Too Many Connections",
-          description: `Node "${node.data?.label || node.id}" has ${connections.length} connections. Consider simplifying.`,
+          description: `Node "${node.data?.label || node.id}" has ${connectionCount} connections. Consider simplifying.`,
           nodeIds: [node.id],
         });
       }
@@ -373,7 +395,13 @@ export function useWorkflowValidation(nodes: Node[], edges: Edge[]) {
         const role = typeof node.data?.role === "string" ? node.data.role.trim() : "";
         const provider = typeof node.data?.provider === "string" ? node.data.provider.trim() : "";
         const model = typeof node.data?.model === "string" ? node.data.model.trim() : "";
-        if (!role || !provider || !model) {
+        if (!role) {
+          errorCount++;
+        }
+        if (!provider) {
+          errorCount++;
+        }
+        if (!model) {
           errorCount++;
         }
       }

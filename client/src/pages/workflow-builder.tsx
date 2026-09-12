@@ -1,4 +1,4 @@
-import { useCallback, useState, useEffect, useRef } from "react";
+import { useCallback, useState, useEffect, useRef, useMemo } from "react";
 import {
   ReactFlow,
   ReactFlowProvider,
@@ -55,7 +55,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useGridSnapping } from "@/hooks/useGridSnapping";
 import { useUndoRedo } from "@/hooks/useUndoRedo";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { apiRequest, queryClient } from "@/lib/queryClient";
+import { ApiRequestError, apiRequest, queryClient } from "@/lib/queryClient";
 import { useParams, useLocation } from "wouter";
 import { applyLayout, type LayoutAlgorithm } from "@/lib/workflow-layout";
 import { validateConnection, getConnectionStyle } from "@/lib/connection-validator";
@@ -121,7 +121,7 @@ function WorkflowBuilderContent() {
   const zoomControls = useZoomControls();
 
   // Validation
-  const { hasErrors, errorCount } = useWorkflowValidation(nodes, edges);
+  const { errorCount } = useWorkflowValidation(nodes, edges);
   const [executionValidationErrors, setExecutionValidationErrors] = useState<ValidationError[]>([]);
 
   // Fetch existing workflow if ID is provided
@@ -135,6 +135,13 @@ function WorkflowBuilderContent() {
     queryKey: ["/api/workflows", workflowId, "agents"],
     enabled: !!workflowId,
   });
+
+  const missingAgentConfigurationNodes = useMemo(() => {
+    const availableAgentNodeIds = new Set((agents || []).map((agent) => agent.nodeId));
+    return nodes.filter((node) => node.type === "agent" && !availableAgentNodeIds.has(node.id));
+  }, [agents, nodes]);
+
+  const blockingValidationCount = errorCount + missingAgentConfigurationNodes.length;
 
   // Load workflow data when it's fetched
   useEffect(() => {
@@ -389,16 +396,11 @@ function WorkflowBuilderContent() {
       setLocation(`/executions/${execution.id}`);
     },
     onError: (error: Error) => {
-      const bodyMatch = error.message.match(/^\d+:\s*(.*)$/);
-      if (bodyMatch?.[1]) {
-        try {
-          const parsed = JSON.parse(bodyMatch[1]);
-          if (Array.isArray(parsed?.details)) {
-            setExecutionValidationErrors(parsed.details as ValidationError[]);
-            setShowValidation(true);
-          }
-        } catch {
-          // keep default handling for non-JSON error payloads
+      if (error instanceof ApiRequestError) {
+        const bodyJson = error.bodyJson as { details?: ValidationError[] } | undefined;
+        if (Array.isArray(bodyJson?.details)) {
+          setExecutionValidationErrors(bodyJson.details);
+          setShowValidation(true);
         }
       }
       toast({
@@ -410,7 +412,7 @@ function WorkflowBuilderContent() {
   });
 
   const handleExecuteClick = () => {
-    if (hasErrors) {
+    if (blockingValidationCount > 0) {
       setShowValidation(true);
       toast({
         title: "Validation Required",
@@ -844,7 +846,7 @@ function WorkflowBuilderContent() {
         showGrid={showGrid}
         showMinimap={showMinimap}
         showValidation={showValidation}
-        validationErrors={errorCount + executionValidationErrors.length}
+        validationErrors={blockingValidationCount}
         onSave={saveWorkflow}
         onExport={() => {
           const data = JSON.stringify({ nodes, edges, name: workflowName }, null, 2);
@@ -1138,6 +1140,21 @@ function WorkflowBuilderContent() {
                     <ul className="list-disc pl-4 space-y-1">
                       {executionValidationErrors.map((validationError, index) => (
                         <li key={`${validationError.code}-${index}`}>{validationError.message}</li>
+                      ))}
+                    </ul>
+                  </AlertDescription>
+                </Alert>
+              )}
+              {missingAgentConfigurationNodes.length > 0 && (
+                <Alert variant="destructive" className="mb-4">
+                  <AlertTitle>Missing Agent Configurations</AlertTitle>
+                  <AlertDescription>
+                    <ul className="list-disc pl-4 space-y-1">
+                      {missingAgentConfigurationNodes.map((node) => (
+                        <li key={node.id}>
+                          Node "{String(node.data?.label || node.id)}" is missing a saved agent
+                          configuration. Save the workflow to sync agents, then retry execution.
+                        </li>
                       ))}
                     </ul>
                   </AlertDescription>
