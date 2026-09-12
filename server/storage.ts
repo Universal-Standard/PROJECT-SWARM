@@ -57,6 +57,10 @@ import {
 } from "@shared/schema";
 import { eq, desc, and, or, inArray, gte, lte, sql } from "drizzle-orm";
 
+function isNonEmptyString(value: string | null): value is string {
+  return typeof value === "string" && value.length > 0;
+}
+
 export interface IStorage {
   // Users (Replit Auth)
   getUser(id: string): Promise<User | undefined>;
@@ -520,8 +524,8 @@ export class DatabaseStorage implements IStorage {
     ]);
 
     return {
-      agentTypes: agentTypeRows.map((row) => row.value).filter(Boolean),
-      categories: categoryRows.map((row) => row.value).filter(Boolean),
+      agentTypes: agentTypeRows.map((row) => row.value).filter(isNonEmptyString),
+      categories: categoryRows.map((row) => row.value).filter(isNonEmptyString),
     };
   }
 
