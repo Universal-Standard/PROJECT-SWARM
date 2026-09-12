@@ -156,8 +156,7 @@ export function createStandaloneApp() {
   const { generateCsrfToken, doubleCsrfProtection } = doubleCsrf({
     getSecret: () => resolvedSessionSecret,
     getSessionIdentifier: (req: Request) => {
-      const sessionData = (req as { session?: { id?: string } }).session;
-      return sessionData?.id || req.ip || "anonymous";
+      return req.sessionID || req.ip || "anonymous";
     },
     cookieName: process.env.NODE_ENV === "production" ? "__Host-csrf" : "csrf",
     cookieOptions: {
@@ -169,6 +168,26 @@ export function createStandaloneApp() {
     size: 64,
     ignoredMethods: ["GET", "HEAD", "OPTIONS"],
   });
+
+  const standaloneCsrfProtection = (req: Request, res: Response, next: NextFunction): void => {
+    if (req.path === "/api/csrf-token") {
+      return next();
+    }
+
+    doubleCsrfProtection(req, res, (error) => {
+      if (error) {
+        logger.warn("CSRF token validation failed", {
+          method: req.method,
+          path: req.path,
+          ip: req.ip,
+        });
+        res.status(403).json({ error: "Invalid or missing CSRF token" });
+        return;
+      }
+
+      next();
+    });
+  };
 
   // Session
   app.use(
@@ -190,13 +209,7 @@ export function createStandaloneApp() {
     const token = generateCsrfToken(req, res);
     res.json({ csrfToken: token });
   });
-  app.use((req: Request, res: Response, next: NextFunction) => {
-    if (req.path.startsWith("/api/webhooks/trigger/") || req.path === "/api/csrf-token") {
-      return next();
-    }
-
-    doubleCsrfProtection(req, res, next);
-  });
+  app.use(standaloneCsrfProtection);
 
   // Health check
   app.get("/api/health", (req, res) => {
