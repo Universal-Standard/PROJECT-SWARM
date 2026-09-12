@@ -21,15 +21,7 @@ interface WorkflowEdge {
 }
 
 export class WorkflowOrchestrator {
-  private readonly activeWorkflowExecutions = new Set<string>();
-
   async executeWorkflow(workflowId: string, input: any): Promise<Execution> {
-    if (this.activeWorkflowExecutions.has(workflowId)) {
-      throw new Error(`Workflow ${workflowId} is already running`);
-    }
-
-    this.activeWorkflowExecutions.add(workflowId);
-
     let workflow: Workflow;
     let agents: Agent[];
     let execution: Execution;
@@ -61,7 +53,6 @@ export class WorkflowOrchestrator {
       }
       execution = createdExecution;
     } catch (error) {
-      this.activeWorkflowExecutions.delete(workflowId);
       throw error;
     }
 
@@ -266,7 +257,6 @@ export class WorkflowOrchestrator {
       // Emit execution completed event
       wsManager.emitExecutionCompleted(execution.id, { result: finalResult?.content || "" });
 
-      this.activeWorkflowExecutions.delete(workflowId);
       return completedExecution!;
     } catch (error: any) {
       const errorMessage = error.message || "Unknown error occurred";
@@ -296,7 +286,6 @@ export class WorkflowOrchestrator {
         logger.error("Failed to update execution with error status", updateError);
       }
 
-      this.activeWorkflowExecutions.delete(workflowId);
       throw error;
     }
   }

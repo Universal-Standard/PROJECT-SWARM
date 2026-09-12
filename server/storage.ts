@@ -300,7 +300,9 @@ export class DatabaseStorage implements IStorage {
 
   async createExecutionIfNotRunning(execution: InsertExecution): Promise<Execution | null> {
     return await db.transaction(async (tx) => {
-      await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext(${execution.workflowId}))`);
+      await tx.execute(
+        sql`SELECT pg_advisory_xact_lock((('x' || substr(md5(${execution.workflowId}), 1, 16))::bit(64)::bigint))`
+      );
 
       const [runningExecution] = await tx
         .select({ id: executions.id })

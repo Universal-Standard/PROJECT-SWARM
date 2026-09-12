@@ -1,5 +1,51 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+interface TestExecution {
+  id: string;
+  workflowId: string;
+  userId: string;
+  status: string;
+  input: { prompt: string };
+  output: { result: string } | null;
+  error: string | null;
+  startedAt: Date;
+  completedAt: Date | null;
+  duration: number | null;
+}
+
+interface TestWorkflowNode {
+  id: string;
+  type: string;
+  data: Record<string, unknown>;
+  position: { x: number; y: number };
+}
+
+interface TestWorkflowEdge {
+  id: string;
+  source: string;
+  target: string;
+}
+
+interface TestWorkflow {
+  id: string;
+  userId: string;
+  name: string;
+  nodes: TestWorkflowNode[];
+  edges: TestWorkflowEdge[];
+}
+
+interface TestAgent {
+  id: string;
+  workflowId: string;
+  nodeId: string;
+  name: string;
+  role: string;
+  provider: string;
+  model: string;
+  temperature: number;
+  maxTokens: number;
+}
+
 const {
   storageMock,
   aiExecutorMock,
@@ -74,7 +120,7 @@ vi.mock("../../lib/logger", () => ({
 
 import { WorkflowOrchestrator } from "../orchestrator";
 
-function createExecution() {
+function createExecution(): TestExecution {
   return {
     id: "exec-1",
     workflowId: "wf-1",
@@ -86,10 +132,10 @@ function createExecution() {
     startedAt: new Date(),
     completedAt: null,
     duration: null,
-  } as any;
+  };
 }
 
-function createWorkflow() {
+function createWorkflow(): TestWorkflow {
   return {
     id: "wf-1",
     userId: "user-1",
@@ -103,10 +149,10 @@ function createWorkflow() {
       { id: "e1", source: "n1", target: "n2" },
       { id: "e2", source: "n2", target: "n3" },
     ],
-  } as any;
+  };
 }
 
-function createAgents() {
+function createAgents(): TestAgent[] {
   return [
     {
       id: "a1",
@@ -141,7 +187,7 @@ function createAgents() {
       temperature: 70,
       maxTokens: 1000,
     },
-  ] as any[];
+  ];
 }
 
 async function waitForCondition(predicate: () => boolean): Promise<void> {
@@ -274,14 +320,16 @@ describe("WorkflowOrchestrator", () => {
         maxTokens: 1000,
       },
     ]);
-    storageMock.createExecutionIfNotRunning.mockImplementation(
-      () =>
-        new Promise((resolve) => {
-          resolveFirst = () => resolve(createExecution());
-        })
-    );
-
     let resolveFirst: (() => void) | undefined;
+    storageMock.createExecutionIfNotRunning
+      .mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            resolveFirst = () => resolve(createExecution());
+          })
+      )
+      .mockResolvedValueOnce(null);
+
     aiExecutorMock.executeAgent
       .mockReset()
       .mockResolvedValue({ content: "done", tokenCount: 10, finishReason: "stop" });
@@ -289,7 +337,7 @@ describe("WorkflowOrchestrator", () => {
     const orchestrator = new WorkflowOrchestrator();
 
     const firstExecution = orchestrator.executeWorkflow("wf-1", { prompt: "start" });
-    await waitForCondition(() => typeof resolveFirst === "function");
+    await waitForCondition(() => storageMock.createExecutionIfNotRunning.mock.calls.length === 1);
 
     await expect(orchestrator.executeWorkflow("wf-1", { prompt: "again" })).rejects.toThrow(
       "Workflow wf-1 is already running"
