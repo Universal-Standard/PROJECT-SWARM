@@ -12,6 +12,14 @@ const GITHUB_CLIENT_SECRET = process.env.GITHUB_CLIENT_SECRET;
 const GITHUB_REDIRECT_URI =
   process.env.GITHUB_REDIRECT_URI || "http://localhost:5000/api/auth/github/callback";
 
+function getGitHubClientId(): string | undefined {
+  return process.env.GITHUB_CLIENT_ID || GITHUB_CLIENT_ID;
+}
+
+function getGitHubClientSecret(): string | undefined {
+  return process.env.GITHUB_CLIENT_SECRET || GITHUB_CLIENT_SECRET;
+}
+
 /**
  * Generate GitHub OAuth authorization URL
  * @param state CSRF protection state token
@@ -19,7 +27,7 @@ const GITHUB_REDIRECT_URI =
  */
 export function getGitHubAuthUrl(state: string): string {
   const params = new URLSearchParams({
-    client_id: GITHUB_CLIENT_ID || "",
+    client_id: getGitHubClientId() || "",
     redirect_uri: GITHUB_REDIRECT_URI,
     scope: "repo,user:email,read:org",
     state,
@@ -45,8 +53,8 @@ export async function exchangeCodeForToken(code: string): Promise<{
       Accept: "application/json",
     },
     body: JSON.stringify({
-      client_id: GITHUB_CLIENT_ID,
-      client_secret: GITHUB_CLIENT_SECRET,
+      client_id: getGitHubClientId(),
+      client_secret: getGitHubClientSecret(),
       code,
       redirect_uri: GITHUB_REDIRECT_URI,
     }),
@@ -136,13 +144,13 @@ export function isGitHubTokenExpired(user: User): boolean {
 export async function revokeGitHubToken(userId: string): Promise<void> {
   const user = await storage.getUser(userId);
   const accessToken = user ? getGitHubToken(user) : null;
+  const clientId = getGitHubClientId();
+  const clientSecret = getGitHubClientSecret();
 
-  if (accessToken && GITHUB_CLIENT_ID && GITHUB_CLIENT_SECRET) {
+  if (accessToken && clientId && clientSecret) {
     try {
-      const basicAuth = Buffer.from(`${GITHUB_CLIENT_ID}:${GITHUB_CLIENT_SECRET}`).toString(
-        "base64"
-      );
-      await fetch(`https://api.github.com/applications/${GITHUB_CLIENT_ID}/token`, {
+      const basicAuth = Buffer.from(`${clientId}:${clientSecret}`).toString("base64");
+      await fetch(`https://api.github.com/applications/${clientId}/token`, {
         method: "DELETE",
         headers: {
           Accept: "application/vnd.github+json",
@@ -192,6 +200,13 @@ export async function refreshGitHubToken(user: User): Promise<{
     return null;
   }
 
+  const clientId = getGitHubClientId();
+  const clientSecret = getGitHubClientSecret();
+  if (!clientId || !clientSecret) {
+    logger.warn("GitHub OAuth client credentials are not configured; cannot refresh token");
+    return null;
+  }
+
   const response = await fetch("https://github.com/login/oauth/access_token", {
     method: "POST",
     headers: {
@@ -199,8 +214,8 @@ export async function refreshGitHubToken(user: User): Promise<{
       Accept: "application/json",
     },
     body: JSON.stringify({
-      client_id: GITHUB_CLIENT_ID,
-      client_secret: GITHUB_CLIENT_SECRET,
+      client_id: clientId,
+      client_secret: clientSecret,
       grant_type: "refresh_token",
       refresh_token: decryptedRefreshToken,
     }),

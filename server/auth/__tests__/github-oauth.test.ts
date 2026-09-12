@@ -1,6 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { User } from "@shared/schema";
 import { encrypt } from "../encryption";
+
+process.env.GITHUB_CLIENT_ID = process.env.GITHUB_CLIENT_ID || "test-client-id";
+process.env.GITHUB_CLIENT_SECRET = process.env.GITHUB_CLIENT_SECRET || "test-client-secret";
+
 import { exchangeCodeForToken, isGitHubTokenExpired, refreshGitHubToken } from "../github-oauth";
 
 function createUser(overrides: Partial<User>): User {
@@ -124,5 +128,27 @@ describe("github-oauth token lifecycle", () => {
     );
 
     expect(refreshed).toBeNull();
+  });
+
+  it("preserves existing refresh token when provider does not rotate it", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          access_token: "refreshed-access-token",
+          expires_in: 7200,
+        }),
+      })
+    );
+
+    const refreshed = await refreshGitHubToken(
+      createUser({
+        githubRefreshToken: encrypt("existing-refresh-token"),
+      })
+    );
+
+    expect(refreshed?.accessToken).toBe("refreshed-access-token");
+    expect(refreshed?.refreshToken).toBe("existing-refresh-token");
   });
 });
