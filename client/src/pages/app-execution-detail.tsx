@@ -37,18 +37,25 @@ export default function AppExecutionDetail() {
 
   const { data: execution, isLoading: executionLoading } = useQuery<Execution>({
     queryKey: ["/api/executions", id],
+    refetchInterval: (query) => {
+      const currentExecution = query.state.data as Execution | undefined;
+      return currentExecution?.status === "running" ? 2000 : false;
+    },
   });
 
   const { data: logs, isLoading: logsLoading } = useQuery<ExecutionLog[]>({
     queryKey: [`/api/executions/${id}/logs`],
+    refetchInterval: execution?.status === "running" ? 2000 : false,
   });
 
   const { data: messages, isLoading: messagesLoading } = useQuery<AgentMessage[]>({
     queryKey: [`/api/executions/${id}/messages`],
+    refetchInterval: execution?.status === "running" ? 2000 : false,
   });
 
   const { data: timelineData } = useQuery<TimelineResponse>({
     queryKey: [`/api/executions/${id}/timeline`],
+    refetchInterval: execution?.status === "running" ? 2000 : false,
   });
 
   const { data: agents } = useQuery<Agent[]>({

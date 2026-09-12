@@ -34,13 +34,13 @@ export function AgentMessageFlow({ messages, agents, autoScroll = true }: AgentM
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (autoScroll && scrollRef.current) {
+    if (autoScroll && !isReplayMode && scrollRef.current) {
       const scrollElement = scrollRef.current.querySelector("[data-radix-scroll-area-viewport]");
       if (scrollElement) {
         scrollElement.scrollTop = scrollElement.scrollHeight;
       }
     }
-  }, [messages, autoScroll]);
+  }, [messages, autoScroll, isReplayMode]);
 
   const agentMap = useMemo(() => {
     const map = new Map<string, Agent>();

@@ -187,7 +187,12 @@ export function useExecutionMonitor(
 
       ws.onclose = () => {
         console.log("[useExecutionMonitor] Disconnected");
-        setStatus((prev) => ({ ...prev, status: "disconnected" }));
+        setStatus((prev) => {
+          if (prev.status === "error") {
+            return prev;
+          }
+          return { ...prev, status: "disconnected" };
+        });
         wsRef.current = null;
 
         // Attempt to reconnect
