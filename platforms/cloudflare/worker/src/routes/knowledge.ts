@@ -30,11 +30,11 @@ knowledgeRouter.get("/", async (c) => {
     const filters = knowledgeQuerySchema.parse(c.req.query());
     const entries = await db.searchKnowledge(c.env.DB, userId, filters);
     return c.json(entries);
-  } catch (error) {
+  } catch (error: any) {
     if (error instanceof z.ZodError) {
       return c.json({ error: error.issues[0]?.message || "Invalid query parameters" }, 400);
     }
-    return c.json({ error: "Failed to load knowledge entries" }, 500);
+    return c.json({ error: error?.message || "Failed to load knowledge entries" }, 500);
   }
 });
 
@@ -45,8 +45,8 @@ knowledgeRouter.get("/metadata", async (c) => {
   try {
     const metadata = await db.getKnowledgeMetadata(c.env.DB, userId);
     return c.json(metadata);
-  } catch {
-    return c.json({ error: "Failed to load knowledge metadata" }, 500);
+  } catch (error: any) {
+    return c.json({ error: error?.message || "Failed to load knowledge metadata" }, 500);
   }
 });
 
@@ -59,10 +59,10 @@ knowledgeRouter.delete("/:id", async (c) => {
     const deleted = await db.deleteKnowledgeEntry(c.env.DB, userId, id);
     if (!deleted) return c.json({ error: "Knowledge entry not found" }, 404);
     return c.body(null, 204);
-  } catch (error) {
+  } catch (error: any) {
     if (error instanceof z.ZodError) {
       return c.json({ error: error.issues[0]?.message || "Invalid request parameters" }, 400);
     }
-    return c.json({ error: "Failed to delete knowledge entry" }, 500);
+    return c.json({ error: error?.message || "Failed to delete knowledge entry" }, 500);
   }
 });
