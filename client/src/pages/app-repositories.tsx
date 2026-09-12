@@ -1,6 +1,18 @@
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Github, GitBranch, GitCommitHorizontal, GitPullRequest, Loader2, Plus, RefreshCw, Save, Webhook, Folder, FileText } from "lucide-react";
+import {
+  Github,
+  GitBranch,
+  GitCommitHorizontal,
+  GitPullRequest,
+  Loader2,
+  Plus,
+  RefreshCw,
+  Save,
+  Webhook,
+  Folder,
+  FileText,
+} from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
@@ -120,6 +132,7 @@ export default function AppRepositories() {
   const [selectedFilePath, setSelectedFilePath] = useState("");
   const [fileContent, setFileContent] = useState("");
   const [commitMessage, setCommitMessage] = useState("");
+  const [loadedFileKey, setLoadedFileKey] = useState("");
   const [newRepoName, setNewRepoName] = useState("");
   const [newRepoDescription, setNewRepoDescription] = useState("");
   const [newBranchName, setNewBranchName] = useState("");
@@ -141,7 +154,9 @@ export default function AppRepositories() {
   });
 
   const selectedRepository = useMemo(
-    () => repositories.find((repository) => repository.full_name === selectedRepositoryFullName) ?? null,
+    () =>
+      repositories.find((repository) => repository.full_name === selectedRepositoryFullName) ??
+      null,
     [repositories, selectedRepositoryFullName]
   );
 
@@ -160,6 +175,7 @@ export default function AppRepositories() {
     setSelectedFilePath("");
     setFileContent("");
     setCommitMessage("");
+    setLoadedFileKey("");
     setPullRequestTitle("");
     setPullRequestBody("");
     setReviewResult("");
@@ -171,7 +187,9 @@ export default function AppRepositories() {
     : null;
 
   const { data: branches = [] } = useQuery<GitHubBranch[]>({
-    queryKey: repositoryApiBase ? [`${repositoryApiBase}/branches`] : ["/api/github/repos/branches-disabled"],
+    queryKey: repositoryApiBase
+      ? [`${repositoryApiBase}/branches`]
+      : ["/api/github/repos/branches-disabled"],
     enabled: !!repositoryApiBase,
   });
 
@@ -223,9 +241,15 @@ export default function AppRepositories() {
       return;
     }
 
+    const nextFileKey = `${selectedFileData.path}:${selectedFileData.sha}`;
+    if (nextFileKey === loadedFileKey) {
+      return;
+    }
+
+    setLoadedFileKey(nextFileKey);
     setFileContent(decodeGitHubContent(selectedFileData.content, selectedFileData.encoding));
     setCommitMessage(`Update ${selectedFileData.path}`);
-  }, [selectedFileData]);
+  }, [loadedFileKey, selectedFileData]);
 
   const { data: commits = [] } = useQuery<GitHubCommit[]>({
     queryKey: repositoryApiBase
@@ -235,12 +259,16 @@ export default function AppRepositories() {
   });
 
   const { data: pullRequests = [] } = useQuery<GitHubPullRequest[]>({
-    queryKey: repositoryApiBase ? [`${repositoryApiBase}/pulls?state=open`] : ["/api/github/repos/pulls-disabled"],
+    queryKey: repositoryApiBase
+      ? [`${repositoryApiBase}/pulls?state=open`]
+      : ["/api/github/repos/pulls-disabled"],
     enabled: !!repositoryApiBase,
   });
 
   const { data: webhooks = [] } = useQuery<GitHubWebhook[]>({
-    queryKey: repositoryApiBase ? [`${repositoryApiBase}/webhooks`] : ["/api/github/repos/webhooks-disabled"],
+    queryKey: repositoryApiBase
+      ? [`${repositoryApiBase}/webhooks`]
+      : ["/api/github/repos/webhooks-disabled"],
     enabled: !!repositoryApiBase,
   });
 
@@ -330,7 +358,9 @@ export default function AppRepositories() {
         ],
       });
       queryClient.invalidateQueries({
-        queryKey: [`${repositoryApiBase}/commits?sha=${encodeURIComponent(selectedBranch)}&perPage=10`],
+        queryKey: [
+          `${repositoryApiBase}/commits?sha=${encodeURIComponent(selectedBranch)}&perPage=10`,
+        ],
       });
       toast({ title: "File committed to GitHub" });
     },
@@ -655,7 +685,11 @@ export default function AppRepositories() {
                   <div className="flex items-center gap-2 text-sm text-muted-foreground">
                     <span>{currentPath || "/"}</span>
                     {currentPath && (
-                      <Button variant="outline" size="sm" onClick={() => setCurrentPath(getParentPath(currentPath))}>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCurrentPath(getParentPath(currentPath))}
+                      >
                         Up
                       </Button>
                     )}
@@ -669,7 +703,9 @@ export default function AppRepositories() {
                         <div className="p-3 text-sm text-muted-foreground">Loading contents...</div>
                       ) : directoryEntries.length === 0 ? (
                         <div className="p-3 text-sm text-muted-foreground">
-                          {currentPath ? "This directory is empty." : "No files found at the repository root."}
+                          {currentPath
+                            ? "This directory is empty."
+                            : "No files found at the repository root."}
                         </div>
                       ) : (
                         <div className="space-y-1">
@@ -686,10 +722,12 @@ export default function AppRepositories() {
                                   setSelectedFilePath("");
                                   setFileContent("");
                                   setCommitMessage("");
+                                  setLoadedFileKey("");
                                   return;
                                 }
 
                                 if (entry.type === "file") {
+                                  setLoadedFileKey("");
                                   setSelectedFilePath(entry.path);
                                 }
                               }}
@@ -817,12 +855,16 @@ export default function AppRepositories() {
                   </Button>
                   <div className="space-y-2">
                     {webhooks.length === 0 ? (
-                      <div className="text-sm text-muted-foreground">No repository webhooks configured.</div>
+                      <div className="text-sm text-muted-foreground">
+                        No repository webhooks configured.
+                      </div>
                     ) : (
                       webhooks.map((webhook) => (
                         <div key={webhook.id} className="rounded-lg border p-3 text-sm">
                           <div className="flex items-center justify-between gap-2">
-                            <span className="truncate">{webhook.config.url || "Hidden webhook URL"}</span>
+                            <span className="truncate">
+                              {webhook.config.url || "Hidden webhook URL"}
+                            </span>
                             <Badge variant={webhook.active ? "default" : "secondary"}>
                               {webhook.active ? "Active" : "Paused"}
                             </Badge>

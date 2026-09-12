@@ -196,4 +196,55 @@ describe("AppRepositories", () => {
       });
     });
   });
+
+  it("runs an automated pull request review", async () => {
+    apiRequest.mockResolvedValue(
+      createJsonResponse({
+        reviewBody: "## Summary\n- LGTM",
+        submitted: true,
+      })
+    );
+
+    renderPage();
+
+    fireEvent.change(await screen.findByLabelText("Optional review instructions"), {
+      target: { value: "Focus on regression risks." },
+    });
+    fireEvent.click(await screen.findByRole("button", { name: /run review/i }));
+
+    await waitFor(() => {
+      expect(apiRequest).toHaveBeenCalledWith(
+        "POST",
+        "/api/github/repos/octo/demo/pulls/5/review",
+        {
+          submit: true,
+          additionalContext: "Focus on regression risks.",
+        }
+      );
+    });
+
+    expect(await screen.findByText("Latest automated review")).toBeTruthy();
+    expect(await screen.findByText(/LGTM/)).toBeTruthy();
+  });
+
+  it("creates a repository webhook from the configured events", async () => {
+    apiRequest.mockResolvedValue(createJsonResponse({ id: 99 }));
+
+    renderPage();
+
+    fireEvent.change(await screen.findByLabelText("Callback URL"), {
+      target: { value: "https://hooks.example.com/github" },
+    });
+    fireEvent.change(screen.getByLabelText("Events (comma separated)"), {
+      target: { value: "push, pull_request, issues" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /add webhook/i }));
+
+    await waitFor(() => {
+      expect(apiRequest).toHaveBeenCalledWith("POST", "/api/github/repos/octo/demo/webhooks", {
+        callbackUrl: "https://hooks.example.com/github",
+        events: ["push", "pull_request", "issues"],
+      });
+    });
+  });
 });

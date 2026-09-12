@@ -1351,7 +1351,7 @@ export async function registerRoutes(app: Express) {
 
         const reviewBody =
           completion.choices[0]?.message.content?.trim() ||
-          "Summary\n- Automated review did not return content.\n\nFindings\n- Unable to produce findings.\n\nRecommended Next Step\n- Re-run the review.";
+          "## Summary\n- Automated review did not return content.\n\n## Findings\n- Unable to produce findings.\n\n## Recommended Next Step\n- Re-run the review.";
 
         let submittedReview = null;
         if (payload.submit ?? true) {
