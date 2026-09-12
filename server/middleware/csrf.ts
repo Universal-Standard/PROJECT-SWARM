@@ -51,7 +51,6 @@ export function csrfProtection(req: Request, res: Response, next: NextFunction):
     req.path.startsWith("/api/webhooks/trigger/") ||
     req.path === "/api/login" ||
     req.path === "/api/callback" ||
-    req.path === "/api/logout" ||
     req.path === "/api/csrf-token"
   ) {
     return next();
