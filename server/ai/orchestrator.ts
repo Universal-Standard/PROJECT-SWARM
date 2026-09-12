@@ -48,6 +48,14 @@ export class WorkflowOrchestrator {
       }
 
       workflow = foundWorkflow;
+      const workflowExecutions = await storage.getExecutionsByWorkflowId(workflowId);
+      const hasRunningExecution = workflowExecutions.some(
+        (workflowExecution) => workflowExecution.status === "running"
+      );
+      if (hasRunningExecution) {
+        throw new Error(`Workflow ${workflowId} is already running`);
+      }
+
       agents = await storage.getAgentsByWorkflowId(workflowId);
 
       execution = await storage.createExecution({

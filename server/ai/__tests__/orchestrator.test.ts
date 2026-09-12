@@ -10,6 +10,7 @@ const {
 } = vi.hoisted(() => ({
   storageMock: {
     getWorkflowById: vi.fn(),
+    getExecutionsByWorkflowId: vi.fn(),
     getAgentsByWorkflowId: vi.fn(),
     createExecution: vi.fn(),
     updateExecution: vi.fn(),
@@ -158,6 +159,7 @@ describe("WorkflowOrchestrator", () => {
     vi.clearAllMocks();
 
     storageMock.getWorkflowById.mockResolvedValue(createWorkflow());
+    storageMock.getExecutionsByWorkflowId.mockResolvedValue([]);
     storageMock.getAgentsByWorkflowId.mockResolvedValue(createAgents());
     storageMock.createExecution.mockResolvedValue(createExecution());
     storageMock.updateExecution.mockImplementation(async (_id, patch) => ({
@@ -272,6 +274,7 @@ describe("WorkflowOrchestrator", () => {
         maxTokens: 1000,
       },
     ]);
+    storageMock.getExecutionsByWorkflowId.mockResolvedValue([]);
 
     let resolveFirst: (() => void) | undefined;
     aiExecutorMock.executeAgent.mockReset().mockImplementation(
@@ -292,5 +295,19 @@ describe("WorkflowOrchestrator", () => {
 
     resolveFirst?.();
     await expect(firstExecution).resolves.toBeDefined();
+  });
+
+  it("rejects execution when persistence already has a running workflow execution", async () => {
+    storageMock.getExecutionsByWorkflowId.mockResolvedValue([
+      { id: "exec-running", status: "running" },
+    ]);
+
+    const orchestrator = new WorkflowOrchestrator();
+
+    await expect(orchestrator.executeWorkflow("wf-1", { prompt: "start" })).rejects.toThrow(
+      "Workflow wf-1 is already running"
+    );
+    expect(storageMock.createExecution).not.toHaveBeenCalled();
+    expect(aiExecutorMock.executeAgent).not.toHaveBeenCalled();
   });
 });
