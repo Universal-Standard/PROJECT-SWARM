@@ -8,6 +8,7 @@ import {
   LogOut,
   Key,
   Trash2,
+  Brain,
   Download,
   Github,
   Check,
@@ -41,6 +42,16 @@ import {
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 
+interface KnowledgeEntry {
+  id: string;
+  agentType: string;
+  category: string;
+  content: string;
+  context?: string | null;
+  confidence: number | null;
+  createdAt: string;
+}
+
 export default function AppSettings() {
   const { user, isLoading: authLoading, isAuthenticated } = useAuth();
   const { toast } = useToast();
@@ -56,6 +67,10 @@ export default function AppSettings() {
     anthropic: false,
     gemini: false,
   });
+  const [knowledgeQuery, setKnowledgeQuery] = useState("");
+  const [knowledgeAgentType, setKnowledgeAgentType] = useState("all");
+  const [knowledgeCategory, setKnowledgeCategory] = useState("all");
+  const [knowledgeMinConfidence, setKnowledgeMinConfidence] = useState("0");
 
   // Fetch settings
   const { data: settings, isLoading: settingsLoading } = useQuery({
@@ -67,6 +82,38 @@ export default function AppSettings() {
   const { data: githubStatus } = useQuery({
     queryKey: ["/api/auth/github/status"],
     enabled: isAuthenticated,
+  });
+
+  const { data: knowledgeEntries = [], isLoading: knowledgeLoading } = useQuery<KnowledgeEntry[]>({
+    queryKey: [
+      "/api/knowledge",
+      {
+        query: knowledgeQuery,
+        agentType: knowledgeAgentType,
+        category: knowledgeCategory,
+        minConfidence: knowledgeMinConfidence,
+      },
+    ],
+    enabled: isAuthenticated,
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      if (knowledgeQuery.trim()) params.set("query", knowledgeQuery.trim());
+      if (knowledgeAgentType !== "all") params.set("agentType", knowledgeAgentType);
+      if (knowledgeCategory !== "all") params.set("category", knowledgeCategory);
+      if (knowledgeMinConfidence !== "0") params.set("minConfidence", knowledgeMinConfidence);
+      params.set("limit", "100");
+
+      const res = await fetch(`/api/knowledge?${params.toString()}`, {
+        credentials: "include",
+      });
+
+      if (!res.ok) {
+        const message = await res.text();
+        throw new Error(message || "Failed to load knowledge base");
+      }
+
+      return res.json();
+    },
   });
 
   // Update settings mutation
@@ -148,6 +195,23 @@ export default function AppSettings() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/auth/github/status"] });
       toast({ title: "GitHub disconnected successfully" });
+    },
+  });
+
+  const deleteKnowledgeMutation = useMutation({
+    mutationFn: async (id: string) => {
+      await apiRequest("DELETE", `/api/knowledge/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/knowledge"] });
+      toast({ title: "Knowledge entry deleted" });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Failed to delete knowledge entry",
+        description: error.message,
+        variant: "destructive",
+      });
     },
   });
 
@@ -453,6 +517,106 @@ export default function AppSettings() {
                   }
                 }}
               />
+            </div>
+          </div>
+        </Card>
+
+        {/* Knowledge Base */}
+        <Card className="p-6">
+          <div className="flex items-center gap-3 mb-6">
+            <Brain className="w-5 h-5 text-primary" />
+            <h2 className="text-xl font-semibold">Knowledge Base</h2>
+          </div>
+
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+              <Input
+                placeholder="Search knowledge..."
+                value={knowledgeQuery}
+                onChange={(e) => setKnowledgeQuery(e.target.value)}
+              />
+              <Select value={knowledgeAgentType} onValueChange={setKnowledgeAgentType}>
+                <SelectTrigger>
+                  <SelectValue placeholder="All agent types" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All agent types</SelectItem>
+                  <SelectItem value="coordinator">Coordinator</SelectItem>
+                  <SelectItem value="coder">Coder</SelectItem>
+                  <SelectItem value="researcher">Researcher</SelectItem>
+                  <SelectItem value="database">Database</SelectItem>
+                  <SelectItem value="security">Security</SelectItem>
+                  <SelectItem value="custom">Custom</SelectItem>
+                  <SelectItem value="general">General</SelectItem>
+                </SelectContent>
+              </Select>
+              <Select value={knowledgeCategory} onValueChange={setKnowledgeCategory}>
+                <SelectTrigger>
+                  <SelectValue placeholder="All categories" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All categories</SelectItem>
+                  <SelectItem value="general">General</SelectItem>
+                  <SelectItem value="coding">Coding</SelectItem>
+                  <SelectItem value="research">Research</SelectItem>
+                  <SelectItem value="security">Security</SelectItem>
+                  <SelectItem value="database">Database</SelectItem>
+                  <SelectItem value="workflow">Workflow</SelectItem>
+                </SelectContent>
+              </Select>
+              <Select value={knowledgeMinConfidence} onValueChange={setKnowledgeMinConfidence}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Min confidence" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="0">Any confidence</SelectItem>
+                  <SelectItem value="60">60%+</SelectItem>
+                  <SelectItem value="70">70%+</SelectItem>
+                  <SelectItem value="80">80%+</SelectItem>
+                  <SelectItem value="90">90%+</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-3 max-h-96 overflow-y-auto pr-1">
+              {knowledgeLoading ? (
+                <div className="text-sm text-muted-foreground">Loading knowledge entries...</div>
+              ) : knowledgeEntries.length === 0 ? (
+                <div className="text-sm text-muted-foreground">
+                  No knowledge entries found for the selected filters.
+                </div>
+              ) : (
+                knowledgeEntries.map((entry) => (
+                  <div key={entry.id} className="border rounded-lg p-3 space-y-2">
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="space-y-1">
+                        <div className="text-sm font-medium">{entry.content}</div>
+                        {entry.context && (
+                          <div className="text-xs text-muted-foreground">{entry.context}</div>
+                        )}
+                      </div>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        onClick={() => deleteKnowledgeMutation.mutate(entry.id)}
+                        disabled={deleteKnowledgeMutation.isPending}
+                        aria-label="Delete knowledge entry"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    </div>
+                    <div className="text-xs text-muted-foreground flex flex-wrap items-center gap-2">
+                      <span className="capitalize">{entry.agentType}</span>
+                      <span>•</span>
+                      <span className="capitalize">{entry.category}</span>
+                      <span>•</span>
+                      <span>{entry.confidence ?? 0}% confidence</span>
+                      <span>•</span>
+                      <span>{new Date(entry.createdAt).toLocaleString()}</span>
+                    </div>
+                  </div>
+                ))
+              )}
             </div>
           </div>
         </Card>
