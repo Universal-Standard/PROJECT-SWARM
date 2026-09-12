@@ -16,7 +16,7 @@ import {
   Eye,
   EyeOff,
 } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -125,6 +125,19 @@ export default function AppSettings() {
       return res.json();
     },
   });
+
+  const knowledgeAgentTypeOptions = useMemo(() => {
+    const types = new Set<string>();
+    knowledgeEntries.forEach((entry) => {
+      if (entry.agentType) {
+        types.add(entry.agentType);
+      }
+    });
+    if (knowledgeAgentType !== "all") {
+      types.add(knowledgeAgentType);
+    }
+    return Array.from(types).sort((a, b) => a.localeCompare(b));
+  }, [knowledgeEntries, knowledgeAgentType]);
 
   // Update settings mutation
   const updateSettingsMutation = useMutation({
@@ -567,13 +580,11 @@ export default function AppSettings() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All agent types</SelectItem>
-                    <SelectItem value="coordinator">Coordinator</SelectItem>
-                    <SelectItem value="coder">Coder</SelectItem>
-                    <SelectItem value="researcher">Researcher</SelectItem>
-                    <SelectItem value="database">Database</SelectItem>
-                    <SelectItem value="security">Security</SelectItem>
-                    <SelectItem value="custom">Custom</SelectItem>
-                    <SelectItem value="general">General</SelectItem>
+                    {knowledgeAgentTypeOptions.map((agentType) => (
+                      <SelectItem key={agentType} value={agentType}>
+                        {agentType.charAt(0).toUpperCase() + agentType.slice(1)}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
