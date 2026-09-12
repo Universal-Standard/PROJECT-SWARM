@@ -57,6 +57,13 @@ import {
 } from "@shared/schema";
 import { eq, desc, and, or, inArray, gte, lte, sql } from "drizzle-orm";
 
+class WorkflowNotFoundError extends Error {
+  constructor(message = "Template workflow not found") {
+    super(message);
+    this.name = "WorkflowNotFoundError";
+  }
+}
+
 export interface IStorage {
   // Users (Replit Auth)
   getUser(id: string): Promise<User | undefined>;
@@ -408,10 +415,16 @@ export class DatabaseStorage implements IStorage {
 
   async createTemplateForWorkflow(template: InsertTemplate): Promise<Template> {
     return db.transaction(async (tx) => {
-      await tx
+      const [workflow] = await tx
         .update(workflows)
         .set({ isTemplate: true })
-        .where(eq(workflows.id, template.workflowId));
+        .where(eq(workflows.id, template.workflowId))
+        .returning({ id: workflows.id });
+
+      if (!workflow) {
+        throw new WorkflowNotFoundError();
+      }
+
       const [newTemplate] = await tx.insert(templates).values(template).returning();
       return newTemplate;
     });

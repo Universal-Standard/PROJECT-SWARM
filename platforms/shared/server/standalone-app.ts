@@ -5,6 +5,7 @@ import cors from "cors";
 import crypto from "crypto";
 import { storage } from "../../../server/storage";
 import { orchestrator } from "../../../server/ai/orchestrator";
+import { csrfProtection, generateToken } from "../../../server/middleware/csrf";
 import { workflowValidator } from "../../../server/lib/workflow-validator";
 import { logger } from "../../../server/lib/logger";
 import {
@@ -166,6 +167,12 @@ export function createStandaloneApp() {
       },
     })
   );
+
+  app.get("/api/csrf-token", (req, res) => {
+    const token = generateToken(req, res);
+    res.json({ csrfToken: token });
+  });
+  app.use(csrfProtection);
 
   // Health check
   app.get("/api/health", (req, res) => {
@@ -522,6 +529,9 @@ export function createStandaloneApp() {
     } catch (err: any) {
       if (err.name === "ZodError") {
         return res.status(400).json({ error: "Invalid input", details: err.issues });
+      }
+      if (err.name === "WorkflowNotFoundError") {
+        return res.status(404).json({ error: "Template workflow not found" });
       }
       if (isTemplateWorkflowUniqueViolation(err)) {
         return res.status(409).json({ error: "Workflow already has a template" });

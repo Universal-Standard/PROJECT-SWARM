@@ -847,6 +847,9 @@ export async function registerRoutes(app: Express) {
       if (error.name === "ZodError") {
         return res.status(400).json({ error: "Invalid input", details: error.issues });
       }
+      if (error.name === "WorkflowNotFoundError") {
+        return res.status(404).json({ error: "Template workflow not found" });
+      }
       if (isTemplateWorkflowUniqueViolation(error)) {
         return res.status(409).json({ error: "Workflow already has a template" });
       }
