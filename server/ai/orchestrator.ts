@@ -26,35 +26,31 @@ export class WorkflowOrchestrator {
     let agents: Agent[];
     let execution: Execution;
 
-    try {
-      const foundWorkflow = await storage.getWorkflowById(workflowId);
-      if (!foundWorkflow) {
-        throw new Error("Workflow not found");
-      }
-
-      // Validate workflow before execution
-      const validationResult = workflowValidator.validate(foundWorkflow);
-      if (!validationResult.valid) {
-        const errorMessages = validationResult.errors.map((e) => e.message).join("; ");
-        throw new Error(`Workflow validation failed: ${errorMessages}`);
-      }
-
-      workflow = foundWorkflow;
-      agents = await storage.getAgentsByWorkflowId(workflowId);
-
-      const createdExecution = await storage.createExecutionIfNotRunning({
-        workflowId,
-        userId: workflow.userId,
-        status: "running",
-        input,
-      });
-      if (!createdExecution) {
-        throw new Error(`Workflow ${workflowId} is already running`);
-      }
-      execution = createdExecution;
-    } catch (error) {
-      throw error;
+    const foundWorkflow = await storage.getWorkflowById(workflowId);
+    if (!foundWorkflow) {
+      throw new Error("Workflow not found");
     }
+
+    // Validate workflow before execution
+    const validationResult = workflowValidator.validate(foundWorkflow);
+    if (!validationResult.valid) {
+      const errorMessages = validationResult.errors.map((e) => e.message).join("; ");
+      throw new Error(`Workflow validation failed: ${errorMessages}`);
+    }
+
+    workflow = foundWorkflow;
+    agents = await storage.getAgentsByWorkflowId(workflowId);
+
+    const createdExecution = await storage.createExecutionIfNotRunning({
+      workflowId,
+      userId: workflow.userId,
+      status: "running",
+      input,
+    });
+    if (!createdExecution) {
+      throw new Error(`Workflow ${workflowId} is already running`);
+    }
+    execution = createdExecution;
 
     try {
       // Emit execution started event
