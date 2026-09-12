@@ -37,23 +37,6 @@ const updateTemplateSchema = z
   })
   .strict();
 
-const { generateCsrfToken, doubleCsrfProtection } = doubleCsrf({
-  getSecret: () => process.env.SESSION_SECRET || "dev-csrf-secret-not-for-production",
-  getSessionIdentifier: (req: Request) => {
-    const sessionData = (req as { session?: { id?: string } }).session;
-    return sessionData?.id || req.ip || "anonymous";
-  },
-  cookieName: process.env.NODE_ENV === "production" ? "__Host-csrf" : "csrf",
-  cookieOptions: {
-    httpOnly: true,
-    sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
-    path: "/",
-  },
-  size: 64,
-  ignoredMethods: ["GET", "HEAD", "OPTIONS"],
-});
-
 function isTemplateWorkflowUniqueViolation(error: unknown): boolean {
   if (!error || typeof error !== "object") {
     return false;
@@ -169,10 +152,28 @@ export function createStandaloneApp() {
     );
   }
 
+  const resolvedSessionSecret = sessionSecret || crypto.randomBytes(32).toString("hex");
+  const { generateCsrfToken, doubleCsrfProtection } = doubleCsrf({
+    getSecret: () => resolvedSessionSecret,
+    getSessionIdentifier: (req: Request) => {
+      const sessionData = (req as { session?: { id?: string } }).session;
+      return sessionData?.id || req.ip || "anonymous";
+    },
+    cookieName: process.env.NODE_ENV === "production" ? "__Host-csrf" : "csrf",
+    cookieOptions: {
+      httpOnly: true,
+      sameSite: "lax",
+      secure: process.env.NODE_ENV === "production",
+      path: "/",
+    },
+    size: 64,
+    ignoredMethods: ["GET", "HEAD", "OPTIONS"],
+  });
+
   // Session
   app.use(
     session({
-      secret: sessionSecret || crypto.randomBytes(32).toString("hex"),
+      secret: resolvedSessionSecret,
       store: new MemStore({ checkPeriod: 86400000 }),
       resave: false,
       saveUninitialized: false,
