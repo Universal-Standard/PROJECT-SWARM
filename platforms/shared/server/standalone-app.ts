@@ -19,12 +19,36 @@ import {
   insertWorkflowSchema,
   insertAgentSchema,
   insertExecutionSchema,
+  insertTemplateSchema,
 } from "../../../shared/schema";
 import { z } from "zod/v4";
 import type { Request, Response, NextFunction } from "express";
 import type { WorkflowNode } from "../../../server/types/workflow";
 
 const executeWorkflowSchema = insertExecutionSchema.pick({ workflowId: true, input: true });
+const updateTemplateSchema = z
+  .object({
+    name: z.string().min(1).max(255).optional(),
+    description: z.string().optional(),
+    category: z.string().optional(),
+    thumbnailUrl: z.string().url().optional().nullable(),
+    featured: z.boolean().optional(),
+  })
+  .strict();
+
+function isTemplateWorkflowUniqueViolation(error: unknown): boolean {
+  if (!error || typeof error !== "object") {
+    return false;
+  }
+
+  const databaseError = error as { code?: unknown; constraint?: unknown; message?: unknown };
+  return (
+    databaseError.code === "23505" &&
+    (databaseError.constraint === "templates_workflow_id_unique" ||
+      databaseError.message ===
+        'duplicate key value violates unique constraint "templates_workflow_id_unique"')
+  );
+}
 
 function getUserId(req: any): string {
   return req.session.userId;
@@ -88,7 +112,7 @@ export function createStandaloneApp() {
     cors({
       origin: corsOrigin,
       credentials: true,
-    }),
+    })
   );
 
   // CSRF guard — for state-mutating requests, verify Origin matches allowed host
@@ -122,7 +146,9 @@ export function createStandaloneApp() {
     if (process.env.NODE_ENV === "production") {
       throw new Error("SESSION_SECRET environment variable is required in production");
     }
-    logger.warn("SESSION_SECRET not set — using ephemeral random secret. Sessions won't survive restarts. Set SESSION_SECRET environment variable for production use.");
+    logger.warn(
+      "SESSION_SECRET not set — using ephemeral random secret. Sessions won't survive restarts. Set SESSION_SECRET environment variable for production use."
+    );
   }
 
   // Session
@@ -138,7 +164,7 @@ export function createStandaloneApp() {
         sameSite: "lax",
         maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
       },
-    }),
+    })
   );
 
   // Health check
@@ -172,9 +198,7 @@ export function createStandaloneApp() {
       }
       delete req.session.githubOAuthState;
 
-      const { accessToken, refreshToken, expiresAt } = await exchangeCodeForToken(
-        code as string,
-      );
+      const { accessToken, refreshToken, expiresAt } = await exchangeCodeForToken(code as string);
 
       // Fetch GitHub user info
       const ghRes = await fetch("https://api.github.com/user", {
@@ -199,9 +223,7 @@ export function createStandaloneApp() {
       await storeGitHubTokens(userId, accessToken, refreshToken, expiresAt);
 
       req.session.userId = userId;
-      res.redirect(
-        process.env.FRONTEND_URL ? `${process.env.FRONTEND_URL}/app` : "/app",
-      );
+      res.redirect(process.env.FRONTEND_URL ? `${process.env.FRONTEND_URL}/app` : "/app");
     } catch (err: any) {
       logger.error("GitHub callback error", err);
       res.redirect("/login?error=oauth_failed");
@@ -298,7 +320,7 @@ export function createStandaloneApp() {
                 type: z.string(),
                 position: z.object({ x: z.number(), y: z.number() }),
                 data: z.record(z.any()),
-              }),
+              })
             )
             .optional(),
           edges: z
@@ -308,7 +330,7 @@ export function createStandaloneApp() {
                 source: z.string(),
                 target: z.string(),
                 animated: z.boolean().optional(),
-              }),
+              })
             )
             .optional(),
           category: z.string().optional(),
@@ -394,21 +416,17 @@ export function createStandaloneApp() {
     }
   });
 
-  app.get(
-    "/api/workflows/:workflowId/executions",
-    isAuthenticated,
-    async (req: any, res) => {
-      try {
-        const userId = getUserId(req);
-        const workflow = await storage.getWorkflowById(req.params.workflowId);
-        if (!workflow || workflow.userId !== userId)
-          return res.status(403).json({ error: "Forbidden" });
-        res.json(await storage.getExecutionsByWorkflowId(req.params.workflowId));
-      } catch (err: any) {
-        res.status(500).json({ error: err.message });
-      }
-    },
-  );
+  app.get("/api/workflows/:workflowId/executions", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserId(req);
+      const workflow = await storage.getWorkflowById(req.params.workflowId);
+      if (!workflow || workflow.userId !== userId)
+        return res.status(403).json({ error: "Forbidden" });
+      res.json(await storage.getExecutionsByWorkflowId(req.params.workflowId));
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
 
   app.get("/api/executions/:id", isAuthenticated, async (req: any, res) => {
     try {
@@ -478,7 +496,125 @@ export function createStandaloneApp() {
 
   app.get("/api/templates", async (req, res) => {
     try {
-      res.json(await storage.getTemplates());
+      res.json(await storage.getAllTemplates());
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  app.post("/api/templates", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserId(req);
+      const data = insertTemplateSchema.parse(req.body);
+      const workflow = await storage.getWorkflowById(data.workflowId);
+
+      if (!workflow || workflow.userId !== userId) {
+        return res.status(403).json({ error: "Forbidden" });
+      }
+
+      const existingTemplate = await storage.getTemplateByWorkflowId(data.workflowId);
+      if (existingTemplate) {
+        return res.status(409).json({ error: "Workflow already has a template" });
+      }
+
+      const template = await storage.createTemplateForWorkflow(data);
+      res.json(template);
+    } catch (err: any) {
+      if (err.name === "ZodError") {
+        return res.status(400).json({ error: "Invalid input", details: err.issues });
+      }
+      if (isTemplateWorkflowUniqueViolation(err)) {
+        return res.status(409).json({ error: "Workflow already has a template" });
+      }
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  app.put("/api/templates/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserId(req);
+      const template = await storage.getTemplateById(req.params.id);
+
+      if (!template) {
+        return res.status(404).json({ error: "Template not found" });
+      }
+
+      const workflow = await storage.getWorkflowById(template.workflowId);
+      if (!workflow || workflow.userId !== userId) {
+        return res.status(403).json({ error: "Forbidden" });
+      }
+
+      const validated = updateTemplateSchema.parse(req.body);
+      const updated = await storage.updateTemplate(req.params.id, validated);
+      res.json(updated);
+    } catch (err: any) {
+      if (err.name === "ZodError") {
+        return res.status(400).json({ error: "Invalid input", details: err.issues });
+      }
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  app.get("/api/templates/:id/export", async (req, res) => {
+    try {
+      const template = await storage.getTemplateById(req.params.id);
+      if (!template) {
+        return res.status(404).json({ error: "Template not found" });
+      }
+
+      const workflow = await storage.getWorkflowById(template.workflowId);
+      if (!workflow) {
+        return res.status(404).json({ error: "Template workflow not found" });
+      }
+
+      res.setHeader("Content-Type", "application/json");
+      res.setHeader(
+        "Content-Disposition",
+        `attachment; filename="${template.name.replace(/[^a-zA-Z0-9]/g, "-")}-template.json"`
+      );
+      res.json({
+        template: {
+          name: template.name,
+          description: template.description,
+          category: template.category,
+        },
+        workflow: {
+          nodes: workflow.nodes,
+          edges: workflow.edges,
+        },
+        exportedAt: new Date().toISOString(),
+      });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  app.post("/api/templates/:id/create-workflow", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserId(req);
+      const template = await storage.getTemplateById(req.params.id);
+
+      if (!template) {
+        return res.status(404).json({ error: "Template not found" });
+      }
+
+      const sourceWorkflow = await storage.getWorkflowById(template.workflowId);
+      if (!sourceWorkflow) {
+        return res.status(404).json({ error: "Template workflow not found" });
+      }
+
+      const workflowData = insertWorkflowSchema.parse({
+        userId,
+        name: `${template.name} (Copy)`,
+        description: template.description,
+        nodes: sourceWorkflow.nodes,
+        edges: sourceWorkflow.edges,
+        category: template.category,
+      });
+
+      const workflow = await storage.createWorkflow(workflowData);
+      await storage.updateTemplateUsageCount(req.params.id);
+      res.json(workflow);
     } catch (err: any) {
       res.status(500).json({ error: err.message });
     }
