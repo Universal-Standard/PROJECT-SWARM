@@ -114,7 +114,9 @@ export interface IStorage {
 
   // Templates
   createTemplate(template: InsertTemplate): Promise<Template>;
-  createTemplateForWorkflow(template: InsertTemplate): Promise<Template>;
+  createTemplateForWorkflow(
+    template: InsertTemplate
+  ): Promise<{ created: boolean; template: Template }>;
   getTemplateById(id: string): Promise<Template | undefined>;
   getTemplateByWorkflowId(workflowId: string): Promise<Template | undefined>;
   getAllTemplates(): Promise<Template[]>;
@@ -413,11 +415,35 @@ export class DatabaseStorage implements IStorage {
     return newTemplate;
   }
 
-  async createTemplateForWorkflow(template: InsertTemplate): Promise<Template> {
+  async createTemplateForWorkflow(
+    template: InsertTemplate
+  ): Promise<{ created: boolean; template: Template }> {
     return db.transaction(async (tx) => {
+      const [existingTemplate] = await tx
+        .select()
+        .from(templates)
+        .where(eq(templates.workflowId, template.workflowId));
+
+      if (existingTemplate) {
+        const [workflow] = await tx
+          .update(workflows)
+          .set({ isTemplate: true, updatedAt: new Date() })
+          .where(eq(workflows.id, template.workflowId))
+          .returning({ id: workflows.id });
+
+        if (!workflow) {
+          throw new WorkflowNotFoundError();
+        }
+
+        return {
+          created: false,
+          template: existingTemplate,
+        };
+      }
+
       const [workflow] = await tx
         .update(workflows)
-        .set({ isTemplate: true })
+        .set({ isTemplate: true, updatedAt: new Date() })
         .where(eq(workflows.id, template.workflowId))
         .returning({ id: workflows.id });
 
@@ -426,7 +452,10 @@ export class DatabaseStorage implements IStorage {
       }
 
       const [newTemplate] = await tx.insert(templates).values(template).returning();
-      return newTemplate;
+      return {
+        created: true,
+        template: newTemplate,
+      };
     });
   }
 

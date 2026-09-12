@@ -548,8 +548,11 @@ export function createStandaloneApp() {
         return res.status(409).json({ error: "Workflow already has a template" });
       }
 
-      const template = await storage.createTemplateForWorkflow(data);
-      res.status(201).json(template);
+      const result = await storage.createTemplateForWorkflow(data);
+      if (!result.created) {
+        return res.status(409).json({ error: "Workflow already has a template" });
+      }
+      res.status(201).json(result.template);
     } catch (err: any) {
       if (err.name === "ZodError") {
         return res.status(400).json({ error: "Invalid input", details: err.issues });

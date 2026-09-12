@@ -841,8 +841,11 @@ export async function registerRoutes(app: Express) {
         return res.status(409).json({ error: "Workflow already has a template" });
       }
 
-      const template = await storage.createTemplateForWorkflow(data);
-      res.status(201).json(template);
+      const result = await storage.createTemplateForWorkflow(data);
+      if (!result.created) {
+        return res.status(409).json({ error: "Workflow already has a template" });
+      }
+      res.status(201).json(result.template);
     } catch (error: any) {
       if (error.name === "ZodError") {
         return res.status(400).json({ error: "Invalid input", details: error.issues });
