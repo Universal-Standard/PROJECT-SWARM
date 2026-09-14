@@ -42,7 +42,7 @@ jobs:
           echo "{\"access_token\":\"$ACCESS_TOKEN\",\"token_type\":\"bearer\"}" > auth-output/token.json
           echo "Token exchange successful"
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: auth-token-${{ github.run_id }}
           path: auth-output/token.json

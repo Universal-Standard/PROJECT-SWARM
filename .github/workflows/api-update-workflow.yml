@@ -85,7 +85,7 @@ jobs:
           git add swarm.db .swarm-data/
           git diff --staged --quiet || (git commit -m "data: update workflow ${{ inputs.workflow_id }}" && git push)
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: api-update-workflow-${{ github.run_id }}
           path: api-output/result.json

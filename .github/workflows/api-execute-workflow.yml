@@ -226,7 +226,7 @@ jobs:
           git add swarm.db
           git diff --staged --quiet || (git commit -m "data: execution ${{ github.run_id }} completed" && git push)
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: api-execute-workflow-${{ github.run_id }}
           path: api-output/result.json
