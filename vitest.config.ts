@@ -10,8 +10,8 @@ export default defineConfig({
     setupFiles: ["./tests/setup.ts"],
     include: ["**/*.{test,spec}.{js,ts,jsx,tsx}"],
     exclude: [
-      "node_modules",
-      "dist",
+      "**/node_modules/**",
+      "**/dist/**",
       ".git",
       "client/src/__tests__/e2e",
       "tests/e2e/**",
