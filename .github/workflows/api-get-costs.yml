@@ -68,7 +68,7 @@ jobs:
           fs.writeFileSync('api-output/result.json', JSON.stringify(result, null, 2));
           EOF
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: api-get-costs-${{ github.run_id }}
           path: api-output/result.json
