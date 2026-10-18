@@ -82,9 +82,15 @@ export interface IStorage {
 
   // Executions
   createExecution(execution: InsertExecution): Promise<Execution>;
+  createExecutionIfNotRunning(execution: InsertExecution): Promise<Execution | null>;
   getExecutionById(id: string): Promise<Execution | undefined>;
   getExecutionsByWorkflowId(workflowId: string): Promise<Execution[]>;
   getExecutionsByUserId(userId: string): Promise<Execution[]>;
+  updateExecutionStatusIfCurrent(
+    id: string,
+    expectedCurrentStatuses: string[],
+    execution: Partial<InsertExecution>
+  ): Promise<Execution | undefined>;
   updateExecution(id: string, execution: Partial<InsertExecution>): Promise<Execution | undefined>;
   deleteExecution(id: string): Promise<void>;
   deleteExecutionsByUserId(userId: string): Promise<number>;
@@ -297,6 +303,29 @@ export class DatabaseStorage implements IStorage {
     return newExecution;
   }
 
+  async createExecutionIfNotRunning(execution: InsertExecution): Promise<Execution | null> {
+    return await db.transaction(async (tx) => {
+      await tx.execute(
+        sql`SELECT pg_advisory_xact_lock((('x' || substr(md5(${execution.workflowId}), 1, 16))::bit(64)::bigint))`
+      );
+
+      const [runningExecution] = await tx
+        .select({ id: executions.id })
+        .from(executions)
+        .where(
+          and(eq(executions.workflowId, execution.workflowId), eq(executions.status, "running"))
+        )
+        .limit(1);
+
+      if (runningExecution) {
+        return null;
+      }
+
+      const [newExecution] = await tx.insert(executions).values(execution).returning();
+      return newExecution;
+    });
+  }
+
   async getExecutionById(id: string): Promise<Execution | undefined> {
     const [execution] = await db.select().from(executions).where(eq(executions.id, id));
     return execution;
@@ -316,6 +345,23 @@ export class DatabaseStorage implements IStorage {
       .from(executions)
       .where(eq(executions.userId, userId))
       .orderBy(desc(executions.startedAt));
+  }
+
+  async updateExecutionStatusIfCurrent(
+    id: string,
+    expectedCurrentStatuses: string[],
+    execution: Partial<InsertExecution>
+  ): Promise<Execution | undefined> {
+    if (expectedCurrentStatuses.length === 0) {
+      return undefined;
+    }
+
+    const [updated] = await db
+      .update(executions)
+      .set(execution)
+      .where(and(eq(executions.id, id), inArray(executions.status, expectedCurrentStatuses)))
+      .returning();
+    return updated;
   }
 
   async updateExecution(
