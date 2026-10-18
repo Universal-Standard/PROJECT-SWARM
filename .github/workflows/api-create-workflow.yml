@@ -27,7 +27,7 @@ jobs:
           cache: npm
 
       - name: Install deps
-        run: npm ci --omit=dev --ignore-scripts || npm install better-sqlite3
+        run: npm ci --omit=dev --ignore-scripts && npm rebuild better-sqlite3 || npm install better-sqlite3
 
       - name: Create workflow record
         id: create
