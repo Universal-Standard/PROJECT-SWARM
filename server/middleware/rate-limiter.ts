@@ -81,6 +81,11 @@ export const apiRateLimiter = rateLimit({
     error: "Too many API requests, please slow down.",
     retryAfter: "60 seconds",
   },
+  skip: (req: Request) =>
+    req.path === "/auth" ||
+    req.path.startsWith("/auth/") ||
+    req.path === "/webhooks/trigger" ||
+    req.path.startsWith("/webhooks/trigger/"),
   standardHeaders: true,
   legacyHeaders: false,
 });

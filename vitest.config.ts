@@ -17,7 +17,6 @@ export default defineConfig({
       "tests/e2e/**",
       "server/lib/__tests__/workflow-version.test.ts",
       "server/lib/__tests__/cost-tracker.test.ts",
-      "server/lib/__tests__/scheduler.test.ts",
       "server/lib/__tests__/webhooks.test.ts",
       "client/src/lib/__tests__/workflow-layout.test.ts",
     ],

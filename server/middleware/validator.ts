@@ -12,6 +12,14 @@ import { logger } from "../lib/logger";
 
 type ValidationTarget = "body" | "params" | "query";
 
+function setValidatedRequestTarget(
+  req: Request,
+  target: ValidationTarget,
+  validated: unknown
+): void {
+  (req as Record<ValidationTarget, unknown>)[target] = validated;
+}
+
 /**
  * Create validation middleware for a specific Zod schema
  *
@@ -37,7 +45,7 @@ export function validate(schema: ZodSchema, target: ValidationTarget = "body") {
       const validated = await schema.parseAsync(data);
 
       // Replace the original data with validated data
-      (req as unknown as Record<string, unknown>)[target] = validated;
+      setValidatedRequestTarget(req, target, validated);
 
       next();
     } catch (error) {
@@ -93,7 +101,7 @@ export function validateMultiple(schemas: Partial<Record<ValidationTarget, ZodSc
         try {
           const data = req[target as ValidationTarget];
           const validated = await schema.parseAsync(data);
-          (req as unknown as Record<string, unknown>)[target as ValidationTarget] = validated;
+          setValidatedRequestTarget(req, target as ValidationTarget, validated);
         } catch (error) {
           if (error && typeof error === "object" && "issues" in error) {
             const zodError = error as ZodError;
