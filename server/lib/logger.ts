@@ -8,6 +8,7 @@
 import type { Request, Response, NextFunction } from "express";
 
 export type LogLevel = "debug" | "info" | "warn" | "error";
+const LOG_LEVELS: LogLevel[] = ["debug", "info", "warn", "error"];
 
 export interface LogContext {
   [key: string]: any;
@@ -23,14 +24,16 @@ class Logger {
   }
 
   private getMinLevel(): LogLevel {
-    const level = (process.env.LOG_LEVEL || "info").toLowerCase() as LogLevel;
-    return level;
+    const level = (process.env.LOG_LEVEL || "info").toLowerCase();
+    if (LOG_LEVELS.includes(level as LogLevel)) {
+      return level as LogLevel;
+    }
+    return "info";
   }
 
   private shouldLog(level: LogLevel): boolean {
-    const levels: LogLevel[] = ["debug", "info", "warn", "error"];
-    const currentLevelIndex = levels.indexOf(this.minLevel);
-    const messageLevelIndex = levels.indexOf(level);
+    const currentLevelIndex = LOG_LEVELS.indexOf(this.minLevel);
+    const messageLevelIndex = LOG_LEVELS.indexOf(level);
     return messageLevelIndex >= currentLevelIndex;
   }
 
