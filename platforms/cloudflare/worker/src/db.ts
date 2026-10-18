@@ -3,7 +3,9 @@ import type { D1Database } from "@cloudflare/workers-types";
 function randomId(prefix: string): string {
   const bytes = new Uint8Array(10);
   crypto.getRandomValues(bytes);
-  const hex = Array.from(bytes).map(b => b.toString(16).padStart(2, "0")).join("");
+  const hex = Array.from(bytes)
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
   return `${prefix}_${hex}`;
 }
 
@@ -11,59 +13,113 @@ function nowSecs(): number {
   return Math.floor(Date.now() / 1000);
 }
 
+export interface KnowledgeEntry {
+  id: string;
+  userId: string;
+  agentType: string;
+  category: string;
+  content: string;
+  context: string | null;
+  sourceExecutionId: string | null;
+  confidence: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
 // ─── Workflows ────────────────────────────────────────────────────────────────
 
-export async function createWorkflow(db: D1Database, data: {
-  userId: string;
-  name: string;
-  description?: string;
-  nodes?: unknown[];
-  edges?: unknown[];
-  isTemplate?: boolean;
-  category?: string;
-}) {
+export async function createWorkflow(
+  db: D1Database,
+  data: {
+    userId: string;
+    name: string;
+    description?: string;
+    nodes?: unknown[];
+    edges?: unknown[];
+    isTemplate?: boolean;
+    category?: string;
+  }
+) {
   const id = randomId("wf");
   const now = nowSecs();
-  await db.prepare(`
+  await db
+    .prepare(
+      `
     INSERT INTO workflow_defs (id, user_id, name, description, nodes, edges, is_template, category, created_at, updated_at)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `).bind(
-    id, data.userId, data.name, data.description ?? null,
-    JSON.stringify(data.nodes ?? []), JSON.stringify(data.edges ?? []),
-    data.isTemplate ? 1 : 0, data.category ?? null, now, now
-  ).run();
+  `
+    )
+    .bind(
+      id,
+      data.userId,
+      data.name,
+      data.description ?? null,
+      JSON.stringify(data.nodes ?? []),
+      JSON.stringify(data.edges ?? []),
+      data.isTemplate ? 1 : 0,
+      data.category ?? null,
+      now,
+      now
+    )
+    .run();
   return getWorkflowById(db, id);
 }
 
 export async function getWorkflowById(db: D1Database, id: string) {
-  const row = await db.prepare("SELECT * FROM workflow_defs WHERE id = ?").bind(id).first<Record<string, unknown>>();
+  const row = await db
+    .prepare("SELECT * FROM workflow_defs WHERE id = ?")
+    .bind(id)
+    .first<Record<string, unknown>>();
   if (!row) return null;
   return deserializeWorkflow(row);
 }
 
 export async function listWorkflowsByUser(db: D1Database, userId: string) {
-  const { results } = await db.prepare(
-    "SELECT * FROM workflow_defs WHERE user_id = ? ORDER BY updated_at DESC"
-  ).bind(userId).all<Record<string, unknown>>();
+  const { results } = await db
+    .prepare("SELECT * FROM workflow_defs WHERE user_id = ? ORDER BY updated_at DESC")
+    .bind(userId)
+    .all<Record<string, unknown>>();
   return results.map(deserializeWorkflow);
 }
 
-export async function updateWorkflow(db: D1Database, id: string, data: Partial<{
-  name: string;
-  description: string | null;
-  nodes: unknown[];
-  edges: unknown[];
-  category: string | null;
-}>) {
+export async function updateWorkflow(
+  db: D1Database,
+  id: string,
+  data: Partial<{
+    name: string;
+    description: string | null;
+    nodes: unknown[];
+    edges: unknown[];
+    category: string | null;
+  }>
+) {
   const parts: string[] = ["updated_at = ?"];
   const vals: unknown[] = [nowSecs()];
-  if (data.name !== undefined)        { parts.push("name = ?");        vals.push(data.name); }
-  if (data.description !== undefined) { parts.push("description = ?"); vals.push(data.description); }
-  if (data.nodes !== undefined)       { parts.push("nodes = ?");       vals.push(JSON.stringify(data.nodes)); }
-  if (data.edges !== undefined)       { parts.push("edges = ?");       vals.push(JSON.stringify(data.edges)); }
-  if (data.category !== undefined)    { parts.push("category = ?");    vals.push(data.category); }
+  if (data.name !== undefined) {
+    parts.push("name = ?");
+    vals.push(data.name);
+  }
+  if (data.description !== undefined) {
+    parts.push("description = ?");
+    vals.push(data.description);
+  }
+  if (data.nodes !== undefined) {
+    parts.push("nodes = ?");
+    vals.push(JSON.stringify(data.nodes));
+  }
+  if (data.edges !== undefined) {
+    parts.push("edges = ?");
+    vals.push(JSON.stringify(data.edges));
+  }
+  if (data.category !== undefined) {
+    parts.push("category = ?");
+    vals.push(data.category);
+  }
   vals.push(id);
-  await db.prepare(`UPDATE workflow_defs SET ${parts.join(", ")} WHERE id = ?`).bind(...vals).run();
+  await db
+    .prepare(`UPDATE workflow_defs SET ${parts.join(", ")} WHERE id = ?`)
+    .bind(...vals)
+    .run();
   return getWorkflowById(db, id);
 }
 
@@ -88,23 +144,43 @@ function deserializeWorkflow(row: Record<string, unknown>) {
 
 // ─── Executions ───────────────────────────────────────────────────────────────
 
-export async function createExecution(db: D1Database, data: {
-  workflowId: string;
-  userId: string;
-  input?: unknown;
-  status?: string;
-}) {
+export async function createExecution(
+  db: D1Database,
+  data: {
+    workflowId: string;
+    userId: string;
+    input?: unknown;
+    status?: string;
+  }
+) {
   const id = randomId("exec");
   const now = nowSecs();
-  await db.prepare(`
+  await db
+    .prepare(
+      `
     INSERT INTO execution_runs (id, workflow_id, user_id, status, input, started_at, created_at, updated_at)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-  `).bind(id, data.workflowId, data.userId, data.status ?? "queued", JSON.stringify(data.input ?? {}), now, now, now).run();
+  `
+    )
+    .bind(
+      id,
+      data.workflowId,
+      data.userId,
+      data.status ?? "queued",
+      JSON.stringify(data.input ?? {}),
+      now,
+      now,
+      now
+    )
+    .run();
   return getExecutionById(db, id);
 }
 
 export async function getExecutionById(db: D1Database, id: string) {
-  const row = await db.prepare("SELECT * FROM execution_runs WHERE id = ?").bind(id).first<Record<string, unknown>>();
+  const row = await db
+    .prepare("SELECT * FROM execution_runs WHERE id = ?")
+    .bind(id)
+    .first<Record<string, unknown>>();
   if (!row) return null;
   return deserializeExecution(row);
 }
@@ -120,12 +196,16 @@ export async function listExecutionsByUser(db: D1Database, userId: string, workf
   return results.map(deserializeExecution);
 }
 
-export async function updateExecution(db: D1Database, id: string, data: Partial<{
-  status: string;
-  output: unknown;
-  error: string | null;
-  costCents: number;
-}>) {
+export async function updateExecution(
+  db: D1Database,
+  id: string,
+  data: Partial<{
+    status: string;
+    output: unknown;
+    error: string | null;
+    costCents: number;
+  }>
+) {
   const parts: string[] = ["updated_at = ?"];
   const vals: unknown[] = [nowSecs()];
   if (data.status !== undefined) {
@@ -136,11 +216,23 @@ export async function updateExecution(db: D1Database, id: string, data: Partial<
       vals.push(nowSecs());
     }
   }
-  if (data.output !== undefined)    { parts.push("output = ?");     vals.push(JSON.stringify(data.output)); }
-  if (data.error !== undefined)     { parts.push("error = ?");      vals.push(data.error); }
-  if (data.costCents !== undefined) { parts.push("cost_cents = ?"); vals.push(data.costCents); }
+  if (data.output !== undefined) {
+    parts.push("output = ?");
+    vals.push(JSON.stringify(data.output));
+  }
+  if (data.error !== undefined) {
+    parts.push("error = ?");
+    vals.push(data.error);
+  }
+  if (data.costCents !== undefined) {
+    parts.push("cost_cents = ?");
+    vals.push(data.costCents);
+  }
   vals.push(id);
-  await db.prepare(`UPDATE execution_runs SET ${parts.join(", ")} WHERE id = ?`).bind(...vals).run();
+  await db
+    .prepare(`UPDATE execution_runs SET ${parts.join(", ")} WHERE id = ?`)
+    .bind(...vals)
+    .run();
   return getExecutionById(db, id);
 }
 
@@ -155,22 +247,29 @@ function deserializeExecution(row: Record<string, unknown>) {
     error: row.error as string | null,
     costCents: (row.cost_cents as number) ?? 0,
     startedAt: new Date((row.started_at as number) * 1000).toISOString(),
-    completedAt: row.completed_at ? new Date((row.completed_at as number) * 1000).toISOString() : null,
+    completedAt: row.completed_at
+      ? new Date((row.completed_at as number) * 1000).toISOString()
+      : null,
   };
 }
 
 // ─── Users ────────────────────────────────────────────────────────────────────
 
-export async function upsertUser(db: D1Database, data: {
-  id: string;
-  githubUserId?: number;
-  githubUsername?: string;
-  email?: string;
-  displayName?: string;
-  avatarUrl?: string;
-}) {
+export async function upsertUser(
+  db: D1Database,
+  data: {
+    id: string;
+    githubUserId?: number;
+    githubUsername?: string;
+    email?: string;
+    displayName?: string;
+    avatarUrl?: string;
+  }
+) {
   const now = nowSecs();
-  await db.prepare(`
+  await db
+    .prepare(
+      `
     INSERT INTO users (id, github_user_id, github_username, email, display_name, avatar_url, created_at, updated_at)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     ON CONFLICT(id) DO UPDATE SET
@@ -180,73 +279,242 @@ export async function upsertUser(db: D1Database, data: {
       display_name = excluded.display_name,
       avatar_url = excluded.avatar_url,
       updated_at = excluded.updated_at
-  `).bind(
-    data.id, data.githubUserId ?? null, data.githubUsername ?? null,
-    data.email ?? null, data.displayName ?? null, data.avatarUrl ?? null,
-    now, now
-  ).run();
+  `
+    )
+    .bind(
+      data.id,
+      data.githubUserId ?? null,
+      data.githubUsername ?? null,
+      data.email ?? null,
+      data.displayName ?? null,
+      data.avatarUrl ?? null,
+      now,
+      now
+    )
+    .run();
   return getUserById(db, data.id);
 }
 
 export async function getUserById(db: D1Database, id: string) {
   return db.prepare("SELECT * FROM users WHERE id = ?").bind(id).first<{
-    id: string; github_user_id: number | null; github_username: string | null;
-    email: string | null; display_name: string | null; avatar_url: string | null;
-    default_provider: string; created_at: number; updated_at: number;
+    id: string;
+    github_user_id: number | null;
+    github_username: string | null;
+    email: string | null;
+    display_name: string | null;
+    avatar_url: string | null;
+    default_provider: string;
+    created_at: number;
+    updated_at: number;
   }>();
+}
+
+// ─── Knowledge ─────────────────────────────────────────────────────────────────
+
+export async function searchKnowledge(
+  db: D1Database,
+  userId: string,
+  filters: {
+    query?: string;
+    agentType?: string;
+    category?: string;
+    minConfidence?: number;
+    limit?: number;
+  }
+) {
+  const conditions: string[] = ["user_id = ?"];
+  const params: Array<string | number> = [userId];
+
+  if (filters.agentType) {
+    conditions.push("agent_type = ?");
+    params.push(filters.agentType);
+  }
+  if (filters.category) {
+    conditions.push("category = ?");
+    params.push(filters.category);
+  }
+  if (typeof filters.minConfidence === "number") {
+    conditions.push("confidence >= ?");
+    params.push(filters.minConfidence);
+  }
+  if (filters.query?.trim()) {
+    conditions.push("(lower(content) LIKE ? OR lower(COALESCE(context, '')) LIKE ?)");
+    const query = `%${filters.query.trim().toLowerCase()}%`;
+    params.push(query, query);
+  }
+
+  const limit = Math.min(Math.max(filters.limit ?? 50, 1), 200);
+  params.push(limit);
+
+  const { results } = await db
+    .prepare(
+      `
+    SELECT *
+    FROM knowledge_entries
+    WHERE ${conditions.join(" AND ")}
+    ORDER BY confidence DESC, created_at DESC
+    LIMIT ?
+  `
+    )
+    .bind(...params)
+    .all<Record<string, unknown>>();
+
+  return results.map(deserializeKnowledgeEntry);
+}
+
+export async function getKnowledgeMetadata(db: D1Database, userId: string) {
+  const [agentTypes, categories] = await Promise.all([
+    db
+      .prepare(
+        `
+      SELECT lower(trim(agent_type)) as value
+      FROM knowledge_entries
+      WHERE user_id = ? AND nullif(trim(agent_type), '') IS NOT NULL
+      GROUP BY lower(trim(agent_type))
+      ORDER BY lower(trim(agent_type))
+    `
+      )
+      .bind(userId)
+      .all<{ value: string | null }>(),
+    db
+      .prepare(
+        `
+      SELECT lower(trim(category)) as value
+      FROM knowledge_entries
+      WHERE user_id = ? AND nullif(trim(category), '') IS NOT NULL
+      GROUP BY lower(trim(category))
+      ORDER BY lower(trim(category))
+    `
+      )
+      .bind(userId)
+      .all<{ value: string | null }>(),
+  ]);
+
+  return {
+    agentTypes: agentTypes.results
+      .map((row) => row.value)
+      .filter((value): value is string => Boolean(value)),
+    categories: categories.results
+      .map((row) => row.value)
+      .filter((value): value is string => Boolean(value)),
+  };
+}
+
+export async function deleteKnowledgeEntry(
+  db: D1Database,
+  userId: string,
+  id: string
+): Promise<boolean> {
+  const result = await db
+    .prepare(
+      `
+    DELETE FROM knowledge_entries
+    WHERE id = ? AND user_id = ?
+  `
+    )
+    .bind(id, userId)
+    .run();
+  return (result.meta?.changes ?? 0) > 0;
+}
+
+function deserializeKnowledgeEntry(row: Record<string, unknown>): KnowledgeEntry {
+  return {
+    id: row.id as string,
+    userId: row.user_id as string,
+    agentType: row.agent_type as string,
+    category: row.category as string,
+    content: row.content as string,
+    context: (row.context as string | null) ?? null,
+    sourceExecutionId: (row.source_execution_id as string | null) ?? null,
+    confidence: (row.confidence as number) ?? 80,
+    createdAt: new Date((row.created_at as number) * 1000).toISOString(),
+    updatedAt: new Date((row.updated_at as number) * 1000).toISOString(),
+  };
 }
 
 // ─── Costs ────────────────────────────────────────────────────────────────────
 
-export async function recordCost(db: D1Database, data: {
-  executionId: string;
-  agentId?: string;
-  provider: string;
-  model: string;
-  inputTokens: number;
-  outputTokens: number;
-  /** Cost in micro-cents (1/1,000,000 USD). Use calcCostMicroCents from ai.ts. */
-  costMicroCents: number;
-}) {
+export async function recordCost(
+  db: D1Database,
+  data: {
+    executionId: string;
+    agentId?: string;
+    provider: string;
+    model: string;
+    inputTokens: number;
+    outputTokens: number;
+    /** Cost in micro-cents (1/1,000,000 USD). Use calcCostMicroCents from ai.ts. */
+    costMicroCents: number;
+  }
+) {
   const id = randomId("cost");
-  await db.prepare(`
+  await db
+    .prepare(
+      `
     INSERT INTO execution_costs (id, execution_id, agent_id, provider, model, input_tokens, output_tokens, total_tokens, cost_micro_cents, recorded_at)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `).bind(
-    id, data.executionId, data.agentId ?? null, data.provider, data.model,
-    data.inputTokens, data.outputTokens, data.inputTokens + data.outputTokens,
-    data.costMicroCents, Math.floor(Date.now() / 1000)
-  ).run();
+  `
+    )
+    .bind(
+      id,
+      data.executionId,
+      data.agentId ?? null,
+      data.provider,
+      data.model,
+      data.inputTokens,
+      data.outputTokens,
+      data.inputTokens + data.outputTokens,
+      data.costMicroCents,
+      Math.floor(Date.now() / 1000)
+    )
+    .run();
 }
 
 export async function getCostSummary(db: D1Database, userId: string) {
   // cost_micro_cents stores 1/1,000,000 USD — divide by 1_000_000 to get USD.
-  const totalRow = await db.prepare(`
+  const totalRow = await db
+    .prepare(
+      `
     SELECT COALESCE(SUM(ec.cost_micro_cents), 0) as total
     FROM execution_costs ec
     JOIN execution_runs er ON ec.execution_id = er.id
     WHERE er.user_id = ?
-  `).bind(userId).first<{ total: number }>();
+  `
+    )
+    .bind(userId)
+    .first<{ total: number }>();
 
-  const byProvider = await db.prepare(`
+  const byProvider = await db
+    .prepare(
+      `
     SELECT ec.provider, COALESCE(SUM(ec.cost_micro_cents), 0) as total
     FROM execution_costs ec
     JOIN execution_runs er ON ec.execution_id = er.id
     WHERE er.user_id = ?
     GROUP BY ec.provider
-  `).bind(userId).all<{ provider: string; total: number }>();
+  `
+    )
+    .bind(userId)
+    .all<{ provider: string; total: number }>();
 
-  const byModel = await db.prepare(`
+  const byModel = await db
+    .prepare(
+      `
     SELECT ec.model, COALESCE(SUM(ec.cost_micro_cents), 0) as total
     FROM execution_costs ec
     JOIN execution_runs er ON ec.execution_id = er.id
     WHERE er.user_id = ?
     GROUP BY ec.model
-  `).bind(userId).all<{ model: string; total: number }>();
+  `
+    )
+    .bind(userId)
+    .all<{ model: string; total: number }>();
 
   return {
     totalCostUsd: (totalRow?.total ?? 0) / 1_000_000,
-    byProvider: Object.fromEntries(byProvider.results.map(r => [r.provider, r.total / 1_000_000])),
-    byModel: Object.fromEntries(byModel.results.map(r => [r.model, r.total / 1_000_000])),
+    byProvider: Object.fromEntries(
+      byProvider.results.map((r) => [r.provider, r.total / 1_000_000])
+    ),
+    byModel: Object.fromEntries(byModel.results.map((r) => [r.model, r.total / 1_000_000])),
   };
 }

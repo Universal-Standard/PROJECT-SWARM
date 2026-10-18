@@ -17,6 +17,7 @@ import { workflowsRouter } from "./routes/workflows";
 import { executionsRouter } from "./routes/executions";
 import { authRouter } from "./routes/auth";
 import { costsRouter } from "./routes/costs";
+import { knowledgeRouter } from "./routes/knowledge";
 import { processExecutionJob } from "./queues/execution-processor";
 import { ExecutionRoom } from "./durable-objects/execution-room";
 
@@ -26,18 +27,22 @@ export { ExecutionRoom };
 const app = new Hono<{ Bindings: Env }>();
 
 // ── CORS ──────────────────────────────────────────────────────────────────────
-app.use("/api/*", cors({
-  origin: ["https://project-swarm.pages.dev", "http://localhost:5173"],
-  allowHeaders: ["Content-Type", "Authorization"],
-  allowMethods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-  credentials: true,
-}));
+app.use(
+  "/api/*",
+  cors({
+    origin: ["https://project-swarm.pages.dev", "http://localhost:5173"],
+    allowHeaders: ["Content-Type", "Authorization"],
+    allowMethods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    credentials: true,
+  })
+);
 
 // ── Routes ────────────────────────────────────────────────────────────────────
 app.route("/api/auth", authRouter);
 app.route("/api/workflows", workflowsRouter);
 app.route("/api/executions", executionsRouter);
 app.route("/api/costs", costsRouter);
+app.route("/api/knowledge", knowledgeRouter);
 
 // ── Health check ──────────────────────────────────────────────────────────────
 app.get("/api/health", (c) => c.json({ status: "ok", runtime: "cloudflare-workers" }));
@@ -69,9 +74,14 @@ export default {
     // (workflow_schedules table can be added in a future migration)
     const now = Math.floor(Date.now() / 1000);
     try {
-      const { results } = await env.DB.prepare(`
+      const { results } = await env.DB.prepare(
+        `
         SELECT * FROM workflow_schedules WHERE enabled = 1 AND next_run <= ?
-      `).bind(now).all<{ id: string; workflow_id: string; user_id: string }>().catch(() => ({ results: [] as any[] }));
+      `
+      )
+        .bind(now)
+        .all<{ id: string; workflow_id: string; user_id: string }>()
+        .catch(() => ({ results: [] as any[] }));
 
       for (const schedule of results) {
         await env.EXECUTION_QUEUE.send({

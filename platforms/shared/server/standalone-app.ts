@@ -25,6 +25,13 @@ import type { Request, Response, NextFunction } from "express";
 import type { WorkflowNode } from "../../../server/types/workflow";
 
 const executeWorkflowSchema = insertExecutionSchema.pick({ workflowId: true, input: true });
+const knowledgeQuerySchema = z.object({
+  query: z.string().trim().max(500).optional(),
+  agentType: z.string().trim().min(1).optional(),
+  category: z.string().trim().min(1).optional(),
+  minConfidence: z.coerce.number().int().min(0).max(100).optional(),
+  limit: z.coerce.number().int().min(1).max(200).optional(),
+});
 
 function getUserId(req: any): string {
   return req.session.userId;
@@ -88,7 +95,7 @@ export function createStandaloneApp() {
     cors({
       origin: corsOrigin,
       credentials: true,
-    }),
+    })
   );
 
   // CSRF guard — for state-mutating requests, verify Origin matches allowed host
@@ -122,7 +129,9 @@ export function createStandaloneApp() {
     if (process.env.NODE_ENV === "production") {
       throw new Error("SESSION_SECRET environment variable is required in production");
     }
-    logger.warn("SESSION_SECRET not set — using ephemeral random secret. Sessions won't survive restarts. Set SESSION_SECRET environment variable for production use.");
+    logger.warn(
+      "SESSION_SECRET not set — using ephemeral random secret. Sessions won't survive restarts. Set SESSION_SECRET environment variable for production use."
+    );
   }
 
   // Session
@@ -138,7 +147,7 @@ export function createStandaloneApp() {
         sameSite: "lax",
         maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
       },
-    }),
+    })
   );
 
   // Health check
@@ -172,9 +181,7 @@ export function createStandaloneApp() {
       }
       delete req.session.githubOAuthState;
 
-      const { accessToken, refreshToken, expiresAt } = await exchangeCodeForToken(
-        code as string,
-      );
+      const { accessToken, refreshToken, expiresAt } = await exchangeCodeForToken(code as string);
 
       // Fetch GitHub user info
       const ghRes = await fetch("https://api.github.com/user", {
@@ -199,9 +206,7 @@ export function createStandaloneApp() {
       await storeGitHubTokens(userId, accessToken, refreshToken, expiresAt);
 
       req.session.userId = userId;
-      res.redirect(
-        process.env.FRONTEND_URL ? `${process.env.FRONTEND_URL}/app` : "/app",
-      );
+      res.redirect(process.env.FRONTEND_URL ? `${process.env.FRONTEND_URL}/app` : "/app");
     } catch (err: any) {
       logger.error("GitHub callback error", err);
       res.redirect("/login?error=oauth_failed");
@@ -298,7 +303,7 @@ export function createStandaloneApp() {
                 type: z.string(),
                 position: z.object({ x: z.number(), y: z.number() }),
                 data: z.record(z.any()),
-              }),
+              })
             )
             .optional(),
           edges: z
@@ -308,7 +313,7 @@ export function createStandaloneApp() {
                 source: z.string(),
                 target: z.string(),
                 animated: z.boolean().optional(),
-              }),
+              })
             )
             .optional(),
           category: z.string().optional(),
@@ -394,21 +399,17 @@ export function createStandaloneApp() {
     }
   });
 
-  app.get(
-    "/api/workflows/:workflowId/executions",
-    isAuthenticated,
-    async (req: any, res) => {
-      try {
-        const userId = getUserId(req);
-        const workflow = await storage.getWorkflowById(req.params.workflowId);
-        if (!workflow || workflow.userId !== userId)
-          return res.status(403).json({ error: "Forbidden" });
-        res.json(await storage.getExecutionsByWorkflowId(req.params.workflowId));
-      } catch (err: any) {
-        res.status(500).json({ error: err.message });
-      }
-    },
-  );
+  app.get("/api/workflows/:workflowId/executions", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserId(req);
+      const workflow = await storage.getWorkflowById(req.params.workflowId);
+      if (!workflow || workflow.userId !== userId)
+        return res.status(403).json({ error: "Forbidden" });
+      res.json(await storage.getExecutionsByWorkflowId(req.params.workflowId));
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
 
   app.get("/api/executions/:id", isAuthenticated, async (req: any, res) => {
     try {
@@ -503,9 +504,47 @@ export function createStandaloneApp() {
   app.get("/api/knowledge", isAuthenticated, async (req: any, res) => {
     try {
       const userId = getUserId(req);
-      const agentType = req.query.agentType as string | undefined;
-      res.json(await storage.getKnowledgeEntries(userId, agentType));
+      const filters = knowledgeQuerySchema.parse(req.query);
+      const knowledge = await storage.searchKnowledge(userId, {
+        query: filters.query,
+        agentType: filters.agentType,
+        category: filters.category,
+        minConfidence: filters.minConfidence,
+        limit: filters.limit,
+      });
+      res.json(knowledge);
     } catch (err: any) {
+      if (err instanceof z.ZodError) {
+        return res
+          .status(400)
+          .json({ error: err.issues[0]?.message || "Invalid query parameters" });
+      }
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  app.get("/api/knowledge/metadata", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserId(req);
+      res.json(await storage.getKnowledgeMetadata(userId));
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  app.delete("/api/knowledge/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserId(req);
+      const { id } = z.object({ id: z.string().min(1) }).parse(req.params);
+      const deleted = await storage.deleteKnowledgeEntry(userId, id);
+      if (!deleted) return res.status(404).json({ error: "Knowledge entry not found" });
+      res.status(204).send();
+    } catch (err: any) {
+      if (err instanceof z.ZodError) {
+        return res
+          .status(400)
+          .json({ error: err.issues[0]?.message || "Invalid request parameters" });
+      }
       res.status(500).json({ error: err.message });
     }
   });

@@ -6,6 +6,7 @@ import { versionManager } from "../lib/workflow-version";
 import { wsManager } from "../websocket";
 import { workflowValidator } from "../lib/workflow-validator";
 import { logger } from "../lib/logger";
+import { extractKnowledgeLearnings } from "./knowledge";
 
 interface WorkflowNode {
   id: string;
@@ -381,62 +382,7 @@ export class WorkflowOrchestrator {
     context?: string;
     confidence?: number;
   }> {
-    const learnings: Array<{
-      category: string;
-      content: string;
-      context?: string;
-      confidence?: number;
-    }> = [];
-
-    // Pattern 1: Look for explicit learning markers
-    const learningPatterns = [
-      /(?:learned|discovered|found|realized):\s*(.+?)(?:\n|$)/gi,
-      /(?:key insight|important):\s*(.+?)(?:\n|$)/gi,
-      /(?:best practice|tip|recommendation):\s*(.+?)(?:\n|$)/gi,
-    ];
-
-    for (const pattern of learningPatterns) {
-      const matches = response.matchAll(pattern);
-      for (const match of matches) {
-        if (match[1] && match[1].length > 10) {
-          learnings.push({
-            category: "general",
-            content: match[1].trim(),
-            confidence: 75,
-          });
-        }
-      }
-    }
-
-    // Pattern 2: Extract code snippets as coding knowledge
-    const codePattern = /```[\w]*\n([\s\S]+?)```/g;
-    const codeMatches = response.matchAll(codePattern);
-    for (const match of codeMatches) {
-      if (match[1] && match[1].length > 20) {
-        learnings.push({
-          category: "coding",
-          content: match[1].trim(),
-          context: "Code example from execution",
-          confidence: 85,
-        });
-      }
-    }
-
-    // Pattern 3: Extract important conclusions or summaries
-    const conclusionPattern =
-      /(?:in conclusion|summary|to summarize|overall):\s*(.+?)(?:\n\n|$)/gis;
-    const conclusionMatches = response.matchAll(conclusionPattern);
-    for (const match of conclusionMatches) {
-      if (match[1] && match[1].length > 20) {
-        learnings.push({
-          category: "general",
-          content: match[1].trim(),
-          confidence: 80,
-        });
-      }
-    }
-
-    return learnings;
+    return extractKnowledgeLearnings(response);
   }
 
   private topologicalSort(nodes: WorkflowNode[], edges: WorkflowEdge[]): string[] {

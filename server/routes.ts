@@ -31,6 +31,13 @@ import { executionRateLimiter } from "./middleware/rate-limiter";
 
 // Execution request schema - only workflowId and input are needed from client
 const executeWorkflowSchema = insertExecutionSchema.pick({ workflowId: true, input: true });
+const knowledgeQuerySchema = z.object({
+  query: z.string().trim().max(500).optional(),
+  agentType: z.string().trim().min(1).optional(),
+  category: z.string().trim().min(1).optional(),
+  minConfidence: z.coerce.number().int().min(0).max(100).optional(),
+  limit: z.coerce.number().int().min(1).max(200).optional(),
+});
 
 // Sync Agent records from workflow nodes
 async function syncAgentsFromNodes(workflowId: string, nodes: WorkflowNode[]) {
@@ -1170,6 +1177,62 @@ Be concise, practical, and provide actionable guidance. When relevant, suggest s
       }
 
       res.status(500).json({ error: getErrorMessage(error) || "Failed to process message" });
+    }
+  });
+
+  // Knowledge Base
+  app.get("/api/knowledge", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserId(req);
+      const filters = knowledgeQuerySchema.parse(req.query);
+
+      const knowledge = await storage.searchKnowledge(userId, {
+        query: filters.query,
+        agentType: filters.agentType,
+        category: filters.category,
+        minConfidence: filters.minConfidence,
+        limit: filters.limit,
+      });
+
+      res.json(knowledge);
+    } catch (error: any) {
+      if (error instanceof z.ZodError) {
+        return res
+          .status(400)
+          .json({ error: error.issues[0]?.message || "Invalid query parameters" });
+      }
+      res.status(500).json({ error: getErrorMessage(error) });
+    }
+  });
+
+  app.get("/api/knowledge/metadata", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserId(req);
+      const metadata = await storage.getKnowledgeMetadata(userId);
+      res.json(metadata);
+    } catch (error: any) {
+      res.status(500).json({ error: getErrorMessage(error) });
+    }
+  });
+
+  app.delete("/api/knowledge/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserId(req);
+      const { id } = z.object({ id: z.string().min(1) }).parse(req.params);
+
+      const deleted = await storage.deleteKnowledgeEntry(userId, id);
+      if (!deleted) {
+        return res.status(404).json({ error: "Knowledge entry not found" });
+      }
+
+      res.status(204).send();
+    } catch (error: any) {
+      if (error instanceof z.ZodError) {
+        return res
+          .status(400)
+          .json({ error: error.issues[0]?.message || "Invalid request parameters" });
+      }
+      res.status(500).json({ error: getErrorMessage(error) });
     }
   });
 
