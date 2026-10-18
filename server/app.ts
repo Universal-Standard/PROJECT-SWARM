@@ -104,6 +104,10 @@ export async function createApp(): Promise<Express> {
   // meant for API traffic).
   registerHealthRoutes(app);
 
+  // Rate-limit API traffic without throttling health probes, static assets,
+  // or Vite's development module graph.
+  app.use("/api", globalRateLimiter);
+
   // Serverless-safe cron tick endpoint. No-op unless called by Vercel
   // Cron (or an equivalent external scheduler) with a valid CRON_SECRET.
   // See server/lib/scheduler-tick.ts for why this exists.

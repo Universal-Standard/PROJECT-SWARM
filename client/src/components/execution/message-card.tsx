@@ -1,9 +1,9 @@
-import { useState } from 'react';
-import { Card, CardContent, CardHeader } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { ChevronDown, ChevronRight, Copy, Check } from 'lucide-react';
-import type { AgentMessage } from '@shared/schema';
+import { useState } from "react";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { ChevronDown, ChevronRight, Copy, Check } from "lucide-react";
+import type { AgentMessage } from "@shared/schema";
 
 interface MessageCardProps {
   message: AgentMessage;
@@ -13,7 +13,13 @@ interface MessageCardProps {
   index?: number;
 }
 
-export function MessageCard({ message, agentName, fromAgentName, toAgentName, index }: MessageCardProps) {
+export function MessageCard({
+  message,
+  agentName,
+  fromAgentName,
+  toAgentName,
+  index,
+}: MessageCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [copied, setCopied] = useState(false);
 
@@ -24,9 +30,9 @@ export function MessageCard({ message, agentName, fromAgentName, toAgentName, in
   };
 
   const roleColors = {
-    user: 'bg-blue-500/10 text-blue-500 border-blue-500/20',
-    assistant: 'bg-purple-500/10 text-purple-500 border-purple-500/20',
-    system: 'bg-gray-500/10 text-gray-500 border-gray-500/20',
+    user: "bg-blue-500/10 text-blue-500 border-blue-500/20",
+    assistant: "bg-purple-500/10 text-purple-500 border-purple-500/20",
+    system: "bg-gray-500/10 text-gray-500 border-gray-500/20",
   };
 
   const roleColor = roleColors[message.role as keyof typeof roleColors] || roleColors.system;
@@ -47,9 +53,7 @@ export function MessageCard({ message, agentName, fromAgentName, toAgentName, in
             <Badge variant="outline" className={roleColor}>
               {message.role}
             </Badge>
-            {agentName && (
-              <span className="text-sm font-medium">{agentName}</span>
-            )}
+            {agentName && <span className="text-sm font-medium">{agentName}</span>}
             {fromAgentName && toAgentName && (
               <span className="text-sm text-muted-foreground">
                 {fromAgentName} → {toAgentName}
@@ -80,11 +84,7 @@ export function MessageCard({ message, agentName, fromAgentName, toAgentName, in
               className="absolute top-2 right-2"
               onClick={handleCopy}
             >
-              {copied ? (
-                <Check className="w-4 h-4 text-green-500" />
-              ) : (
-                <Copy className="w-4 h-4" />
-              )}
+              {copied ? <Check className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4" />}
             </Button>
           </div>
           {message.fromAgentId && message.toAgentId && (

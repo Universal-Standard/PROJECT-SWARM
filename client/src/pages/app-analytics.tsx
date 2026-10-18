@@ -1,12 +1,6 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -113,9 +107,7 @@ export default function AppAnalytics() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold">Analytics & Cost Tracking</h1>
-          <p className="text-muted-foreground">
-            Monitor AI usage, costs, and performance metrics
-          </p>
+          <p className="text-muted-foreground">Monitor AI usage, costs, and performance metrics</p>
         </div>
         <div className="flex gap-2">
           <Select value={dateRange} onValueChange={setDateRange}>
@@ -146,9 +138,7 @@ export default function AppAnalytics() {
             <div className="text-2xl font-bold">
               {costAnalytics ? formatCost(costAnalytics.totalCost) : "$0.00"}
             </div>
-            <p className="text-xs text-muted-foreground">
-              {costAnalytics?.period || "No data"}
-            </p>
+            <p className="text-xs text-muted-foreground">{costAnalytics?.period || "No data"}</p>
           </CardContent>
         </Card>
 
@@ -162,7 +152,9 @@ export default function AppAnalytics() {
               {usageStats ? formatTokens(usageStats.totalTokens) : "0"}
             </div>
             <p className="text-xs text-muted-foreground">
-              {usageStats ? `${formatTokens(usageStats.inputTokens)} input / ${formatTokens(usageStats.outputTokens)} output` : "No data"}
+              {usageStats
+                ? `${formatTokens(usageStats.inputTokens)} input / ${formatTokens(usageStats.outputTokens)} output`
+                : "No data"}
             </p>
           </CardContent>
         </Card>

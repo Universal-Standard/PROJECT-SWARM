@@ -1,17 +1,23 @@
-import { useState, useEffect } from 'react';
-import { Node } from '@xyflow/react';
-import { X, HelpCircle } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Slider } from '@/components/ui/slider';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { Checkbox } from '@/components/ui/checkbox';
+import { useState, useEffect } from "react";
+import { Node } from "@xyflow/react";
+import { X, HelpCircle } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Slider } from "@/components/ui/slider";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Checkbox } from "@/components/ui/checkbox";
 
 interface AgentConfigPanelProps {
   node: Node;
@@ -21,12 +27,12 @@ interface AgentConfigPanelProps {
 
 export function AgentConfigPanel({ node, onClose, onUpdate }: AgentConfigPanelProps) {
   const [formData, setFormData] = useState({
-    label: (node.data?.label as string) || '',
-    role: (node.data?.role as string) || '',
-    description: (node.data?.description as string) || '',
-    provider: (node.data?.provider as string) || 'openai',
-    model: (node.data?.model as string) || 'gpt-4',
-    systemPrompt: (node.data?.systemPrompt as string) || '',
+    label: (node.data?.label as string) || "",
+    role: (node.data?.role as string) || "",
+    description: (node.data?.description as string) || "",
+    provider: (node.data?.provider as string) || "openai",
+    model: (node.data?.model as string) || "gpt-4",
+    systemPrompt: (node.data?.systemPrompt as string) || "",
     temperature: (node.data?.temperature as number) || 70,
     maxTokens: (node.data?.maxTokens as number) || 1000,
     capabilities: (node.data?.capabilities as any[]) || [],
@@ -40,12 +46,12 @@ export function AgentConfigPanel({ node, onClose, onUpdate }: AgentConfigPanelPr
   // Only sync formData when node.id changes (different node selected), not on every node data update
   useEffect(() => {
     setFormData({
-      label: (node.data?.label as string) || '',
-      role: (node.data?.role as string) || '',
-      description: (node.data?.description as string) || '',
-      provider: (node.data?.provider as string) || 'openai',
-      model: (node.data?.model as string) || 'gpt-4',
-      systemPrompt: (node.data?.systemPrompt as string) || '',
+      label: (node.data?.label as string) || "",
+      role: (node.data?.role as string) || "",
+      description: (node.data?.description as string) || "",
+      provider: (node.data?.provider as string) || "openai",
+      model: (node.data?.model as string) || "gpt-4",
+      systemPrompt: (node.data?.systemPrompt as string) || "",
       temperature: (node.data?.temperature as number) || 70,
       maxTokens: (node.data?.maxTokens as number) || 1000,
       capabilities: (node.data?.capabilities as any[]) || [],
@@ -62,7 +68,7 @@ export function AgentConfigPanel({ node, onClose, onUpdate }: AgentConfigPanelPr
     onUpdate(updated);
   };
 
-  const applyPreset = (preset: 'conservative' | 'balanced' | 'creative') => {
+  const applyPreset = (preset: "conservative" | "balanced" | "creative") => {
     const presets = {
       conservative: { temperature: 30, topP: 80, frequencyPenalty: 50, presencePenalty: 0 },
       balanced: { temperature: 70, topP: 95, frequencyPenalty: 0, presencePenalty: 0 },
@@ -74,17 +80,17 @@ export function AgentConfigPanel({ node, onClose, onUpdate }: AgentConfigPanelPr
   };
 
   const availableCapabilities = [
-    { type: 'code_execution', name: 'Code Execution', description: 'Execute code snippets' },
-    { type: 'file_operations', name: 'File Operations', description: 'Read and write files' },
-    { type: 'web_search', name: 'Web Search', description: 'Search the web for information' },
-    { type: 'api_calls', name: 'API Calls', description: 'Make HTTP API requests' },
-    { type: 'database', name: 'Database Access', description: 'Query databases' },
+    { type: "code_execution", name: "Code Execution", description: "Execute code snippets" },
+    { type: "file_operations", name: "File Operations", description: "Read and write files" },
+    { type: "web_search", name: "Web Search", description: "Search the web for information" },
+    { type: "api_calls", name: "API Calls", description: "Make HTTP API requests" },
+    { type: "database", name: "Database Access", description: "Query databases" },
   ];
 
   const modelsByProvider = {
-    openai: ['gpt-4', 'gpt-4-turbo', 'gpt-3.5-turbo'],
-    anthropic: ['claude-3-5-sonnet-20241022', 'claude-3-opus-20240229', 'claude-3-haiku-20240307'],
-    gemini: ['gemini-1.5-pro', 'gemini-1.5-flash', 'gemini-1.0-pro'],
+    openai: ["gpt-4", "gpt-4-turbo", "gpt-3.5-turbo"],
+    anthropic: ["claude-3-5-sonnet-20241022", "claude-3-opus-20240229", "claude-3-haiku-20240307"],
+    gemini: ["gemini-1.5-pro", "gemini-1.5-flash", "gemini-1.0-pro"],
   };
 
   const InfoTooltip = ({ content }: { content: string }) => (
@@ -112,9 +118,15 @@ export function AgentConfigPanel({ node, onClose, onUpdate }: AgentConfigPanelPr
       <div className="p-6">
         <Tabs defaultValue="details" className="w-full">
           <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="details" data-testid="tab-details">Details</TabsTrigger>
-            <TabsTrigger value="model" data-testid="tab-model">Model</TabsTrigger>
-            <TabsTrigger value="prompt" data-testid="tab-prompt">Prompt</TabsTrigger>
+            <TabsTrigger value="details" data-testid="tab-details">
+              Details
+            </TabsTrigger>
+            <TabsTrigger value="model" data-testid="tab-model">
+              Model
+            </TabsTrigger>
+            <TabsTrigger value="prompt" data-testid="tab-prompt">
+              Prompt
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="details" className="space-y-4 mt-4">
@@ -123,7 +135,7 @@ export function AgentConfigPanel({ node, onClose, onUpdate }: AgentConfigPanelPr
               <Input
                 id="agent-name"
                 value={formData.label}
-                onChange={(e) => handleChange('label', e.target.value)}
+                onChange={(e) => handleChange("label", e.target.value)}
                 placeholder="Enter agent name"
                 data-testid="input-agent-name"
               />
@@ -131,7 +143,7 @@ export function AgentConfigPanel({ node, onClose, onUpdate }: AgentConfigPanelPr
 
             <div className="space-y-2">
               <Label htmlFor="agent-role">Role</Label>
-              <Select value={formData.role} onValueChange={(value) => handleChange('role', value)}>
+              <Select value={formData.role} onValueChange={(value) => handleChange("role", value)}>
                 <SelectTrigger id="agent-role" data-testid="select-agent-role">
                   <SelectValue />
                 </SelectTrigger>
@@ -151,7 +163,7 @@ export function AgentConfigPanel({ node, onClose, onUpdate }: AgentConfigPanelPr
               <Textarea
                 id="agent-description"
                 value={formData.description}
-                onChange={(e) => handleChange('description', e.target.value)}
+                onChange={(e) => handleChange("description", e.target.value)}
                 placeholder="What does this agent do?"
                 rows={3}
                 data-testid="input-agent-description"
@@ -162,11 +174,14 @@ export function AgentConfigPanel({ node, onClose, onUpdate }: AgentConfigPanelPr
           <TabsContent value="model" className="space-y-4 mt-4">
             <div className="space-y-2">
               <Label htmlFor="provider">AI Provider</Label>
-              <Select 
-                value={formData.provider} 
+              <Select
+                value={formData.provider}
                 onValueChange={(value) => {
-                  handleChange('provider', value);
-                  handleChange('model', modelsByProvider[value as keyof typeof modelsByProvider][0]);
+                  handleChange("provider", value);
+                  handleChange(
+                    "model",
+                    modelsByProvider[value as keyof typeof modelsByProvider][0]
+                  );
                 }}
               >
                 <SelectTrigger id="provider" data-testid="select-provider">
@@ -182,16 +197,21 @@ export function AgentConfigPanel({ node, onClose, onUpdate }: AgentConfigPanelPr
 
             <div className="space-y-2">
               <Label htmlFor="model">Model</Label>
-              <Select value={formData.model} onValueChange={(value) => handleChange('model', value)}>
+              <Select
+                value={formData.model}
+                onValueChange={(value) => handleChange("model", value)}
+              >
                 <SelectTrigger id="model" data-testid="select-model">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {modelsByProvider[formData.provider as keyof typeof modelsByProvider].map((model) => (
-                    <SelectItem key={model} value={model}>
-                      {model}
-                    </SelectItem>
-                  ))}
+                  {modelsByProvider[formData.provider as keyof typeof modelsByProvider].map(
+                    (model) => (
+                      <SelectItem key={model} value={model}>
+                        {model}
+                      </SelectItem>
+                    )
+                  )}
                 </SelectContent>
               </Select>
             </div>
@@ -200,7 +220,7 @@ export function AgentConfigPanel({ node, onClose, onUpdate }: AgentConfigPanelPr
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => applyPreset('conservative')}
+                onClick={() => applyPreset("conservative")}
                 className="flex-1"
               >
                 Conservative
@@ -208,7 +228,7 @@ export function AgentConfigPanel({ node, onClose, onUpdate }: AgentConfigPanelPr
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => applyPreset('balanced')}
+                onClick={() => applyPreset("balanced")}
                 className="flex-1"
               >
                 Balanced
@@ -216,7 +236,7 @@ export function AgentConfigPanel({ node, onClose, onUpdate }: AgentConfigPanelPr
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => applyPreset('creative')}
+                onClick={() => applyPreset("creative")}
                 className="flex-1"
               >
                 Creative
@@ -231,7 +251,7 @@ export function AgentConfigPanel({ node, onClose, onUpdate }: AgentConfigPanelPr
               <Slider
                 id="temperature"
                 value={[formData.temperature]}
-                onValueChange={([value]) => handleChange('temperature', value)}
+                onValueChange={([value]) => handleChange("temperature", value)}
                 min={0}
                 max={100}
                 step={1}
@@ -250,7 +270,12 @@ export function AgentConfigPanel({ node, onClose, onUpdate }: AgentConfigPanelPr
                 min={1}
                 max={100000}
                 value={formData.maxTokens}
-                onChange={(e) => handleChange('maxTokens', Math.min(100000, Math.max(1, parseInt(e.target.value) || 1000)))}
+                onChange={(e) =>
+                  handleChange(
+                    "maxTokens",
+                    Math.min(100000, Math.max(1, parseInt(e.target.value) || 1000))
+                  )
+                }
                 data-testid="input-max-tokens"
               />
             </div>
@@ -259,9 +284,7 @@ export function AgentConfigPanel({ node, onClose, onUpdate }: AgentConfigPanelPr
               <CollapsibleTrigger asChild>
                 <Button variant="ghost" className="w-full justify-between">
                   Advanced Settings
-                  <span className="text-xs text-muted-foreground">
-                    {advancedOpen ? '▲' : '▼'}
-                  </span>
+                  <span className="text-xs text-muted-foreground">{advancedOpen ? "▲" : "▼"}</span>
                 </Button>
               </CollapsibleTrigger>
               <CollapsibleContent className="space-y-4 mt-4">
@@ -273,7 +296,7 @@ export function AgentConfigPanel({ node, onClose, onUpdate }: AgentConfigPanelPr
                   <Slider
                     id="top-p"
                     value={[formData.topP]}
-                    onValueChange={([value]) => handleChange('topP', value)}
+                    onValueChange={([value]) => handleChange("topP", value)}
                     min={0}
                     max={100}
                     step={1}
@@ -288,7 +311,7 @@ export function AgentConfigPanel({ node, onClose, onUpdate }: AgentConfigPanelPr
                   <Slider
                     id="frequency-penalty"
                     value={[formData.frequencyPenalty]}
-                    onValueChange={([value]) => handleChange('frequencyPenalty', value)}
+                    onValueChange={([value]) => handleChange("frequencyPenalty", value)}
                     min={-200}
                     max={200}
                     step={10}
@@ -303,7 +326,7 @@ export function AgentConfigPanel({ node, onClose, onUpdate }: AgentConfigPanelPr
                   <Slider
                     id="presence-penalty"
                     value={[formData.presencePenalty]}
-                    onValueChange={([value]) => handleChange('presencePenalty', value)}
+                    onValueChange={([value]) => handleChange("presencePenalty", value)}
                     min={-200}
                     max={200}
                     step={10}
@@ -318,8 +341,16 @@ export function AgentConfigPanel({ node, onClose, onUpdate }: AgentConfigPanelPr
                   <Input
                     id="stop-sequences"
                     placeholder="e.g., \n\n, END, ###"
-                    value={formData.stopSequences.join(', ')}
-                    onChange={(e) => handleChange('stopSequences', e.target.value.split(',').map(s => s.trim()).filter(Boolean))}
+                    value={formData.stopSequences.join(", ")}
+                    onChange={(e) =>
+                      handleChange(
+                        "stopSequences",
+                        e.target.value
+                          .split(",")
+                          .map((s) => s.trim())
+                          .filter(Boolean)
+                      )
+                    }
                   />
                 </div>
               </CollapsibleContent>
@@ -340,12 +371,15 @@ export function AgentConfigPanel({ node, onClose, onUpdate }: AgentConfigPanelPr
                       checked={formData.capabilities.some((c: any) => c.type === cap.type)}
                       onCheckedChange={(checked) => {
                         if (checked) {
-                          handleChange('capabilities', [
+                          handleChange("capabilities", [
                             ...formData.capabilities,
-                            { type: cap.type, name: cap.name, description: cap.description }
+                            { type: cap.type, name: cap.name, description: cap.description },
                           ]);
                         } else {
-                          handleChange('capabilities', formData.capabilities.filter((c: any) => c.type !== cap.type));
+                          handleChange(
+                            "capabilities",
+                            formData.capabilities.filter((c: any) => c.type !== cap.type)
+                          );
                         }
                       }}
                     />
@@ -356,9 +390,7 @@ export function AgentConfigPanel({ node, onClose, onUpdate }: AgentConfigPanelPr
                       >
                         {cap.name}
                       </label>
-                      <p className="text-xs text-muted-foreground">
-                        {cap.description}
-                      </p>
+                      <p className="text-xs text-muted-foreground">{cap.description}</p>
                     </div>
                   </div>
                 ))}
@@ -370,7 +402,7 @@ export function AgentConfigPanel({ node, onClose, onUpdate }: AgentConfigPanelPr
               <Textarea
                 id="system-prompt"
                 value={formData.systemPrompt}
-                onChange={(e) => handleChange('systemPrompt', e.target.value)}
+                onChange={(e) => handleChange("systemPrompt", e.target.value)}
                 placeholder="Enter the system prompt for this agent..."
                 rows={12}
                 className="font-mono text-sm"

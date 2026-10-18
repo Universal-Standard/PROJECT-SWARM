@@ -24,14 +24,8 @@ on:
 
 permissions:
   issues: write
-  contents: write
-  actions: write
-  checks: write
-  deployments: write
   pull-requests: write
-  repository-projects: write
-  security-events: write
-  id-token: write
+  contents: read
 
 jobs:
   orchestrate:
@@ -85,7 +79,7 @@ jobs:
             const team = {
               'core-engine': {
                 labels: ['group-a-core', 'execution-engine'],
-                human_members: [], // TODO: Add GitHub usernames here
+                human_members: [], // Intentionally empty until approved assignees are configured.
                 ai_agents: [
                   { id: 'core-architect', display: 'Core Architect Agent', gh_username: '', specialties: ['architecture','runtime','orchestration','queueing'] },
                   { id: 'perf-profiler', display: 'Performance Profiler Agent', gh_username: '', specialties: ['latency','throughput','profiling','benchmarking'] }
@@ -93,7 +87,7 @@ jobs:
               },
               'auth-security': {
                 labels: ['group-b-auth', 'github-integration', 'security'],
-                human_members: [], // TODO: Add GitHub usernames here
+                human_members: [], // Intentionally empty until approved assignees are configured.
                 ai_agents: [
                   { id: 'threat-modeler', display: 'Threat Modeler Agent', gh_username: '', specialties: ['oauth','oidc','tokens','threat-model','abuse'] },
                   { id: 'policy-auditor', display: 'Policy & Compliance Agent', gh_username: '', specialties: ['least-privilege','permissions','secrets','compliance'] }
@@ -101,7 +95,7 @@ jobs:
               },
               'monitoring': {
                 labels: ['group-c-monitoring', 'execution-monitoring'],
-                human_members: [], // TODO: Add GitHub usernames here
+                human_members: [], // Intentionally empty until approved assignees are configured.
                 ai_agents: [
                   { id: 'sre-analyst', display: 'SRE Analyst Agent', gh_username: '', specialties: ['alerts','slo','observability','oncall'] },
                   { id: 'log-forensics', display: 'Log Forensics Agent', gh_username: '', specialties: ['traces','metrics','logs','root-cause'] }
@@ -109,7 +103,7 @@ jobs:
               },
               'knowledge': {
                 labels: ['group-d-knowledge', 'knowledge-base', 'templates'],
-                human_members: [], // TODO: Add GitHub usernames here
+                human_members: [], // Intentionally empty until approved assignees are configured.
                 ai_agents: [
                   { id: 'doc-wrangler', display: 'Doc Wrangler Agent', gh_username: '', specialties: ['docs','templates','how-to','runbooks'] },
                   { id: 'taxonomy-librarian', display: 'Taxonomy Librarian Agent', gh_username: '', specialties: ['information-architecture','tagging','search'] }
@@ -117,7 +111,7 @@ jobs:
               },
               'ux': {
                 labels: ['group-e-ux', 'workflow-builder', 'ux'],
-                human_members: [], // TODO: Add GitHub usernames here
+                human_members: [], // Intentionally empty until approved assignees are configured.
                 ai_agents: [
                   { id: 'ux-heuristics', display: 'UX Heuristics Agent', gh_username: '', specialties: ['usability','flows','heuristics','accessibility'] },
                   { id: 'copy-designer', display: 'UX Copy & Microcopy Agent', gh_username: '', specialties: ['copy','labels','empty-states','onboarding'] }
@@ -125,7 +119,7 @@ jobs:
               },
               'advanced': {
                 labels: ['group-f-advanced', 'ai-providers'],
-                human_members: [], // TODO: Add GitHub usernames here
+                human_members: [], // Intentionally empty until approved assignees are configured.
                 ai_agents: [
                   { id: 'llm-integrator', display: 'LLM Integrator Agent', gh_username: '', specialties: ['providers','api','rate-limits','evals'] },
                   { id: 'prompt-systems', display: 'Prompt & Agent Systems Agent', gh_username: '', specialties: ['tooling','routing','memory','guardrails'] }

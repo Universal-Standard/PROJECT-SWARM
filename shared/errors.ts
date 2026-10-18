@@ -15,9 +15,9 @@ export class WorkflowValidationError extends Error {
   public readonly errors: ValidationError[];
   public readonly statusCode: number;
 
-  constructor(errors: ValidationError[], message = 'Workflow validation failed') {
+  constructor(errors: ValidationError[], message = "Workflow validation failed") {
     super(message);
-    this.name = 'WorkflowValidationError';
+    this.name = "WorkflowValidationError";
     this.errors = errors;
     this.statusCode = 400;
   }
@@ -26,9 +26,9 @@ export class WorkflowValidationError extends Error {
 export class AuthenticationError extends Error {
   public readonly statusCode: number;
 
-  constructor(message = 'Authentication required') {
+  constructor(message = "Authentication required") {
     super(message);
-    this.name = 'AuthenticationError';
+    this.name = "AuthenticationError";
     this.statusCode = 401;
   }
 }
@@ -36,9 +36,9 @@ export class AuthenticationError extends Error {
 export class AuthorizationError extends Error {
   public readonly statusCode: number;
 
-  constructor(message = 'Forbidden') {
+  constructor(message = "Forbidden") {
     super(message);
-    this.name = 'AuthorizationError';
+    this.name = "AuthorizationError";
     this.statusCode = 403;
   }
 }
@@ -46,9 +46,9 @@ export class AuthorizationError extends Error {
 export class NotFoundError extends Error {
   public readonly statusCode: number;
 
-  constructor(message = 'Resource not found') {
+  constructor(message = "Resource not found") {
     super(message);
-    this.name = 'NotFoundError';
+    this.name = "NotFoundError";
     this.statusCode = 404;
   }
 }
@@ -57,9 +57,9 @@ export class RateLimitError extends Error {
   public readonly statusCode: number;
   public readonly retryAfter?: number;
 
-  constructor(message = 'Rate limit exceeded', retryAfter?: number) {
+  constructor(message = "Rate limit exceeded", retryAfter?: number) {
     super(message);
-    this.name = 'RateLimitError';
+    this.name = "RateLimitError";
     this.statusCode = 429;
     this.retryAfter = retryAfter;
   }

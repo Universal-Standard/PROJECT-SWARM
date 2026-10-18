@@ -1,0 +1,37 @@
+name: "Scheduler: Invoke application cron"
+
+on:
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch:
+
+# This workflow is an optional external trigger for deployments that do not
+# provide their own scheduler. Vercel deployments use the cron in vercel.json.
+# The application remains the source of truth for due-schedule evaluation.
+permissions:
+  contents: read
+
+jobs:
+  tick:
+    name: Invoke scheduler endpoint
+    if: ${{ vars.CRON_BASE_URL != '' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Call authenticated scheduler endpoint
+        env:
+          CRON_BASE_URL: ${{ vars.CRON_BASE_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [[ -z "${CRON_SECRET}" ]]; then
+            echo "CRON_SECRET is required when CRON_BASE_URL is configured."
+            exit 1
+          fi
+
+          endpoint="${CRON_BASE_URL%/}/api/cron/tick"
+          curl --fail-with-body --silent --show-error --max-time 60 \
+            --header "Authorization: Bearer ${CRON_SECRET}" \
+            "${endpoint}"

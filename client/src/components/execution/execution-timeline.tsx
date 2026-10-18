@@ -1,7 +1,7 @@
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { CheckCircle2, XCircle, Clock } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { CheckCircle2, XCircle, Clock } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 interface TimelineStep {
   stepIndex: number;
@@ -10,7 +10,7 @@ interface TimelineStep {
   startTime: string;
   endTime: string;
   duration: number;
-  status: 'completed' | 'error' | 'running';
+  status: "completed" | "error" | "running";
   logs: any[];
 }
 
@@ -28,9 +28,9 @@ export function ExecutionTimeline({ timeline, totalDuration }: ExecutionTimeline
 
   const getStatusIcon = (status: string) => {
     switch (status) {
-      case 'completed':
+      case "completed":
         return <CheckCircle2 className="w-5 h-5 text-green-500" />;
-      case 'error':
+      case "error":
         return <XCircle className="w-5 h-5 text-destructive" />;
       default:
         return <Clock className="w-5 h-5 text-amber-500" />;
@@ -39,12 +39,12 @@ export function ExecutionTimeline({ timeline, totalDuration }: ExecutionTimeline
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'completed':
-        return 'bg-green-500/10 text-green-500 border-green-500/20';
-      case 'error':
-        return 'bg-destructive/10 text-destructive border-destructive/20';
+      case "completed":
+        return "bg-green-500/10 text-green-500 border-green-500/20";
+      case "error":
+        return "bg-destructive/10 text-destructive border-destructive/20";
       default:
-        return 'bg-amber-500/10 text-amber-500 border-amber-500/20';
+        return "bg-amber-500/10 text-amber-500 border-amber-500/20";
     }
   };
 
@@ -54,9 +54,7 @@ export function ExecutionTimeline({ timeline, totalDuration }: ExecutionTimeline
         <div className="flex items-center justify-between">
           <CardTitle className="text-lg">Execution Timeline</CardTitle>
           {totalDuration !== undefined && (
-            <Badge variant="secondary">
-              Total: {formatDuration(totalDuration)}
-            </Badge>
+            <Badge variant="secondary">Total: {formatDuration(totalDuration)}</Badge>
           )}
         </div>
       </CardHeader>
@@ -69,7 +67,7 @@ export function ExecutionTimeline({ timeline, totalDuration }: ExecutionTimeline
           <div className="relative space-y-6">
             {/* Timeline line */}
             <div className="absolute left-[11px] top-2 bottom-2 w-0.5 bg-border" />
-            
+
             {timeline.map((step, index) => (
               <div key={step.stepIndex} className="relative flex gap-4">
                 {/* Timeline dot */}
@@ -85,12 +83,16 @@ export function ExecutionTimeline({ timeline, totalDuration }: ExecutionTimeline
                         <h4 className="text-sm font-medium">
                           Step {step.stepIndex + 1}: {step.agentName}
                         </h4>
-                        <Badge variant="outline" className={cn("text-xs", getStatusColor(step.status))}>
+                        <Badge
+                          variant="outline"
+                          className={cn("text-xs", getStatusColor(step.status))}
+                        >
                           {step.status}
                         </Badge>
                       </div>
                       <div className="text-xs text-muted-foreground">
-                        {new Date(step.startTime).toLocaleTimeString()} → {new Date(step.endTime).toLocaleTimeString()}
+                        {new Date(step.startTime).toLocaleTimeString()} →{" "}
+                        {new Date(step.endTime).toLocaleTimeString()}
                       </div>
                     </div>
                     <Badge variant="secondary" className="text-xs shrink-0">
@@ -104,11 +106,11 @@ export function ExecutionTimeline({ timeline, totalDuration }: ExecutionTimeline
                       <div
                         className={cn(
                           "h-full rounded-full transition-all",
-                          step.status === 'error' 
-                            ? "bg-destructive" 
-                            : step.status === 'completed'
-                            ? "bg-green-500"
-                            : "bg-amber-500"
+                          step.status === "error"
+                            ? "bg-destructive"
+                            : step.status === "completed"
+                              ? "bg-green-500"
+                              : "bg-amber-500"
                         )}
                         style={{ width: `${(step.duration / totalDuration) * 100}%` }}
                       />
@@ -118,7 +120,7 @@ export function ExecutionTimeline({ timeline, totalDuration }: ExecutionTimeline
                   {/* Log count */}
                   {step.logs && step.logs.length > 0 && (
                     <div className="text-xs text-muted-foreground">
-                      {step.logs.length} log {step.logs.length === 1 ? 'entry' : 'entries'}
+                      {step.logs.length} log {step.logs.length === 1 ? "entry" : "entries"}
                     </div>
                   )}
                 </div>

@@ -11,40 +11,59 @@ export default function Landing() {
     {
       icon: Network,
       title: "Visual Workflow Design",
-      description: "Drag-and-drop interface for building complex agent swarms with intuitive node-based workflows."
+      description:
+        "Drag-and-drop interface for building complex agent swarms with intuitive node-based workflows.",
     },
     {
       icon: Brain,
       title: "Persistent Knowledge Base",
-      description: "Agents learn and share knowledge across executions, creating collective intelligence that improves over time."
+      description:
+        "Agents learn and share knowledge across executions, creating collective intelligence that improves over time.",
     },
     {
       icon: Sparkles,
       title: "Multi-AI Provider Support",
-      description: "Seamlessly integrate OpenAI, Anthropic Claude, and Google Gemini in a single orchestration platform."
+      description:
+        "Seamlessly integrate OpenAI, Anthropic Claude, and Google Gemini in a single orchestration platform.",
     },
     {
       icon: Zap,
       title: "Real-time Monitoring",
-      description: "Track agent executions, view live logs, and monitor communication between agents in real-time."
+      description:
+        "Track agent executions, view live logs, and monitor communication between agents in real-time.",
     },
     {
       icon: Shield,
       title: "Enterprise-Ready",
-      description: "Built with TypeScript, PostgreSQL, and modern security practices for production deployments."
+      description:
+        "Built with TypeScript, PostgreSQL, and modern security practices for production deployments.",
     },
     {
       icon: TrendingUp,
       title: "Template Library",
-      description: "Start quickly with pre-built agent swarm configurations for common use cases and workflows."
-    }
+      description:
+        "Start quickly with pre-built agent swarm configurations for common use cases and workflows.",
+    },
   ];
 
   const useCases = [
-    { title: "Code Generation Pipelines", description: "Coordinate agents for requirements analysis, code generation, and testing" },
-    { title: "Research & Analysis", description: "Deploy swarms that gather, analyze, and synthesize information from multiple sources" },
-    { title: "Content Creation", description: "Orchestrate agents for ideation, drafting, editing, and optimization" },
-    { title: "Data Processing", description: "Build workflows that validate, transform, and analyze complex datasets" }
+    {
+      title: "Code Generation Pipelines",
+      description: "Coordinate agents for requirements analysis, code generation, and testing",
+    },
+    {
+      title: "Research & Analysis",
+      description:
+        "Deploy swarms that gather, analyze, and synthesize information from multiple sources",
+    },
+    {
+      title: "Content Creation",
+      description: "Orchestrate agents for ideation, drafting, editing, and optimization",
+    },
+    {
+      title: "Data Processing",
+      description: "Build workflows that validate, transform, and analyze complex datasets",
+    },
   ];
 
   const handleGetStarted = () => {
@@ -54,7 +73,7 @@ export default function Landing() {
   return (
     <div className="min-h-screen flex flex-col">
       <PublicHeader />
-      
+
       {/* Hero Section */}
       <section className="relative overflow-hidden py-20 md:py-32">
         <div className="absolute inset-0 bg-gradient-to-br from-primary/20 via-blue-500/10 to-transparent" />
@@ -64,18 +83,24 @@ export default function Landing() {
               <Sparkles className="w-4 h-4 text-primary" />
               <span className="text-sm font-medium">Enterprise AI Agent Orchestration</span>
             </div>
-            
+
             <h1 className="text-4xl md:text-6xl font-bold tracking-tight">
               Orchestrate AI Agent Swarms
               <span className="block text-primary mt-2">With Visual Simplicity</span>
             </h1>
-            
+
             <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-              Deploy AI agent swarms that intelligently automate workflows and manage your repositories.
+              Deploy AI agent swarms that intelligently automate workflows and manage your
+              repositories.
             </p>
-            
+
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-              <Button size="lg" onClick={handleGetStarted} className="text-lg px-8" data-testid="button-hero-get-started">
+              <Button
+                size="lg"
+                onClick={handleGetStarted}
+                className="text-lg px-8"
+                data-testid="button-hero-get-started"
+              >
                 Get Started Free
                 <ArrowRight className="ml-2 w-5 h-5" />
               </Button>
@@ -90,9 +115,9 @@ export default function Landing() {
             <div className="mt-12 max-w-5xl mx-auto">
               <div className="relative rounded-xl overflow-hidden shadow-2xl border border-primary/20">
                 <div className="absolute inset-0 bg-gradient-to-tr from-primary/20 to-blue-500/20" />
-                <img 
-                  src={workflowImage} 
-                  alt="SWARM Workflow Builder Interface" 
+                <img
+                  src={workflowImage}
+                  alt="SWARM Workflow Builder Interface"
                   className="w-full h-auto"
                   data-testid="img-hero-product"
                 />
@@ -111,7 +136,7 @@ export default function Landing() {
               Everything you need to build, deploy, and scale AI agent orchestration workflows
             </p>
           </div>
-          
+
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
             {features.map((feature, i) => (
               <Card key={i} className="p-6 hover-elevate transition-all">
@@ -133,7 +158,7 @@ export default function Landing() {
               From code generation to research analysis, SWARM adapts to your workflow
             </p>
           </div>
-          
+
           <div className="grid md:grid-cols-2 gap-6 max-w-4xl mx-auto">
             {useCases.map((useCase, i) => (
               <Card key={i} className="p-6 hover-elevate transition-all">
@@ -160,7 +185,12 @@ export default function Landing() {
             <p className="text-lg text-muted-foreground mb-8">
               Join teams using SWARM to orchestrate intelligent workflows at scale
             </p>
-            <Button size="lg" onClick={handleGetStarted} className="text-lg px-8" data-testid="button-cta-get-started">
+            <Button
+              size="lg"
+              onClick={handleGetStarted}
+              className="text-lg px-8"
+              data-testid="button-cta-get-started"
+            >
               Start Building Now
               <ArrowRight className="ml-2 w-5 h-5" />
             </Button>
@@ -182,13 +212,22 @@ export default function Landing() {
               </div>
             </div>
             <div className="flex flex-wrap items-center justify-center gap-6">
-              <a href="/privacy" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
+              <a
+                href="/privacy"
+                className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+              >
                 Privacy Policy
               </a>
-              <a href="/terms" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
+              <a
+                href="/terms"
+                className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+              >
                 Terms of Service
               </a>
-              <a href="/about" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
+              <a
+                href="/about"
+                className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+              >
                 About
               </a>
             </div>

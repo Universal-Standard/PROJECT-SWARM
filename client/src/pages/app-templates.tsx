@@ -38,7 +38,9 @@ export default function AppTemplates() {
     <div className="container py-8">
       <div className="mb-8">
         <h1 className="text-3xl font-bold">Templates</h1>
-        <p className="text-muted-foreground mt-2">Pre-built workflows to help you get started quickly</p>
+        <p className="text-muted-foreground mt-2">
+          Pre-built workflows to help you get started quickly
+        </p>
       </div>
 
       {isLoading ? (
@@ -64,18 +66,22 @@ export default function AppTemplates() {
                   </Badge>
                 )}
               </div>
-              
+
               <h3 className="text-xl font-semibold mb-2">{template.name}</h3>
               {template.description && (
-                <p className="text-sm text-muted-foreground mb-4 line-clamp-2">{template.description}</p>
+                <p className="text-sm text-muted-foreground mb-4 line-clamp-2">
+                  {template.description}
+                </p>
               )}
-              
+
               <div className="flex items-center gap-2 text-xs text-muted-foreground mb-4">
-                <Badge variant="outline" className="text-xs">{template.category}</Badge>
+                <Badge variant="outline" className="text-xs">
+                  {template.category}
+                </Badge>
                 <span>•</span>
                 <span>{template.usageCount} uses</span>
               </div>
-              
+
               <Button className="w-full" data-testid={`button-use-${template.id}`}>
                 <Download className="w-4 h-4 mr-2" />
                 Use Template
@@ -87,9 +93,7 @@ export default function AppTemplates() {
         <Card className="p-12 text-center">
           <LayoutTemplate className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
           <h3 className="text-xl font-semibold mb-2">No templates available</h3>
-          <p className="text-muted-foreground">
-            Check back soon for pre-built workflow templates
-          </p>
+          <p className="text-muted-foreground">Check back soon for pre-built workflow templates</p>
         </Card>
       )}
     </div>

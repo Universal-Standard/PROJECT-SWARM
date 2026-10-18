@@ -29,7 +29,8 @@ We are committed to providing a welcoming and inclusive environment for all cont
 - Node.js 22.16.0 or higher (check version: `node --version`)
 - PostgreSQL database (local or cloud)
 - Git for version control
-- AI provider API keys (OpenAI, Anthropic, or Google Gemini)
+- An AI provider API key (OpenAI, Anthropic, or Google Gemini) for running
+  provider-backed workflows; frontend and health checks do not require one
 
 ### First Time Setup
 
@@ -42,12 +43,12 @@ We are committed to providing a welcoming and inclusive environment for all cont
 
 3. **Add upstream remote**:
    ```bash
-   git remote add upstream https://github.com/UniversalStandards/PROJECT-SWARM.git
+   git remote add upstream https://github.com/Universal-Standard/PROJECT-SWARM.git
    ```
 
 4. **Install dependencies**:
    ```bash
-   npm install
+   npm ci
    ```
 
 5. **Configure environment**:
@@ -124,7 +125,7 @@ PROJECT-SWARM/
 4. **Test your changes**:
    ```bash
    npm run check        # Type checking
-   npm test             # Run tests (when available)
+   npm test             # Run unit and integration tests
    npm run build        # Ensure build works
    ```
 

@@ -12,14 +12,9 @@ on:
 
 # ✅ PERMISSIONS BLOCK - REQUIRED
 permissions:
-  contents: write        # Read repository contents
-  pull-requests: write  # Comment on PRs (optional, for notifications)
-  checks: write         # Write check results
+  contents: read
   issues: write
-  statuses: write
-  actions: write
-  id-token: write
-  deployments: write
+  pull-requests: write
 
 jobs:
   check-sync:

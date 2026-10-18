@@ -67,24 +67,34 @@ export default function AppWorkflows() {
             <Card key={workflow.id} className="p-6 hover-elevate transition-all group">
               <div className="flex items-start justify-between mb-4">
                 <Workflow className="w-8 h-8 text-primary" />
-                <Button variant="ghost" size="icon" className="opacity-0 group-hover:opacity-100 transition-opacity">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="opacity-0 group-hover:opacity-100 transition-opacity"
+                >
                   <Trash2 className="w-4 h-4" />
                 </Button>
               </div>
-              
+
               <h3 className="text-xl font-semibold mb-2">{workflow.name}</h3>
               {workflow.description && (
-                <p className="text-sm text-muted-foreground mb-4 line-clamp-2">{workflow.description}</p>
+                <p className="text-sm text-muted-foreground mb-4 line-clamp-2">
+                  {workflow.description}
+                </p>
               )}
-              
+
               <div className="flex items-center gap-2 text-xs text-muted-foreground mb-4">
                 <Calendar className="w-3 h-3" />
                 <span>{format(new Date(workflow.createdAt), "MMM d, yyyy")}</span>
               </div>
-              
+
               <div className="flex gap-2">
                 <Link href={`/app/workflow-builder/${workflow.id}`} className="flex-1">
-                  <Button variant="outline" className="w-full" data-testid={`button-edit-${workflow.id}`}>
+                  <Button
+                    variant="outline"
+                    className="w-full"
+                    data-testid={`button-edit-${workflow.id}`}
+                  >
                     Edit
                   </Button>
                 </Link>

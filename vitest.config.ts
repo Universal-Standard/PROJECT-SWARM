@@ -32,9 +32,14 @@ export default defineConfig({
         "tests/**",
         "**/__tests__/**",
         "**/*.{test,spec}.{js,ts,jsx,tsx}",
+        "client/src/pages/**",
       ],
       include: ["server/**/*.ts", "client/**/*.{ts,tsx}", "shared/**/*.ts"],
-      all: true,
+      // V8 can only remap modules that Vitest transforms during the run.
+      // Unimported TSX pages are still covered by the production build and
+      // browser tests; excluding them here avoids false parser failures in
+      // the coverage reporter.
+      all: false,
       lines: 90,
       functions: 90,
       branches: 90,

@@ -60,13 +60,15 @@ export function AppSidebar() {
   const [location] = useLocation();
   const { user } = useAuth();
 
-  const displayName = user?.firstName && user?.lastName 
-    ? `${user.firstName} ${user.lastName}` 
-    : user?.email || "User";
-  
-  const initials = user?.firstName && user?.lastName
-    ? `${user.firstName[0]}${user.lastName[0]}`
-    : user?.email?.[0]?.toUpperCase() || "U";
+  const displayName =
+    user?.firstName && user?.lastName
+      ? `${user.firstName} ${user.lastName}`
+      : user?.email || "User";
+
+  const initials =
+    user?.firstName && user?.lastName
+      ? `${user.firstName[0]}${user.lastName[0]}`
+      : user?.email?.[0]?.toUpperCase() || "U";
 
   return (
     <Sidebar>
@@ -92,7 +94,10 @@ export function AppSidebar() {
                 return (
                   <SidebarMenuItem key={item.title}>
                     <SidebarMenuButton asChild className={isActive ? "bg-sidebar-accent" : ""}>
-                      <Link href={item.url} data-testid={`nav-${item.title.toLowerCase().replace(' ', '-')}`}>
+                      <Link
+                        href={item.url}
+                        data-testid={`nav-${item.title.toLowerCase().replace(" ", "-")}`}
+                      >
                         <item.icon className="w-4 h-4" />
                         <span>{item.title}</span>
                       </Link>
@@ -107,7 +112,10 @@ export function AppSidebar() {
 
       <SidebarFooter className="p-4">
         <Link href="/app/settings">
-          <div className="flex items-center gap-3 p-2 rounded-lg hover-elevate transition-all cursor-pointer" data-testid="nav-user-profile">
+          <div
+            className="flex items-center gap-3 p-2 rounded-lg hover-elevate transition-all cursor-pointer"
+            data-testid="nav-user-profile"
+          >
             <Avatar className="h-8 w-8">
               {user?.profileImageUrl && <AvatarImage src={user.profileImageUrl} />}
               <AvatarFallback className="bg-primary text-primary-foreground text-xs">

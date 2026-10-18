@@ -49,6 +49,7 @@ export function registerHealthRoutes(app: Express) {
 
       res.status(200).json({
         status: "ready",
+        ready: true,
         timestamp: new Date().toISOString(),
         checks: {
           database: "connected",

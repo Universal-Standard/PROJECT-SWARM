@@ -9,7 +9,9 @@ import type { Request, Response } from "express";
  */
 
 /**
- * Global rate limiter - applies to all requests
+ * API rate limiter - mounted by the application on /api.
+ * Static assets, Vite's development module graph, and health probes are not
+ * subject to this limiter.
  * 100 requests per minute per IP
  */
 export const globalRateLimiter = rateLimit({
