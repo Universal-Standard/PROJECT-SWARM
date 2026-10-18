@@ -10,15 +10,10 @@ jobs:
   add-to-project:
     runs-on: ubuntu-latest
     permissions:
-      issues: write
-      pull-requests: write
-      actions: write
-      security-events: write
+      contents: read
+      issues: read
+      pull-requests: read
       repository-projects: write
-      id-token: write
-      statuses: write
-      checks: write
-      contents: write
     steps:
       - name: Add to project
         if: vars.PROJECT_BOARD_URL != null && vars.PROJECT_BOARD_URL != ''
