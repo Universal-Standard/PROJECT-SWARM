@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 
 export interface ExecutionEvent {
-  type: 'execution_started' | 'agent_started' | 'agent_completed' | 'execution_completed' | 'execution_failed' | 'log' | 'message';
+  type: 'execution_started' | 'agent_started' | 'agent_completed' | 'execution_completed' | 'execution_failed' | 'execution_cancelled' | 'log' | 'message';
   executionId: string;
   agentId?: string;
   agentName?: string;
@@ -128,6 +128,7 @@ export function useExecutionMonitor(
 
               case 'execution_completed':
               case 'execution_failed':
+              case 'execution_cancelled':
                 updates.currentAgent = undefined;
                 break;
             }

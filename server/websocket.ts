@@ -24,6 +24,7 @@ export interface ExecutionEvent {
     | "agent_completed"
     | "execution_completed"
     | "execution_failed"
+    | "execution_cancelled"
     | "log"
     | "message";
   executionId: string;
@@ -218,6 +219,16 @@ class WebSocketManager {
     this.broadcast(executionId, {
       type: "execution_failed",
       data: { status: "error", error },
+    });
+  }
+
+  /**
+   * Emit execution cancelled event
+   */
+  emitExecutionCancelled(executionId: string) {
+    this.broadcast(executionId, {
+      type: "execution_cancelled",
+      data: { status: "cancelled", message: "Execution cancelled by user" },
     });
   }
 

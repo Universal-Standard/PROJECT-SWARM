@@ -521,12 +521,40 @@ export async function registerRoutes(app: Express) {
         return res.status(403).json({ error: "Forbidden" });
       }
 
-      const execution = await orchestrator.executeWorkflow(workflowId, input);
-      res.json(execution);
+      const execution = await orchestrator.startWorkflowExecution(workflowId, input);
+      res.status(202).json(execution);
     } catch (error: any) {
       if (error.name === "ZodError") {
         return res.status(400).json({ error: "Invalid input", details: error.issues });
       }
+      res.status(500).json({ error: getErrorMessage(error) });
+    }
+  });
+
+  app.post("/api/executions/:id/cancel", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserId(req);
+      const execution = await storage.getExecutionById(req.params.id);
+      if (!execution) {
+        return res.status(404).json({ error: "Execution not found" });
+      }
+
+      const workflow = await storage.getWorkflowById(execution.workflowId);
+      if (!workflow || workflow.userId !== userId) {
+        return res.status(403).json({ error: "Forbidden" });
+      }
+
+      if (["completed", "error", "cancelled"].includes(execution.status)) {
+        return res.status(400).json({ error: `Cannot cancel execution with status ${execution.status}` });
+      }
+
+      const updatedExecution = await storage.updateExecution(execution.id, {
+        status: "cancelled",
+        error: "Execution cancelled by user",
+      });
+
+      res.status(202).json(updatedExecution);
+    } catch (error: any) {
       res.status(500).json({ error: getErrorMessage(error) });
     }
   });
@@ -549,7 +577,7 @@ export async function registerRoutes(app: Express) {
       // Validate the update data with Zod schema
       const updateExecutionSchema = z
         .object({
-          status: z.enum(["pending", "running", "completed", "error"]).optional(),
+          status: z.enum(["pending", "running", "completed", "error", "cancelled"]).optional(),
           output: z.record(z.string(), z.any()).optional(),
           error: z.string().optional(),
         })
