@@ -1,25 +1,25 @@
-import { useState } from 'react';
-import { MiniMap as ReactFlowMiniMap } from '@xyflow/react';
-import { Button } from '@/components/ui/button';
-import { ChevronDown, ChevronUp } from 'lucide-react';
-import { Badge } from '@/components/ui/badge';
+import { useState } from "react";
+import { MiniMap as ReactFlowMiniMap } from "@xyflow/react";
+import { Button } from "@/components/ui/button";
+import { ChevronDown, ChevronUp } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 
 interface MinimapProps {
   nodeColor?: (node: any) => string;
 }
 
 const roleColors: Record<string, string> = {
-  Coordinator: '#06b6d4',
-  Coder: '#a855f7',
-  Researcher: '#f59e0b',
-  Database: '#3b82f6',
-  Security: '#10b981',
-  Custom: '#64748b',
+  Coordinator: "#06b6d4",
+  Coder: "#a855f7",
+  Researcher: "#f59e0b",
+  Database: "#3b82f6",
+  Security: "#10b981",
+  Custom: "#64748b",
 };
 
 export function Minimap({ nodeColor }: MinimapProps) {
   const [isCollapsed, setIsCollapsed] = useState(false);
-  const [size, setSize] = useState<'small' | 'medium' | 'large'>('medium');
+  const [size, setSize] = useState<"small" | "medium" | "large">("medium");
 
   const getNodeColor = (node: any) => {
     if (nodeColor) return nodeColor(node);
@@ -52,7 +52,7 @@ export function Minimap({ nodeColor }: MinimapProps) {
   }
 
   return (
-    <div 
+    <div
       className="absolute bottom-4 right-4 z-10 bg-card border rounded-lg shadow-xl overflow-hidden"
       style={{ width: width + 40, height: height + 60 }}
       data-testid="minimap-container"
@@ -62,23 +62,23 @@ export function Minimap({ nodeColor }: MinimapProps) {
           <span className="text-xs font-medium">Minimap</span>
           <div className="flex gap-1">
             <Badge
-              variant={size === 'small' ? 'default' : 'outline'}
+              variant={size === "small" ? "default" : "outline"}
               className="text-xs cursor-pointer h-5 px-2"
-              onClick={() => setSize('small')}
+              onClick={() => setSize("small")}
             >
               S
             </Badge>
             <Badge
-              variant={size === 'medium' ? 'default' : 'outline'}
+              variant={size === "medium" ? "default" : "outline"}
               className="text-xs cursor-pointer h-5 px-2"
-              onClick={() => setSize('medium')}
+              onClick={() => setSize("medium")}
             >
               M
             </Badge>
             <Badge
-              variant={size === 'large' ? 'default' : 'outline'}
+              variant={size === "large" ? "default" : "outline"}
               className="text-xs cursor-pointer h-5 px-2"
-              onClick={() => setSize('large')}
+              onClick={() => setSize("large")}
             >
               L
             </Badge>
@@ -99,9 +99,9 @@ export function Minimap({ nodeColor }: MinimapProps) {
           style={{
             width,
             height,
-            backgroundColor: 'hsl(var(--background))',
-            border: '1px solid hsl(var(--border))',
-            borderRadius: '6px',
+            backgroundColor: "hsl(var(--background))",
+            border: "1px solid hsl(var(--border))",
+            borderRadius: "6px",
           }}
           maskColor="rgba(0, 0, 0, 0.2)"
           pannable

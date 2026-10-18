@@ -55,9 +55,6 @@ export async function createApp(): Promise<Express> {
   // CORS must be applied early, before routes
   app.use(corsMiddleware);
 
-  // Global rate limiting
-  app.use(globalRateLimiter);
-
   app.use(express.json());
   app.use(express.urlencoded({ extended: false }));
 
@@ -95,6 +92,10 @@ export async function createApp(): Promise<Express> {
   // and Vercel health probes can reach them without hitting rate limits
   // meant for API traffic).
   registerHealthRoutes(app);
+
+  // Rate-limit API traffic without throttling health probes, static assets,
+  // or Vite's development module graph.
+  app.use("/api", globalRateLimiter);
 
   // Serverless-safe cron tick endpoint. No-op unless called by Vercel
   // Cron (or an equivalent external scheduler) with a valid CRON_SECRET.

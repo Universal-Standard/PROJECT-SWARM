@@ -1,7 +1,19 @@
 import { PublicHeader } from "@/components/public-header";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Network, Brain, Sparkles, Zap, Shield, TrendingUp, GitBranch, Database, Eye, Code, ArrowRight } from "lucide-react";
+import {
+  Network,
+  Brain,
+  Sparkles,
+  Zap,
+  Shield,
+  TrendingUp,
+  GitBranch,
+  Database,
+  Eye,
+  Code,
+  ArrowRight,
+} from "lucide-react";
 import dashboardImage from "@assets/stock_images/ai_artificial_intell_f528b33c.jpg";
 import analyticsImage from "@assets/stock_images/data_analytics_visua_75f173e5.jpg";
 
@@ -10,57 +22,62 @@ export default function Features() {
     {
       icon: Network,
       title: "Visual Workflow Builder",
-      description: "Design complex agent swarms with an intuitive drag-and-drop interface powered by React Flow.",
+      description:
+        "Design complex agent swarms with an intuitive drag-and-drop interface powered by React Flow.",
       details: [
         "Node-based workflow creation",
         "Real-time configuration panels",
         "Support for complex topologies",
-        "Visual edge connections"
-      ]
+        "Visual edge connections",
+      ],
     },
     {
       icon: Brain,
       title: "Persistent Knowledge Base",
-      description: "Agents automatically learn and share knowledge across executions, creating collective intelligence.",
+      description:
+        "Agents automatically learn and share knowledge across executions, creating collective intelligence.",
       details: [
         "Automatic knowledge extraction",
         "Category-based organization",
         "Confidence scoring",
-        "Cross-execution sharing"
-      ]
+        "Cross-execution sharing",
+      ],
     },
     {
       icon: Sparkles,
       title: "Multi-AI Provider Support",
-      description: "Seamlessly integrate multiple AI providers in a single workflow with automatic fallbacks.",
+      description:
+        "Seamlessly integrate multiple AI providers in a single workflow with automatic fallbacks.",
       details: [
         "OpenAI (GPT-4, GPT-3.5)",
         "Anthropic (Claude 3.5, Opus, Haiku)",
         "Google Gemini (1.5 Pro, Flash)",
-        "Provider-agnostic architecture"
-      ]
+        "Provider-agnostic architecture",
+      ],
     },
     {
       icon: Zap,
       title: "Real-time Execution Monitoring",
-      description: "Track agent executions with live logs, message visualization, and performance metrics.",
+      description:
+        "Track agent executions with live logs, message visualization, and performance metrics.",
       details: [
         "Live execution logs",
         "Agent message tracking",
         "Token usage monitoring",
-        "Error and output display"
-      ]
+        "Error and output display",
+      ],
     },
     {
       icon: GitBranch,
       title: "Smart Agent Orchestration",
-      description: "Intelligent coordination of agent execution with topological sorting and message passing.",
+      description:
+        "Intelligent coordination of agent execution with topological sorting and message passing.",
       details: [
         "Automatic execution ordering",
         "Inter-agent communication",
         "Error handling and recovery",
-        "Parallel execution support"
-      ]
+        "Parallel execution support",
+      ],
     },
     {
       icon: Database,
@@ -70,8 +87,8 @@ export default function Features() {
         "Neon-backed PostgreSQL",
         "Composite indexes",
         "Efficient query patterns",
-        "Data versioning"
-      ]
+        "Data versioning",
+      ],
     },
     {
       icon: TrendingUp,
@@ -81,19 +98,14 @@ export default function Features() {
         "Code generation pipelines",
         "Research workflows",
         "Content creation",
-        "Data processing"
-      ]
+        "Data processing",
+      ],
     },
     {
       icon: Shield,
       title: "Security & Authentication",
       description: "Built-in authentication with Replit Auth and secure session management.",
-      details: [
-        "OAuth integration",
-        "Secure sessions",
-        "User isolation",
-        "API key management"
-      ]
+      details: ["OAuth integration", "Secure sessions", "User isolation", "API key management"],
     },
     {
       icon: Eye,
@@ -103,26 +115,21 @@ export default function Features() {
         "Execution timeline",
         "Performance analytics",
         "Success/failure tracking",
-        "Detailed logging"
-      ]
+        "Detailed logging",
+      ],
     },
     {
       icon: Code,
       title: "Developer-Friendly",
       description: "Built with modern TypeScript, React, and best practices for extensibility.",
-      details: [
-        "TypeScript throughout",
-        "Component-based UI",
-        "REST API",
-        "Comprehensive types"
-      ]
-    }
+      details: ["TypeScript throughout", "Component-based UI", "REST API", "Comprehensive types"],
+    },
   ];
 
   return (
     <div className="min-h-screen flex flex-col">
       <PublicHeader />
-      
+
       <div className="flex-1">
         {/* Hero */}
         <section className="py-20 bg-gradient-to-br from-primary/20 via-blue-500/10 to-transparent">
@@ -133,9 +140,14 @@ export default function Features() {
                 <span className="block text-primary mt-2">AI Agent Orchestration</span>
               </h1>
               <p className="text-xl text-muted-foreground mb-8">
-                Deploy AI agent swarms that intelligently automate workflows and manage your repositories.
+                Deploy AI agent swarms that intelligently automate workflows and manage your
+                repositories.
               </p>
-              <Button size="lg" onClick={() => window.location.href = "/api/login"} data-testid="button-get-started">
+              <Button
+                size="lg"
+                onClick={() => (window.location.href = "/api/login")}
+                data-testid="button-get-started"
+              >
                 Get Started Free
                 <ArrowRight className="ml-2 w-5 h-5" />
               </Button>
@@ -154,10 +166,16 @@ export default function Features() {
                 </div>
                 <h3 className="text-2xl font-bold">Track Every Execution</h3>
                 <p className="text-muted-foreground">
-                  Monitor agent workflows in real-time with comprehensive dashboards, live logs, and performance metrics.
+                  Monitor agent workflows in real-time with comprehensive dashboards, live logs, and
+                  performance metrics.
                 </p>
                 <div className="rounded-lg overflow-hidden border border-primary/20">
-                  <img src={dashboardImage} alt="Real-time monitoring dashboard" className="w-full" data-testid="img-dashboard" />
+                  <img
+                    src={dashboardImage}
+                    alt="Real-time monitoring dashboard"
+                    className="w-full"
+                    data-testid="img-dashboard"
+                  />
                 </div>
               </div>
               <div className="space-y-4">
@@ -167,10 +185,16 @@ export default function Features() {
                 </div>
                 <h3 className="text-2xl font-bold">Optimize Performance</h3>
                 <p className="text-muted-foreground">
-                  Gain insights into agent behavior, execution patterns, and knowledge accumulation with detailed analytics.
+                  Gain insights into agent behavior, execution patterns, and knowledge accumulation
+                  with detailed analytics.
                 </p>
                 <div className="rounded-lg overflow-hidden border border-primary/20">
-                  <img src={analyticsImage} alt="Analytics and insights" className="w-full" data-testid="img-analytics" />
+                  <img
+                    src={analyticsImage}
+                    alt="Analytics and insights"
+                    className="w-full"
+                    data-testid="img-analytics"
+                  />
                 </div>
               </div>
             </div>
@@ -210,7 +234,11 @@ export default function Features() {
               <p className="text-lg text-muted-foreground mb-8">
                 Start building your AI agent swarms today with SWARM
               </p>
-              <Button size="lg" onClick={() => window.location.href = "/api/login"} data-testid="button-cta-get-started">
+              <Button
+                size="lg"
+                onClick={() => (window.location.href = "/api/login")}
+                data-testid="button-cta-get-started"
+              >
                 Start Building Now
                 <ArrowRight className="ml-2 w-5 h-5" />
               </Button>

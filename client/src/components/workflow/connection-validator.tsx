@@ -1,14 +1,14 @@
-import { useMemo } from 'react';
-import { Node, Edge } from '@xyflow/react';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Button } from '@/components/ui/button';
-import { AlertCircle, AlertTriangle, CheckCircle2, XCircle } from 'lucide-react';
-import { Badge } from '@/components/ui/badge';
-import { ScrollArea } from '@/components/ui/scroll-area';
+import { useMemo } from "react";
+import { Node, Edge } from "@xyflow/react";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import { AlertCircle, AlertTriangle, CheckCircle2, XCircle } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface ValidationIssue {
   id: string;
-  type: 'error' | 'warning';
+  type: "error" | "warning";
   title: string;
   description: string;
   nodeIds?: string[];
@@ -43,8 +43,8 @@ export function ConnectionValidator({
         recursionStack.add(nodeId);
         path.push(nodeId);
 
-        const outgoingEdges = edges.filter(e => e.source === nodeId);
-        
+        const outgoingEdges = edges.filter((e) => e.source === nodeId);
+
         for (const edge of outgoingEdges) {
           if (!visited.has(edge.target)) {
             if (dfs(edge.target, [...path])) {
@@ -63,7 +63,7 @@ export function ConnectionValidator({
         return false;
       };
 
-      nodes.forEach(node => {
+      nodes.forEach((node) => {
         if (!visited.has(node.id)) {
           dfs(node.id, []);
         }
@@ -75,27 +75,27 @@ export function ConnectionValidator({
     const cycles = detectCycles();
     if (cycles.length > 0) {
       cycles.forEach((cycle, index) => {
-        const cycleNodes = cycle.map(id => nodes.find(n => n.id === id)?.data?.label || id);
+        const cycleNodes = cycle.map((id) => nodes.find((n) => n.id === id)?.data?.label || id);
         foundIssues.push({
           id: `cycle-${index}`,
-          type: 'error',
-          title: 'Circular Dependency Detected',
-          description: `Cycle found: ${cycleNodes.join(' → ')}`,
+          type: "error",
+          title: "Circular Dependency Detected",
+          description: `Cycle found: ${cycleNodes.join(" → ")}`,
           nodeIds: cycle,
         });
       });
     }
 
     // Check for orphan nodes (no connections)
-    nodes.forEach(node => {
-      const hasIncoming = edges.some(e => e.target === node.id);
-      const hasOutgoing = edges.some(e => e.source === node.id);
-      
+    nodes.forEach((node) => {
+      const hasIncoming = edges.some((e) => e.target === node.id);
+      const hasOutgoing = edges.some((e) => e.source === node.id);
+
       if (!hasIncoming && !hasOutgoing) {
         foundIssues.push({
           id: `orphan-${node.id}`,
-          type: 'warning',
-          title: 'Orphan Node',
+          type: "warning",
+          title: "Orphan Node",
           description: `Node "${node.data?.label || node.id}" has no connections`,
           nodeIds: [node.id],
         });
@@ -104,42 +104,43 @@ export function ConnectionValidator({
 
     // Check for nodes with no incoming connections (potential entry points)
     const nodesWithoutIncoming = nodes.filter(
-      node => !edges.some(e => e.target === node.id) && edges.some(e => e.source === node.id)
+      (node) => !edges.some((e) => e.target === node.id) && edges.some((e) => e.source === node.id)
     );
-    
+
     if (nodesWithoutIncoming.length > 1) {
       foundIssues.push({
-        id: 'multiple-entry-points',
-        type: 'warning',
-        title: 'Multiple Entry Points',
+        id: "multiple-entry-points",
+        type: "warning",
+        title: "Multiple Entry Points",
         description: `${nodesWithoutIncoming.length} nodes have no incoming connections. Consider having a single coordinator node as entry point.`,
-        nodeIds: nodesWithoutIncoming.map(n => n.id),
+        nodeIds: nodesWithoutIncoming.map((n) => n.id),
       });
     }
 
     // Check for nodes with no outgoing connections (endpoints)
     const nodesWithoutOutgoing = nodes.filter(
-      node => !edges.some(e => e.source === node.id) && edges.some(e => e.target === node.id)
+      (node) => !edges.some((e) => e.source === node.id) && edges.some((e) => e.target === node.id)
     );
 
     if (nodesWithoutOutgoing.length === 0 && nodes.length > 0 && edges.length > 0) {
       foundIssues.push({
-        id: 'no-endpoints',
-        type: 'warning',
-        title: 'No Terminal Nodes',
-        description: 'No nodes found without outgoing connections. Every workflow should have at least one endpoint.',
+        id: "no-endpoints",
+        type: "warning",
+        title: "No Terminal Nodes",
+        description:
+          "No nodes found without outgoing connections. Every workflow should have at least one endpoint.",
       });
     }
 
     // Check for maximum connections per node (reasonable limit)
     const MAX_CONNECTIONS = 10;
-    nodes.forEach(node => {
-      const connections = edges.filter(e => e.source === node.id || e.target === node.id);
+    nodes.forEach((node) => {
+      const connections = edges.filter((e) => e.source === node.id || e.target === node.id);
       if (connections.length > MAX_CONNECTIONS) {
         foundIssues.push({
           id: `max-connections-${node.id}`,
-          type: 'warning',
-          title: 'Too Many Connections',
+          type: "warning",
+          title: "Too Many Connections",
           description: `Node "${node.data?.label || node.id}" has ${connections.length} connections. Consider simplifying.`,
           nodeIds: [node.id],
         });
@@ -149,8 +150,8 @@ export function ConnectionValidator({
     return foundIssues;
   }, [nodes, edges]);
 
-  const errorCount = issues.filter(i => i.type === 'error').length;
-  const warningCount = issues.filter(i => i.type === 'warning').length;
+  const errorCount = issues.filter((i) => i.type === "error").length;
+  const warningCount = issues.filter((i) => i.type === "warning").length;
 
   if (issues.length === 0) {
     return (
@@ -167,43 +168,38 @@ export function ConnectionValidator({
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-2">
-        <Badge variant={errorCount > 0 ? 'destructive' : 'secondary'}>
-          {errorCount} {errorCount === 1 ? 'Error' : 'Errors'}
+        <Badge variant={errorCount > 0 ? "destructive" : "secondary"}>
+          {errorCount} {errorCount === 1 ? "Error" : "Errors"}
         </Badge>
         <Badge variant="outline">
-          {warningCount} {warningCount === 1 ? 'Warning' : 'Warnings'}
+          {warningCount} {warningCount === 1 ? "Warning" : "Warnings"}
         </Badge>
       </div>
 
       <ScrollArea className="h-[400px] pr-4">
         <div className="space-y-3">
-          {issues.map(issue => (
+          {issues.map((issue) => (
             <Alert
               key={issue.id}
-              variant={issue.type === 'error' ? 'destructive' : 'default'}
-              className={issue.type === 'warning' ? 'border-amber-500/50 bg-amber-500/10' : ''}
+              variant={issue.type === "error" ? "destructive" : "default"}
+              className={issue.type === "warning" ? "border-amber-500/50 bg-amber-500/10" : ""}
             >
-              {issue.type === 'error' ? (
+              {issue.type === "error" ? (
                 <XCircle className="h-4 w-4" />
               ) : (
                 <AlertTriangle className="h-4 w-4 text-amber-500" />
               )}
               <div className="flex-1">
-                <AlertTitle className={issue.type === 'warning' ? 'text-amber-500' : ''}>
+                <AlertTitle className={issue.type === "warning" ? "text-amber-500" : ""}>
                   {issue.title}
                 </AlertTitle>
                 <AlertDescription
-                  className={issue.type === 'warning' ? 'text-amber-700 dark:text-amber-300' : ''}
+                  className={issue.type === "warning" ? "text-amber-700 dark:text-amber-300" : ""}
                 >
                   {issue.description}
                 </AlertDescription>
                 {issue.fix && (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={issue.fix}
-                    className="mt-2"
-                  >
+                  <Button size="sm" variant="outline" onClick={issue.fix} className="mt-2">
                     Fix Issue
                   </Button>
                 )}
@@ -240,8 +236,8 @@ export function useWorkflowValidation(nodes: Node[], edges: Edge[]) {
         visited.add(nodeId);
         recursionStack.add(nodeId);
 
-        const outgoingEdges = edges.filter(e => e.source === nodeId);
-        
+        const outgoingEdges = edges.filter((e) => e.source === nodeId);
+
         for (const edge of outgoingEdges) {
           if (!visited.has(edge.target)) {
             if (dfs(edge.target)) return true;
@@ -265,11 +261,11 @@ export function useWorkflowValidation(nodes: Node[], edges: Edge[]) {
 
     const warningCount = useMemo(() => {
       let count = 0;
-      
+
       // Orphan nodes
-      nodes.forEach(node => {
-        const hasIncoming = edges.some(e => e.target === node.id);
-        const hasOutgoing = edges.some(e => e.source === node.id);
+      nodes.forEach((node) => {
+        const hasIncoming = edges.some((e) => e.target === node.id);
+        const hasOutgoing = edges.some((e) => e.source === node.id);
         if (!hasIncoming && !hasOutgoing) count++;
       });
 

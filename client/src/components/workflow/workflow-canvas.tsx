@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, useRef } from 'react';
+import { useCallback, useEffect, useState, useRef } from "react";
 import {
   ReactFlow,
   Background,
@@ -10,8 +10,8 @@ import {
   Connection,
   ReactFlowInstance,
   useReactFlow,
-} from '@xyflow/react';
-import { snapToGrid, getAlignmentGuides } from '@/lib/workflow-layout';
+} from "@xyflow/react";
+import { snapToGrid, getAlignmentGuides } from "@/lib/workflow-layout";
 
 interface WorkflowCanvasProps {
   nodes: Node[];
@@ -28,7 +28,7 @@ interface WorkflowCanvasProps {
 }
 
 interface AlignmentGuide {
-  type: 'horizontal' | 'vertical';
+  type: "horizontal" | "vertical";
   position: number;
 }
 
@@ -51,9 +51,9 @@ export function WorkflowCanvas({
 
   const handleNodesChange = useCallback(
     (changes: NodeChange[]) => {
-      const modifiedChanges = changes.map(change => {
+      const modifiedChanges = changes.map((change) => {
         // Check if node is being dragged
-        if (change.type === 'position' && change.dragging) {
+        if (change.type === "position" && change.dragging) {
           setIsDragging(true);
           setDraggedNodeId(change.id);
 
@@ -64,14 +64,14 @@ export function WorkflowCanvas({
 
           // Calculate alignment guides
           if (change.position) {
-            const draggedNode = nodes.find(n => n.id === change.id);
+            const draggedNode = nodes.find((n) => n.id === change.id);
             if (draggedNode) {
               const tempNode = { ...draggedNode, position: change.position };
               const guides = getAlignmentGuides(tempNode, nodes, 10);
               setAlignmentGuides(guides);
             }
           }
-        } else if (change.type === 'position' && !change.dragging) {
+        } else if (change.type === "position" && !change.dragging) {
           setIsDragging(false);
           setDraggedNodeId(null);
           setAlignmentGuides([]);
@@ -106,17 +106,17 @@ export function WorkflowCanvas({
           size={1}
           style={{ opacity: showGrid ? 0.5 : 0 }}
         />
-        
+
         {children}
 
         {/* Alignment Guides Overlay */}
         {isDragging && alignmentGuides.length > 0 && (
           <svg
             className="absolute inset-0 pointer-events-none z-50"
-            style={{ width: '100%', height: '100%' }}
+            style={{ width: "100%", height: "100%" }}
           >
             {alignmentGuides.map((guide, index) => {
-              if (guide.type === 'horizontal') {
+              if (guide.type === "horizontal") {
                 return (
                   <line
                     key={`h-${index}`}
@@ -204,10 +204,10 @@ export function ZoomIndicator() {
 
     // Update zoom on initial mount
     handleZoom();
-    
+
     // Set up interval to periodically check zoom
     const interval = setInterval(handleZoom, 100);
-    
+
     return () => {
       clearInterval(interval);
     };

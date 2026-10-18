@@ -15,7 +15,5 @@
     { "source": "/ready", "destination": "/api/index" },
     { "source": "/(.*)", "destination": "/index.html" }
   ],
-  "crons": [
-    { "path": "/api/cron/tick", "schedule": "0 * * * *" }
-  ]
+  "crons": [{ "path": "/api/cron/tick", "schedule": "0 * * * *" }]
 }

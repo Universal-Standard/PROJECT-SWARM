@@ -4,6 +4,12 @@ This directory contains automated workflows for the SWARM project.
 
 ## Workflows
 
+The application is the source of truth for runtime data and execution. GitHub
+Actions must not write a SQLite database or commit runtime state to this
+repository. The retired database-writing workflows were removed during the
+production-baseline migration. Use `cron-tick.yml` only as an optional
+authenticated HTTP trigger for deployments without a native scheduler.
+
 ### 1. auto-assign-issues.yml
 Automatically adds new issues and pull requests to the project board.
 

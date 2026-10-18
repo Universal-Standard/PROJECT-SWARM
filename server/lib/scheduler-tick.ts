@@ -9,12 +9,15 @@ interface DueCheckSchedule {
   cronExpression: string;
   timezone?: string | null;
   lastRun?: Date | string | null;
+  nextRun?: Date | string | null;
 }
 
 export interface SchedulerTickResult {
   checked: number;
   executed: string[];
 }
+
+let activeTick: Promise<SchedulerTickResult> | null = null;
 
 /**
  * Serverless-safe replacement for the in-process `node-cron` loop in
@@ -42,12 +45,26 @@ export interface SchedulerTickResult {
  * Vercel Cron.
  */
 export async function runDueSchedules(): Promise<SchedulerTickResult> {
+  if (activeTick) {
+    return activeTick;
+  }
+
+  activeTick = runDueSchedulesOnce();
+  try {
+    return await activeTick;
+  } finally {
+    activeTick = null;
+  }
+}
+
+async function runDueSchedulesOnce(): Promise<SchedulerTickResult> {
   const schedules = (await storage.getAllEnabledSchedules()) as DueCheckSchedule[];
   const executed: string[] = [];
+  const now = new Date();
 
   for (const schedule of schedules) {
     try {
-      if (!isScheduleDue(schedule)) {
+      if (!isScheduleDue(schedule, now)) {
         continue;
       }
 
@@ -68,7 +85,8 @@ export async function runDueSchedules(): Promise<SchedulerTickResult> {
       await orchestrator.executeWorkflow(schedule.workflowId, {});
 
       await storage.updateWorkflowSchedule(schedule.id, {
-        lastRun: new Date(),
+        lastRun: now,
+        nextRun: getNextRun(schedule, now),
       });
 
       executed.push(schedule.id);
@@ -85,10 +103,14 @@ export async function runDueSchedules(): Promise<SchedulerTickResult> {
   return { checked: schedules.length, executed };
 }
 
-function isScheduleDue(schedule: DueCheckSchedule): boolean {
+function isScheduleDue(schedule: DueCheckSchedule, now: Date): boolean {
   try {
+    if (schedule.nextRun) {
+      return new Date(schedule.nextRun).getTime() <= now.getTime();
+    }
+
     const interval = CronExpressionParser.parse(schedule.cronExpression, {
-      currentDate: new Date(),
+      currentDate: now,
       tz: schedule.timezone || "UTC",
     });
 
@@ -104,4 +126,13 @@ function isScheduleDue(schedule: DueCheckSchedule): boolean {
     });
     return false;
   }
+}
+
+function getNextRun(schedule: DueCheckSchedule, now: Date): Date {
+  const interval = CronExpressionParser.parse(schedule.cronExpression, {
+    currentDate: now,
+    tz: schedule.timezone || "UTC",
+  });
+
+  return interval.next().toDate();
 }

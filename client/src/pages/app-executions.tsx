@@ -38,19 +38,29 @@ export default function AppExecutions() {
 
   const getStatusIcon = (status: string) => {
     switch (status) {
-      case "completed": return <CheckCircle className="w-4 h-4" />;
-      case "failed": return <XCircle className="w-4 h-4" />;
-      case "running": return <Activity className="w-4 h-4" />;
-      default: return <Clock className="w-4 h-4" />;
+      case "completed":
+        return <CheckCircle className="w-4 h-4" />;
+      case "failed":
+        return <XCircle className="w-4 h-4" />;
+      case "running":
+        return <Activity className="w-4 h-4" />;
+      default:
+        return <Clock className="w-4 h-4" />;
     }
   };
 
-  const getStatusVariant = (status: string): "default" | "secondary" | "destructive" | "outline" => {
+  const getStatusVariant = (
+    status: string
+  ): "default" | "secondary" | "destructive" | "outline" => {
     switch (status) {
-      case "completed": return "default";
-      case "failed": return "destructive";
-      case "running": return "secondary";
-      default: return "outline";
+      case "completed":
+        return "default";
+      case "failed":
+        return "destructive";
+      case "running":
+        return "secondary";
+      default:
+        return "outline";
     }
   };
 
@@ -59,7 +69,9 @@ export default function AppExecutions() {
       <div className="mb-8 flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold">Executions</h1>
-          <p className="text-muted-foreground mt-2">Monitor and review your workflow execution history</p>
+          <p className="text-muted-foreground mt-2">
+            Monitor and review your workflow execution history
+          </p>
         </div>
         <Link href="/app/executions/compare">
           <Button variant="outline">
@@ -87,7 +99,10 @@ export default function AppExecutions() {
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
                     <div className="flex items-center gap-3 mb-2">
-                      <Badge variant={getStatusVariant(execution.status)} className="flex items-center gap-1">
+                      <Badge
+                        variant={getStatusVariant(execution.status)}
+                        className="flex items-center gap-1"
+                      >
                         {getStatusIcon(execution.status)}
                         <span className="capitalize">{execution.status}</span>
                       </Badge>
@@ -95,11 +110,11 @@ export default function AppExecutions() {
                         {format(new Date(execution.startedAt), "MMM d, yyyy 'at' h:mm a")}
                       </span>
                     </div>
-                    
+
                     <div className="text-sm text-muted-foreground">
                       Execution ID: <span className="font-mono">{execution.id.slice(0, 8)}</span>
                     </div>
-                    
+
                     {execution.duration && (
                       <div className="flex items-center gap-2 mt-2 text-sm text-muted-foreground">
                         <Clock className="w-3 h-3" />
@@ -116,9 +131,7 @@ export default function AppExecutions() {
         <Card className="p-12 text-center">
           <Activity className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
           <h3 className="text-xl font-semibold mb-2">No executions yet</h3>
-          <p className="text-muted-foreground">
-            Execute a workflow to see results here
-          </p>
+          <p className="text-muted-foreground">Execute a workflow to see results here</p>
         </Card>
       )}
     </div>

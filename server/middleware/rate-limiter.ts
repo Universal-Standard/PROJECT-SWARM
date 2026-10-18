@@ -9,7 +9,9 @@ import type { Request, Response } from "express";
  */
 
 /**
- * Global rate limiter - applies to all requests
+ * API rate limiter - mounted by the application on /api.
+ * Static assets, Vite's development module graph, and health probes are not
+ * subject to this limiter.
  * 100 requests per minute per IP
  */
 export const globalRateLimiter = rateLimit({
@@ -101,11 +103,7 @@ export const webhookRateLimiter = rateLimit({
 /**
  * Create custom rate limiter with specific configuration
  */
-export function createRateLimiter(options: {
-  windowMs: number;
-  max: number;
-  message?: string;
-}) {
+export function createRateLimiter(options: { windowMs: number; max: number; message?: string }) {
   return rateLimit({
     windowMs: options.windowMs,
     max: options.max,

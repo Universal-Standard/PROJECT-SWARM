@@ -1131,7 +1131,15 @@ Be concise, practical, and provide actionable guidance. When relevant, suggest s
 
       // Use OpenAI for assistant responses
       const { OpenAI } = await import("openai");
-      const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+      const apiKey = process.env.OPENAI_API_KEY;
+      if (!apiKey) {
+        res.status(503).json({
+          error: "The assistant is not configured with an OpenAI API key.",
+        });
+        return;
+      }
+
+      const openai = new OpenAI({ apiKey });
 
       const completion = await openai.chat.completions.create({
         model: "gpt-4o-mini",

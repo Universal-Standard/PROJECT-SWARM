@@ -11,11 +11,7 @@
  *   npm run db:verify-indexes
  */
 
-import { Pool } from "@neondatabase/serverless";
-import ws from "ws";
-import { neonConfig } from "@neondatabase/serverless";
-
-neonConfig.webSocketConstructor = ws;
+import { Pool } from "pg";
 
 // Expected indexes from the migration file
 const EXPECTED_INDEXES = [

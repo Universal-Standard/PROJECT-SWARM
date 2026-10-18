@@ -28,9 +28,9 @@ interface ExecutionResult {
 }
 
 export class AIExecutor {
-  private openai: OpenAI;
-  private anthropic: Anthropic;
-  private gemini: GoogleGenAI;
+  private openai?: OpenAI;
+  private anthropic?: Anthropic;
+  private gemini?: GoogleGenAI;
 
   // Pricing in USD per 1M tokens (as of 2025)
   private pricing: Record<string, { prompt: number; completion: number }> = {
@@ -50,16 +50,31 @@ export class AIExecutor {
     "gemini-1.5-flash": { prompt: 0.075, completion: 0.3 },
   };
 
-  constructor() {
-    this.openai = new OpenAI({
-      apiKey: process.env.OPENAI_API_KEY,
-    });
+  private getOpenAIClient(): OpenAI {
+    const apiKey = process.env.OPENAI_API_KEY;
+    if (!apiKey) {
+      throw new Error("OPENAI_API_KEY is not configured");
+    }
 
-    this.anthropic = new Anthropic({
-      apiKey: process.env.ANTHROPIC_API_KEY,
-    });
+    return (this.openai ??= new OpenAI({ apiKey }));
+  }
 
-    this.gemini = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || "" });
+  private getAnthropicClient(): Anthropic {
+    const apiKey = process.env.ANTHROPIC_API_KEY;
+    if (!apiKey) {
+      throw new Error("ANTHROPIC_API_KEY is not configured");
+    }
+
+    return (this.anthropic ??= new Anthropic({ apiKey }));
+  }
+
+  private getGeminiClient(): GoogleGenAI {
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) {
+      throw new Error("GEMINI_API_KEY is not configured");
+    }
+
+    return (this.gemini ??= new GoogleGenAI({ apiKey }));
   }
 
   private calculateCost(model: string, promptTokens: number, completionTokens: number): number {
@@ -255,7 +270,7 @@ export class AIExecutor {
     // Ensure model is defined and use fallback model
     const modelToUse = agent.model || "gpt-3.5-turbo";
 
-    const response = await this.openai.chat.completions.create({
+    const response = await this.getOpenAIClient().chat.completions.create({
       model: modelToUse,
       messages,
       temperature: context.temperature / 100,
@@ -295,7 +310,7 @@ export class AIExecutor {
     // Ensure model is defined
     const modelToUse = agent.model || "claude-3-5-sonnet-20241022";
 
-    const response = await this.anthropic.messages.create({
+    const response = await this.getAnthropicClient().messages.create({
       model: modelToUse,
       max_tokens: context.maxTokens,
       temperature: context.temperature / 100,
@@ -328,7 +343,7 @@ export class AIExecutor {
     const modelToUse = agent.model || "gemini-1.5-flash";
 
     // Use the @google/genai v1.x chats API
-    const chat = this.gemini.chats.create({
+    const chat = this.getGeminiClient().chats.create({
       model: modelToUse,
       config: {
         systemInstruction: enhancedSystemPrompt,

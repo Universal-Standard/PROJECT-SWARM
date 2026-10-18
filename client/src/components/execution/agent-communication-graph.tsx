@@ -1,8 +1,8 @@
-import { useMemo } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { ArrowRight } from 'lucide-react';
-import type { AgentMessage, Agent } from '@shared/schema';
+import { useMemo } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { ArrowRight } from "lucide-react";
+import type { AgentMessage, Agent } from "@shared/schema";
 
 interface AgentCommunicationGraphProps {
   messages: AgentMessage[];
@@ -13,7 +13,7 @@ export function AgentCommunicationGraph({ messages, agents }: AgentCommunication
   // Create agent lookup map
   const agentMap = useMemo(() => {
     const map = new Map<string, Agent>();
-    agents.forEach(agent => map.set(agent.id, agent));
+    agents.forEach((agent) => map.set(agent.id, agent));
     return map;
   }, [agents]);
 
@@ -23,7 +23,7 @@ export function AgentCommunicationGraph({ messages, agents }: AgentCommunication
     const agentTokens = new Map<string, number>();
     const connections = new Map<string, Set<string>>();
 
-    messages.forEach(message => {
+    messages.forEach((message) => {
       // Count messages per agent
       const count = agentMessages.get(message.agentId) || 0;
       agentMessages.set(message.agentId, count + 1);
@@ -58,10 +58,10 @@ export function AgentCommunicationGraph({ messages, agents }: AgentCommunication
           <div className="space-y-4">
             {/* Agent Activity Grid */}
             <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
-              {agents.map(agent => {
+              {agents.map((agent) => {
                 const messageCount = metrics.agentMessages.get(agent.id) || 0;
                 const tokenCount = metrics.agentTokens.get(agent.id) || 0;
-                
+
                 return (
                   <div
                     key={agent.id}
@@ -92,17 +92,17 @@ export function AgentCommunicationGraph({ messages, agents }: AgentCommunication
             </div>
 
             {/* Communication Flow */}
-            {messages.some(m => m.fromAgentId && m.toAgentId) && (
+            {messages.some((m) => m.fromAgentId && m.toAgentId) && (
               <div className="border-t pt-4">
                 <h4 className="text-sm font-medium mb-3">Communication Flow</h4>
                 <div className="space-y-2">
-                  {Array.from(metrics.connections.keys()).map(key => {
-                    const [fromId, toId] = key.split('-');
+                  {Array.from(metrics.connections.keys()).map((key) => {
+                    const [fromId, toId] = key.split("-");
                     const fromAgent = agentMap.get(fromId);
                     const toAgent = agentMap.get(toId);
-                    
+
                     if (!fromAgent || !toAgent) return null;
-                    
+
                     return (
                       <div
                         key={key}

@@ -1,8 +1,8 @@
-import { useMemo } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Clock, CheckCircle2, XCircle, MessageSquare, Database } from 'lucide-react';
-import type { Execution, ExecutionLog, AgentMessage } from '@shared/schema';
+import { useMemo } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Clock, CheckCircle2, XCircle, MessageSquare, Database } from "lucide-react";
+import type { Execution, ExecutionLog, AgentMessage } from "@shared/schema";
 
 interface ExecutionMetricsProps {
   execution: Execution;
@@ -14,14 +14,14 @@ interface ExecutionMetricsProps {
 export function ExecutionMetrics({ execution, logs, messages, timeline }: ExecutionMetricsProps) {
   const metrics = useMemo(() => {
     const totalDuration = execution.duration || 0;
-    const errorCount = logs.filter(l => l.level === 'error').length;
-    const warningCount = logs.filter(l => l.level === 'warning').length;
+    const errorCount = logs.filter((l) => l.level === "error").length;
+    const warningCount = logs.filter((l) => l.level === "warning").length;
     const totalTokens = messages.reduce((sum, msg) => sum + (msg.tokenCount || 0), 0);
-    
+
     // Calculate per-agent metrics from timeline
     const agentMetrics = new Map<string, { duration: number; steps: number }>();
     if (timeline) {
-      timeline.forEach(step => {
+      timeline.forEach((step) => {
         const existing = agentMetrics.get(step.agentName) || { duration: 0, steps: 0 };
         agentMetrics.set(step.agentName, {
           duration: existing.duration + step.duration,
@@ -49,13 +49,14 @@ export function ExecutionMetrics({ execution, logs, messages, timeline }: Execut
   };
 
   const statusConfig = {
-    pending: { color: 'bg-amber-500/10 text-amber-500 border-amber-500/20', label: 'Pending' },
-    running: { color: 'bg-blue-500/10 text-blue-500 border-blue-500/20', label: 'Running' },
-    completed: { color: 'bg-green-500/10 text-green-500 border-green-500/20', label: 'Completed' },
-    error: { color: 'bg-destructive/10 text-destructive border-destructive/20', label: 'Error' },
+    pending: { color: "bg-amber-500/10 text-amber-500 border-amber-500/20", label: "Pending" },
+    running: { color: "bg-blue-500/10 text-blue-500 border-blue-500/20", label: "Running" },
+    completed: { color: "bg-green-500/10 text-green-500 border-green-500/20", label: "Completed" },
+    error: { color: "bg-destructive/10 text-destructive border-destructive/20", label: "Error" },
   };
 
-  const status = statusConfig[execution.status as keyof typeof statusConfig] || statusConfig.pending;
+  const status =
+    statusConfig[execution.status as keyof typeof statusConfig] || statusConfig.pending;
 
   return (
     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
@@ -90,13 +91,9 @@ export function ExecutionMetrics({ execution, logs, messages, timeline }: Execut
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="text-2xl font-bold">
-            {formatDuration(metrics.totalDuration)}
-          </div>
+          <div className="text-2xl font-bold">{formatDuration(metrics.totalDuration)}</div>
           {metrics.stepCount > 0 && (
-            <p className="text-xs text-muted-foreground mt-1">
-              {metrics.stepCount} steps executed
-            </p>
+            <p className="text-xs text-muted-foreground mt-1">{metrics.stepCount} steps executed</p>
           )}
         </CardContent>
       </Card>
@@ -120,9 +117,7 @@ export function ExecutionMetrics({ execution, logs, messages, timeline }: Execut
             )}
           </div>
           {metrics.warningCount > 0 && (
-            <p className="text-xs text-amber-500 mt-1">
-              {metrics.warningCount} warnings
-            </p>
+            <p className="text-xs text-amber-500 mt-1">{metrics.warningCount} warnings</p>
           )}
         </CardContent>
       </Card>
@@ -136,9 +131,7 @@ export function ExecutionMetrics({ execution, logs, messages, timeline }: Execut
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="text-2xl font-bold">
-            {metrics.messageCount}
-          </div>
+          <div className="text-2xl font-bold">{metrics.messageCount}</div>
           <p className="text-xs text-muted-foreground mt-1">
             {metrics.totalTokens.toLocaleString()} tokens used
           </p>
@@ -157,11 +150,14 @@ export function ExecutionMetrics({ execution, logs, messages, timeline }: Execut
           <CardContent>
             <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
               {Array.from(metrics.agentMetrics.entries()).map(([agentName, data]) => (
-                <div key={agentName} className="flex items-center justify-between p-3 bg-muted rounded-lg">
+                <div
+                  key={agentName}
+                  className="flex items-center justify-between p-3 bg-muted rounded-lg"
+                >
                   <div>
                     <div className="font-medium text-sm">{agentName}</div>
                     <div className="text-xs text-muted-foreground">
-                      {data.steps} {data.steps === 1 ? 'step' : 'steps'}
+                      {data.steps} {data.steps === 1 ? "step" : "steps"}
                     </div>
                   </div>
                   <Badge variant="secondary">{formatDuration(data.duration)}</Badge>

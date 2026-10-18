@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -6,10 +6,10 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
-import { Play, Loader2 } from 'lucide-react';
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import { Play, Loader2 } from "lucide-react";
 
 interface ExecutionInputDialogProps {
   open: boolean;
@@ -24,7 +24,7 @@ export function ExecutionInputDialog({
   onExecute,
   isExecuting = false,
 }: ExecutionInputDialogProps) {
-  const [input, setInput] = useState('Process this workflow');
+  const [input, setInput] = useState("Process this workflow");
 
   const handleExecute = () => {
     onExecute(input);
@@ -36,7 +36,8 @@ export function ExecutionInputDialog({
         <DialogHeader>
           <DialogTitle>Execute Workflow</DialogTitle>
           <DialogDescription>
-            Provide input for your agent swarm workflow. This will be passed to the first agent in the chain.
+            Provide input for your agent swarm workflow. This will be passed to the first agent in
+            the chain.
           </DialogDescription>
         </DialogHeader>
 
@@ -51,10 +52,19 @@ export function ExecutionInputDialog({
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={onClose} disabled={isExecuting} data-testid="button-cancel-execution">
+          <Button
+            variant="outline"
+            onClick={onClose}
+            disabled={isExecuting}
+            data-testid="button-cancel-execution"
+          >
             Cancel
           </Button>
-          <Button onClick={handleExecute} disabled={isExecuting || !input.trim()} data-testid="button-confirm-execution">
+          <Button
+            onClick={handleExecute}
+            disabled={isExecuting || !input.trim()}
+            data-testid="button-confirm-execution"
+          >
             {isExecuting ? (
               <>
                 <Loader2 className="w-4 h-4 mr-2 animate-spin" />

@@ -1,11 +1,6 @@
-import { Button } from '@/components/ui/button';
-import { Separator } from '@/components/ui/separator';
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@/components/ui/tooltip';
+import { Button } from "@/components/ui/button";
+import { Separator } from "@/components/ui/separator";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   Save,
   Upload,
@@ -25,12 +20,12 @@ import {
   Calendar,
   StopCircle,
   FileJson,
-} from 'lucide-react';
-import { Badge } from '@/components/ui/badge';
+} from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 
 interface BuilderToolbarProps {
   workflowName: string;
-  workflowStatus?: 'draft' | 'saved' | 'running';
+  workflowStatus?: "draft" | "saved" | "running";
   canUndo?: boolean;
   canRedo?: boolean;
   canCopy?: boolean;
@@ -63,7 +58,7 @@ interface BuilderToolbarProps {
 
 export function BuilderToolbar({
   workflowName,
-  workflowStatus = 'draft',
+  workflowStatus = "draft",
   canUndo = false,
   canRedo = false,
   canCopy = false,
@@ -101,11 +96,11 @@ export function BuilderToolbar({
           <span className="font-semibold text-sm truncate">{workflowName}</span>
           <Badge
             variant={
-              workflowStatus === 'running'
-                ? 'default'
-                : workflowStatus === 'saved'
-                ? 'secondary'
-                : 'outline'
+              workflowStatus === "running"
+                ? "default"
+                : workflowStatus === "saved"
+                  ? "secondary"
+                  : "outline"
             }
             className="text-xs"
           >
@@ -157,12 +152,7 @@ export function BuilderToolbar({
         <div className="flex items-center gap-1">
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={onUndo}
-                disabled={!canUndo}
-              >
+              <Button variant="ghost" size="sm" onClick={onUndo} disabled={!canUndo}>
                 <Undo2 className="w-4 h-4" />
               </Button>
             </TooltipTrigger>
@@ -173,12 +163,7 @@ export function BuilderToolbar({
 
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={onRedo}
-                disabled={!canRedo}
-              >
+              <Button variant="ghost" size="sm" onClick={onRedo} disabled={!canRedo}>
                 <Redo2 className="w-4 h-4" />
               </Button>
             </TooltipTrigger>
@@ -191,12 +176,7 @@ export function BuilderToolbar({
 
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={onCut}
-                disabled={!canCopy}
-              >
+              <Button variant="ghost" size="sm" onClick={onCut} disabled={!canCopy}>
                 <Scissors className="w-4 h-4" />
               </Button>
             </TooltipTrigger>
@@ -207,12 +187,7 @@ export function BuilderToolbar({
 
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={onCopy}
-                disabled={!canCopy}
-              >
+              <Button variant="ghost" size="sm" onClick={onCopy} disabled={!canCopy}>
                 <Copy className="w-4 h-4" />
               </Button>
             </TooltipTrigger>
@@ -223,12 +198,7 @@ export function BuilderToolbar({
 
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={onPaste}
-                disabled={!canPaste}
-              >
+              <Button variant="ghost" size="sm" onClick={onPaste} disabled={!canPaste}>
                 <ClipboardPaste className="w-4 h-4" />
               </Button>
             </TooltipTrigger>
@@ -239,12 +209,7 @@ export function BuilderToolbar({
 
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={onDelete}
-                disabled={!canDelete}
-              >
+              <Button variant="ghost" size="sm" onClick={onDelete} disabled={!canDelete}>
                 <Trash2 className="w-4 h-4" />
               </Button>
             </TooltipTrigger>
@@ -295,11 +260,7 @@ export function BuilderToolbar({
 
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button
-                variant={showGrid ? 'secondary' : 'ghost'}
-                size="sm"
-                onClick={onToggleGrid}
-              >
+              <Button variant={showGrid ? "secondary" : "ghost"} size="sm" onClick={onToggleGrid}>
                 <Grid3x3 className="w-4 h-4" />
               </Button>
             </TooltipTrigger>
@@ -311,7 +272,7 @@ export function BuilderToolbar({
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
-                variant={showMinimap ? 'secondary' : 'ghost'}
+                variant={showMinimap ? "secondary" : "ghost"}
                 size="sm"
                 onClick={onToggleMinimap}
               >
@@ -326,7 +287,7 @@ export function BuilderToolbar({
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
-                variant={showValidation ? 'secondary' : 'ghost'}
+                variant={showValidation ? "secondary" : "ghost"}
                 size="sm"
                 onClick={onToggleValidation}
                 className="relative"
@@ -352,7 +313,7 @@ export function BuilderToolbar({
 
         {/* Run Section */}
         <div className="flex items-center gap-1">
-          {workflowStatus === 'running' ? (
+          {workflowStatus === "running" ? (
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button variant="destructive" size="sm" onClick={onStop}>
@@ -368,11 +329,7 @@ export function BuilderToolbar({
             <>
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Button
-                    size="sm"
-                    onClick={onExecute}
-                    disabled={validationErrors > 0}
-                  >
+                  <Button size="sm" onClick={onExecute} disabled={validationErrors > 0}>
                     <Play className="w-4 h-4 mr-2" />
                     Execute
                   </Button>

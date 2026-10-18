@@ -1,13 +1,19 @@
-import { useState, useMemo, useRef, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Search, Download, Filter } from 'lucide-react';
-import { cn } from '@/lib/utils';
-import type { ExecutionLog } from '@shared/schema';
+import { useState, useMemo, useRef, useEffect } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Search, Download, Filter } from "lucide-react";
+import { cn } from "@/lib/utils";
+import type { ExecutionLog } from "@shared/schema";
 
 interface LogViewerProps {
   logs: ExecutionLog[];
@@ -15,14 +21,14 @@ interface LogViewerProps {
 }
 
 export function LogViewer({ logs, autoScroll = true }: LogViewerProps) {
-  const [searchQuery, setSearchQuery] = useState('');
-  const [filterLevel, setFilterLevel] = useState<string>('all');
+  const [searchQuery, setSearchQuery] = useState("");
+  const [filterLevel, setFilterLevel] = useState<string>("all");
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // Auto-scroll to bottom when new logs arrive
   useEffect(() => {
     if (autoScroll && scrollRef.current) {
-      const scrollElement = scrollRef.current.querySelector('[data-radix-scroll-area-viewport]');
+      const scrollElement = scrollRef.current.querySelector("[data-radix-scroll-area-viewport]");
       if (scrollElement) {
         scrollElement.scrollTop = scrollElement.scrollHeight;
       }
@@ -31,14 +37,14 @@ export function LogViewer({ logs, autoScroll = true }: LogViewerProps) {
 
   // Filter and search logs
   const filteredLogs = useMemo(() => {
-    return logs.filter(log => {
+    return logs.filter((log) => {
       // Search filter
       if (searchQuery && !log.message.toLowerCase().includes(searchQuery.toLowerCase())) {
         return false;
       }
 
       // Level filter
-      if (filterLevel !== 'all' && log.level !== filterLevel) {
+      if (filterLevel !== "all" && log.level !== filterLevel) {
         return false;
       }
 
@@ -48,16 +54,16 @@ export function LogViewer({ logs, autoScroll = true }: LogViewerProps) {
 
   const downloadLogs = () => {
     const logText = filteredLogs
-      .map(log => {
+      .map((log) => {
         const timestamp = new Date(log.timestamp).toISOString();
         const level = log.level.toUpperCase().padEnd(8);
         return `[${timestamp}] [${level}] ${log.message}`;
       })
-      .join('\n');
+      .join("\n");
 
-    const blob = new Blob([logText], { type: 'text/plain' });
+    const blob = new Blob([logText], { type: "text/plain" });
     const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
+    const a = document.createElement("a");
     a.href = url;
     a.download = `execution-logs-${Date.now()}.txt`;
     document.body.appendChild(a);
@@ -68,41 +74,41 @@ export function LogViewer({ logs, autoScroll = true }: LogViewerProps) {
 
   const getLevelColor = (level: string) => {
     switch (level) {
-      case 'error':
-        return 'text-destructive';
-      case 'warning':
-        return 'text-amber-500';
-      case 'info':
-        return 'text-blue-500';
-      case 'debug':
-        return 'text-muted-foreground';
+      case "error":
+        return "text-destructive";
+      case "warning":
+        return "text-amber-500";
+      case "info":
+        return "text-blue-500";
+      case "debug":
+        return "text-muted-foreground";
       default:
-        return 'text-foreground';
+        return "text-foreground";
     }
   };
 
   const getLevelBadgeColor = (level: string) => {
     switch (level) {
-      case 'error':
-        return 'bg-destructive/10 text-destructive border-destructive/20';
-      case 'warning':
-        return 'bg-amber-500/10 text-amber-500 border-amber-500/20';
-      case 'info':
-        return 'bg-blue-500/10 text-blue-500 border-blue-500/20';
-      case 'debug':
-        return 'bg-muted text-muted-foreground';
+      case "error":
+        return "bg-destructive/10 text-destructive border-destructive/20";
+      case "warning":
+        return "bg-amber-500/10 text-amber-500 border-amber-500/20";
+      case "info":
+        return "bg-blue-500/10 text-blue-500 border-blue-500/20";
+      case "debug":
+        return "bg-muted text-muted-foreground";
       default:
-        return '';
+        return "";
     }
   };
 
   const levelCounts = useMemo(() => {
     return {
       all: logs.length,
-      error: logs.filter(l => l.level === 'error').length,
-      warning: logs.filter(l => l.level === 'warning').length,
-      info: logs.filter(l => l.level === 'info').length,
-      debug: logs.filter(l => l.level === 'debug').length,
+      error: logs.filter((l) => l.level === "error").length,
+      warning: logs.filter((l) => l.level === "warning").length,
+      info: logs.filter((l) => l.level === "info").length,
+      debug: logs.filter((l) => l.level === "debug").length,
     };
   }, [logs]);
 
@@ -135,21 +141,11 @@ export function LogViewer({ logs, autoScroll = true }: LogViewerProps) {
               <SelectValue placeholder="All levels" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">
-                All levels ({levelCounts.all})
-              </SelectItem>
-              <SelectItem value="error">
-                Error ({levelCounts.error})
-              </SelectItem>
-              <SelectItem value="warning">
-                Warning ({levelCounts.warning})
-              </SelectItem>
-              <SelectItem value="info">
-                Info ({levelCounts.info})
-              </SelectItem>
-              <SelectItem value="debug">
-                Debug ({levelCounts.debug})
-              </SelectItem>
+              <SelectItem value="all">All levels ({levelCounts.all})</SelectItem>
+              <SelectItem value="error">Error ({levelCounts.error})</SelectItem>
+              <SelectItem value="warning">Warning ({levelCounts.warning})</SelectItem>
+              <SelectItem value="info">Info ({levelCounts.info})</SelectItem>
+              <SelectItem value="debug">Debug ({levelCounts.debug})</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -159,10 +155,7 @@ export function LogViewer({ logs, autoScroll = true }: LogViewerProps) {
           {filteredLogs.length > 0 ? (
             <div className="font-mono text-sm space-y-1">
               {filteredLogs.map((log) => (
-                <div
-                  key={log.id}
-                  className="flex gap-3 py-1 hover:bg-muted/50 rounded px-2 -mx-2"
-                >
+                <div key={log.id} className="flex gap-3 py-1 hover:bg-muted/50 rounded px-2 -mx-2">
                   <span className="text-muted-foreground shrink-0 text-xs">
                     {new Date(log.timestamp).toLocaleTimeString()}
                   </span>
@@ -175,17 +168,15 @@ export function LogViewer({ logs, autoScroll = true }: LogViewerProps) {
                   >
                     {log.level}
                   </Badge>
-                  <span className={cn("break-all", getLevelColor(log.level))}>
-                    {log.message}
-                  </span>
+                  <span className={cn("break-all", getLevelColor(log.level))}>{log.message}</span>
                 </div>
               ))}
             </div>
           ) : (
             <div className="flex items-center justify-center h-32 text-muted-foreground">
-              {searchQuery || filterLevel !== 'all'
-                ? 'No logs match your filters'
-                : 'No logs available'}
+              {searchQuery || filterLevel !== "all"
+                ? "No logs match your filters"
+                : "No logs available"}
             </div>
           )}
         </ScrollArea>

@@ -11,13 +11,9 @@
  *   npm run db:indexes
  */
 
-import { Pool } from "@neondatabase/serverless";
+import { Pool } from "pg";
 import { readFileSync } from "fs";
 import { join } from "path";
-import ws from "ws";
-import { neonConfig } from "@neondatabase/serverless";
-
-neonConfig.webSocketConstructor = ws;
 
 async function applyIndexes() {
   if (!process.env.DATABASE_URL) {

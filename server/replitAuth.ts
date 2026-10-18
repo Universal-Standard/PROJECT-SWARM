@@ -10,10 +10,6 @@ import { storage } from "./storage";
 import type { ReplitAuthUser } from "./types/auth";
 import { csrfProtection, generateToken } from "./middleware/csrf";
 
-if (!process.env.REPLIT_DOMAINS) {
-  throw new Error("Environment variable REPLIT_DOMAINS not provided");
-}
-
 const getOidcConfig = memoize(
   async () => {
     return await client.discovery(
@@ -77,6 +73,13 @@ async function upsertUser(claims: Record<string, unknown>): Promise<void> {
 }
 
 export async function setupAuth(app: Express) {
+  const hasSessionConfiguration = Boolean(process.env.DATABASE_URL && process.env.SESSION_SECRET);
+  const hasReplitConfiguration = Boolean(process.env.REPLIT_DOMAINS && process.env.REPL_ID);
+
+  if (!hasSessionConfiguration || !hasReplitConfiguration) {
+    return;
+  }
+
   app.set("trust proxy", 1);
   app.use(getSession());
   app.use(passport.initialize());
@@ -145,6 +148,11 @@ export async function setupAuth(app: Express) {
 }
 
 export const isAuthenticated: RequestHandler = async (req, res, next) => {
+  if (typeof req.isAuthenticated !== "function") {
+    res.status(503).json({ message: "Authentication is not configured" });
+    return;
+  }
+
   const user = req.user as ReplitAuthUser | undefined;
 
   if (!req.isAuthenticated() || !user || !user.expires_at) {

@@ -1,13 +1,19 @@
-import { useState, useMemo, useRef, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Search, Download, Filter } from 'lucide-react';
-import { MessageCard } from './message-card';
-import type { AgentMessage, Agent } from '@shared/schema';
+import { useState, useMemo, useRef, useEffect } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Search, Download, Filter } from "lucide-react";
+import { MessageCard } from "./message-card";
+import type { AgentMessage, Agent } from "@shared/schema";
 
 interface AgentMessageFlowProps {
   messages: AgentMessage[];
@@ -16,15 +22,15 @@ interface AgentMessageFlowProps {
 }
 
 export function AgentMessageFlow({ messages, agents, autoScroll = true }: AgentMessageFlowProps) {
-  const [searchQuery, setSearchQuery] = useState('');
-  const [filterAgent, setFilterAgent] = useState<string>('all');
-  const [filterRole, setFilterRole] = useState<string>('all');
+  const [searchQuery, setSearchQuery] = useState("");
+  const [filterAgent, setFilterAgent] = useState<string>("all");
+  const [filterRole, setFilterRole] = useState<string>("all");
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
     if (autoScroll && scrollRef.current) {
-      const scrollElement = scrollRef.current.querySelector('[data-radix-scroll-area-viewport]');
+      const scrollElement = scrollRef.current.querySelector("[data-radix-scroll-area-viewport]");
       if (scrollElement) {
         scrollElement.scrollTop = scrollElement.scrollHeight;
       }
@@ -34,25 +40,25 @@ export function AgentMessageFlow({ messages, agents, autoScroll = true }: AgentM
   // Create agent lookup map
   const agentMap = useMemo(() => {
     const map = new Map<string, Agent>();
-    agents.forEach(agent => map.set(agent.id, agent));
+    agents.forEach((agent) => map.set(agent.id, agent));
     return map;
   }, [agents]);
 
   // Filter and search messages
   const filteredMessages = useMemo(() => {
-    return messages.filter(message => {
+    return messages.filter((message) => {
       // Search filter
       if (searchQuery && !message.content.toLowerCase().includes(searchQuery.toLowerCase())) {
         return false;
       }
 
       // Agent filter
-      if (filterAgent !== 'all' && message.agentId !== filterAgent) {
+      if (filterAgent !== "all" && message.agentId !== filterAgent) {
         return false;
       }
 
       // Role filter
-      if (filterRole !== 'all' && message.role !== filterRole) {
+      if (filterRole !== "all" && message.role !== filterRole) {
         return false;
       }
 
@@ -61,7 +67,7 @@ export function AgentMessageFlow({ messages, agents, autoScroll = true }: AgentM
   }, [messages, searchQuery, filterAgent, filterRole]);
 
   const exportMessages = () => {
-    const data = filteredMessages.map(msg => ({
+    const data = filteredMessages.map((msg) => ({
       timestamp: msg.timestamp,
       agent: agentMap.get(msg.agentId)?.name || msg.agentId,
       role: msg.role,
@@ -69,9 +75,9 @@ export function AgentMessageFlow({ messages, agents, autoScroll = true }: AgentM
       tokenCount: msg.tokenCount,
     }));
 
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
+    const a = document.createElement("a");
     a.href = url;
     a.download = `messages-${Date.now()}.json`;
     document.body.appendChild(a);
@@ -81,23 +87,23 @@ export function AgentMessageFlow({ messages, agents, autoScroll = true }: AgentM
   };
 
   const exportCsv = () => {
-    const headers = ['Timestamp', 'Agent', 'Role', 'Token Count', 'Content'];
-    const rows = filteredMessages.map(msg => [
+    const headers = ["Timestamp", "Agent", "Role", "Token Count", "Content"];
+    const rows = filteredMessages.map((msg) => [
       new Date(msg.timestamp).toISOString(),
       agentMap.get(msg.agentId)?.name || msg.agentId,
       msg.role,
-      msg.tokenCount?.toString() || '',
+      msg.tokenCount?.toString() || "",
       msg.content.replace(/"/g, '""'), // Escape quotes
     ]);
 
     const csv = [
-      headers.join(','),
-      ...rows.map(row => row.map(cell => `"${cell}"`).join(','))
-    ].join('\n');
+      headers.join(","),
+      ...rows.map((row) => row.map((cell) => `"${cell}"`).join(",")),
+    ].join("\n");
 
-    const blob = new Blob([csv], { type: 'text/csv' });
+    const blob = new Blob([csv], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
+    const a = document.createElement("a");
     a.href = url;
     a.download = `messages-${Date.now()}.csv`;
     document.body.appendChild(a);
@@ -140,7 +146,7 @@ export function AgentMessageFlow({ messages, agents, autoScroll = true }: AgentM
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All agents</SelectItem>
-              {agents.map(agent => (
+              {agents.map((agent) => (
                 <SelectItem key={agent.id} value={agent.id}>
                   {agent.name}
                 </SelectItem>
@@ -169,17 +175,21 @@ export function AgentMessageFlow({ messages, agents, autoScroll = true }: AgentM
                   key={message.id}
                   message={message}
                   agentName={agentMap.get(message.agentId)?.name}
-                  fromAgentName={message.fromAgentId ? agentMap.get(message.fromAgentId)?.name : undefined}
-                  toAgentName={message.toAgentId ? agentMap.get(message.toAgentId)?.name : undefined}
+                  fromAgentName={
+                    message.fromAgentId ? agentMap.get(message.fromAgentId)?.name : undefined
+                  }
+                  toAgentName={
+                    message.toAgentId ? agentMap.get(message.toAgentId)?.name : undefined
+                  }
                   index={index}
                 />
               ))}
             </div>
           ) : (
             <div className="flex items-center justify-center h-32 text-muted-foreground">
-              {searchQuery || filterAgent !== 'all' || filterRole !== 'all'
-                ? 'No messages match your filters'
-                : 'No messages yet'}
+              {searchQuery || filterAgent !== "all" || filterRole !== "all"
+                ? "No messages match your filters"
+                : "No messages yet"}
             </div>
           )}
         </ScrollArea>

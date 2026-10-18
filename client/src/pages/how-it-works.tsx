@@ -12,46 +12,69 @@ export default function HowItWorks() {
       number: "01",
       icon: Workflow,
       title: "Design Your Workflow",
-      description: "Use our visual drag-and-drop builder to create agent swarms. Add coordinator, coder, researcher, and specialist agents with custom roles and capabilities.",
-      features: ["Drag-and-drop interface", "Pre-built agent templates", "Visual node connections", "Real-time validation"]
+      description:
+        "Use our visual drag-and-drop builder to create agent swarms. Add coordinator, coder, researcher, and specialist agents with custom roles and capabilities.",
+      features: [
+        "Drag-and-drop interface",
+        "Pre-built agent templates",
+        "Visual node connections",
+        "Real-time validation",
+      ],
     },
     {
       number: "02",
       icon: Settings,
       title: "Configure Agents",
-      description: "Fine-tune each agent with AI provider selection, model configuration, system prompts, and behavior settings. Mix and match providers within the same workflow.",
-      features: ["Multi-provider support", "Custom system prompts", "Temperature control", "Token management"]
+      description:
+        "Fine-tune each agent with AI provider selection, model configuration, system prompts, and behavior settings. Mix and match providers within the same workflow.",
+      features: [
+        "Multi-provider support",
+        "Custom system prompts",
+        "Temperature control",
+        "Token management",
+      ],
     },
     {
       number: "03",
       icon: Play,
       title: "Execute & Monitor",
-      description: "Run your workflow and watch agents collaborate in real-time. Track execution logs, agent messages, and knowledge accumulation with live monitoring.",
-      features: ["Real-time execution", "Live log streaming", "Message visualization", "Performance metrics"]
+      description:
+        "Run your workflow and watch agents collaborate in real-time. Track execution logs, agent messages, and knowledge accumulation with live monitoring.",
+      features: [
+        "Real-time execution",
+        "Live log streaming",
+        "Message visualization",
+        "Performance metrics",
+      ],
     },
     {
       number: "04",
       icon: TrendingUp,
       title: "Learn & Improve",
-      description: "Agents automatically extract and share knowledge across executions. Each run makes the swarm smarter with persistent collective intelligence.",
-      features: ["Knowledge extraction", "Cross-execution learning", "Confidence scoring", "Smart retrieval"]
-    }
+      description:
+        "Agents automatically extract and share knowledge across executions. Each run makes the swarm smarter with persistent collective intelligence.",
+      features: [
+        "Knowledge extraction",
+        "Cross-execution learning",
+        "Confidence scoring",
+        "Smart retrieval",
+      ],
+    },
   ];
 
   return (
     <div className="min-h-screen flex flex-col">
       <PublicHeader />
-      
+
       <div className="flex-1">
         {/* Hero */}
         <section className="py-20 bg-gradient-to-br from-primary/20 via-blue-500/10 to-transparent">
           <div className="container">
             <div className="max-w-3xl mx-auto text-center">
-              <h1 className="text-4xl md:text-5xl font-bold mb-6">
-                How SWARM Works
-              </h1>
+              <h1 className="text-4xl md:text-5xl font-bold mb-6">How SWARM Works</h1>
               <p className="text-xl text-muted-foreground">
-                Deploy AI agent swarms that intelligently automate workflows and manage your repositories. From design to deployment in four simple steps.
+                Deploy AI agent swarms that intelligently automate workflows and manage your
+                repositories. From design to deployment in four simple steps.
               </p>
             </div>
           </div>
@@ -63,17 +86,17 @@ export default function HowItWorks() {
             <div className="space-y-20">
               {steps.map((step, i) => (
                 <div key={i} className="grid md:grid-cols-2 gap-12 items-center">
-                  <div className={`${i % 2 === 1 ? 'md:order-2' : ''} space-y-6`}>
+                  <div className={`${i % 2 === 1 ? "md:order-2" : ""} space-y-6`}>
                     <div className="inline-flex items-center gap-4">
                       <div className="text-6xl font-bold text-primary/20">{step.number}</div>
                       <div className="p-3 rounded-lg bg-primary/10 border border-primary/20">
                         <step.icon className="w-8 h-8 text-primary" />
                       </div>
                     </div>
-                    
+
                     <h2 className="text-3xl font-bold">{step.title}</h2>
                     <p className="text-lg text-muted-foreground">{step.description}</p>
-                    
+
                     <ul className="grid grid-cols-2 gap-3">
                       {step.features.map((feature, j) => (
                         <li key={j} className="flex items-center gap-2 text-sm">
@@ -83,11 +106,11 @@ export default function HowItWorks() {
                       ))}
                     </ul>
                   </div>
-                  
-                  <div className={i % 2 === 1 ? 'md:order-1' : ''}>
+
+                  <div className={i % 2 === 1 ? "md:order-1" : ""}>
                     <Card className="overflow-hidden border-primary/20">
-                      <img 
-                        src={i === 0 ? workflowImage : i === 2 ? dashboardImage : analyticsImage} 
+                      <img
+                        src={i === 0 ? workflowImage : i === 2 ? dashboardImage : analyticsImage}
                         alt={step.title}
                         className="w-full h-auto"
                         data-testid={`img-step-${i + 1}`}
@@ -110,7 +133,7 @@ export default function HowItWorks() {
                   Built with modern technologies for enterprise reliability
                 </p>
               </div>
-              
+
               <div className="grid md:grid-cols-2 gap-6">
                 <Card className="p-6">
                   <h3 className="font-semibold mb-3">AI Orchestration</h3>
@@ -121,7 +144,7 @@ export default function HowItWorks() {
                     <li>• Automatic fallback handling</li>
                   </ul>
                 </Card>
-                
+
                 <Card className="p-6">
                   <h3 className="font-semibold mb-3">Knowledge System</h3>
                   <ul className="space-y-2 text-sm text-muted-foreground">
@@ -131,7 +154,7 @@ export default function HowItWorks() {
                     <li>• Category-based retrieval</li>
                   </ul>
                 </Card>
-                
+
                 <Card className="p-6">
                   <h3 className="font-semibold mb-3">Data Storage</h3>
                   <ul className="space-y-2 text-sm text-muted-foreground">
@@ -141,7 +164,7 @@ export default function HowItWorks() {
                     <li>• Efficient query patterns</li>
                   </ul>
                 </Card>
-                
+
                 <Card className="p-6">
                   <h3 className="font-semibold mb-3">Frontend Stack</h3>
                   <ul className="space-y-2 text-sm text-muted-foreground">
@@ -160,13 +183,15 @@ export default function HowItWorks() {
         <section className="py-20">
           <div className="container">
             <Card className="p-12 text-center max-w-3xl mx-auto">
-              <h2 className="text-3xl md:text-4xl font-bold mb-4">
-                Ready to Get Started?
-              </h2>
+              <h2 className="text-3xl md:text-4xl font-bold mb-4">Ready to Get Started?</h2>
               <p className="text-lg text-muted-foreground mb-8">
                 Build your first AI agent swarm in minutes
               </p>
-              <Button size="lg" onClick={() => window.location.href = "/api/login"} data-testid="button-get-started">
+              <Button
+                size="lg"
+                onClick={() => (window.location.href = "/api/login")}
+                data-testid="button-get-started"
+              >
                 Start Building Now
                 <ArrowRight className="ml-2 w-5 h-5" />
               </Button>
