@@ -1,4 +1,4 @@
-import { useCallback, useState, useEffect, useRef } from "react";
+import { useCallback, useState, useEffect, useRef, useMemo } from "react";
 import {
   ReactFlow,
   ReactFlowProvider,
@@ -55,7 +55,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useGridSnapping } from "@/hooks/useGridSnapping";
 import { useUndoRedo } from "@/hooks/useUndoRedo";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { apiRequest, queryClient } from "@/lib/queryClient";
+import { ApiRequestError, apiRequest, queryClient } from "@/lib/queryClient";
 import { useParams, useLocation } from "wouter";
 import { applyLayout, type LayoutAlgorithm } from "@/lib/workflow-layout";
 import { validateConnection, getConnectionStyle } from "@/lib/connection-validator";
@@ -67,6 +67,8 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import type { ValidationError } from "@shared/errors";
 
 const nodeTypes = {
   agent: AgentNode,
@@ -119,7 +121,8 @@ function WorkflowBuilderContent() {
   const zoomControls = useZoomControls();
 
   // Validation
-  const { isValid, hasErrors, warningCount } = useWorkflowValidation(nodes, edges);
+  const { errorCount } = useWorkflowValidation(nodes, edges);
+  const [executionValidationErrors, setExecutionValidationErrors] = useState<ValidationError[]>([]);
 
   // Fetch existing workflow if ID is provided
   const { data: workflow, isLoading } = useQuery<Workflow>({
@@ -132,6 +135,13 @@ function WorkflowBuilderContent() {
     queryKey: ["/api/workflows", workflowId, "agents"],
     enabled: !!workflowId,
   });
+
+  const missingAgentConfigurationNodes = useMemo(() => {
+    const availableAgentNodeIds = new Set((agents || []).map((agent) => agent.nodeId));
+    return nodes.filter((node) => node.type === "agent" && !availableAgentNodeIds.has(node.id));
+  }, [agents, nodes]);
+
+  const blockingValidationCount = errorCount + missingAgentConfigurationNodes.length;
 
   // Load workflow data when it's fetched
   useEffect(() => {
@@ -376,6 +386,7 @@ function WorkflowBuilderContent() {
       return await res.json();
     },
     onSuccess: (execution) => {
+      setExecutionValidationErrors([]);
       queryClient.invalidateQueries({ queryKey: ["/api/executions"] });
       toast({
         title: "Execution Started",
@@ -385,6 +396,13 @@ function WorkflowBuilderContent() {
       setLocation(`/executions/${execution.id}`);
     },
     onError: (error: Error) => {
+      if (error instanceof ApiRequestError) {
+        const bodyJson = error.bodyJson as { details?: ValidationError[] } | undefined;
+        if (Array.isArray(bodyJson?.details)) {
+          setExecutionValidationErrors(bodyJson.details);
+          setShowValidation(true);
+        }
+      }
       toast({
         title: "Execution Failed",
         description: error.message || "Failed to execute workflow",
@@ -394,6 +412,16 @@ function WorkflowBuilderContent() {
   });
 
   const handleExecuteClick = () => {
+    if (blockingValidationCount > 0) {
+      setShowValidation(true);
+      toast({
+        title: "Validation Required",
+        description: "Fix workflow validation errors before executing.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     if (!workflowId) {
       toast({
         title: "Save Required",
@@ -818,7 +846,7 @@ function WorkflowBuilderContent() {
         showGrid={showGrid}
         showMinimap={showMinimap}
         showValidation={showValidation}
-        validationErrors={hasErrors ? 1 : 0}
+        validationErrors={blockingValidationCount}
         onSave={saveWorkflow}
         onExport={() => {
           const data = JSON.stringify({ nodes, edges, name: workflowName }, null, 2);
@@ -1105,6 +1133,33 @@ function WorkflowBuilderContent() {
               <SheetDescription>Check your workflow for errors and warnings</SheetDescription>
             </SheetHeader>
             <div className="mt-6">
+              {executionValidationErrors.length > 0 && (
+                <Alert variant="destructive" className="mb-4">
+                  <AlertTitle>Execution Validation Errors</AlertTitle>
+                  <AlertDescription>
+                    <ul className="list-disc pl-4 space-y-1">
+                      {executionValidationErrors.map((validationError, index) => (
+                        <li key={`${validationError.code}-${index}`}>{validationError.message}</li>
+                      ))}
+                    </ul>
+                  </AlertDescription>
+                </Alert>
+              )}
+              {missingAgentConfigurationNodes.length > 0 && (
+                <Alert variant="destructive" className="mb-4">
+                  <AlertTitle>Missing Agent Configurations</AlertTitle>
+                  <AlertDescription>
+                    <ul className="list-disc pl-4 space-y-1">
+                      {missingAgentConfigurationNodes.map((node) => (
+                        <li key={node.id}>
+                          Node "{String(node.data?.label || node.id)}" is missing a saved agent
+                          configuration. Save the workflow to sync agents, then retry execution.
+                        </li>
+                      ))}
+                    </ul>
+                  </AlertDescription>
+                </Alert>
+              )}
               <ConnectionValidator
                 nodes={nodes}
                 edges={edges}

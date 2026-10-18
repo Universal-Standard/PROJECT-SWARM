@@ -1,6 +1,6 @@
-import { z } from 'zod/v4';
-import type { Workflow } from '@shared/schema';
-import { ValidationError, WorkflowValidationError } from '@shared/errors';
+import { z } from "zod/v4";
+import type { Agent, Workflow } from "@shared/schema";
+import { ValidationError, WorkflowValidationError } from "@shared/errors";
 
 interface WorkflowNode {
   id: string;
@@ -31,7 +31,7 @@ const edgeSchema = z.object({
 });
 
 export const workflowExportSchema = z.object({
-  version: z.string().default('1.0'),
+  version: z.string().default("1.0"),
   metadata: z.object({
     name: z.string(),
     description: z.string().optional(),
@@ -45,19 +45,23 @@ export const workflowExportSchema = z.object({
     nodes: z.array(nodeSchema),
     edges: z.array(edgeSchema),
   }),
-  agents: z.array(z.object({
-    name: z.string(),
-    role: z.string(),
-    description: z.string().optional(),
-    provider: z.string(),
-    model: z.string(),
-    systemPrompt: z.string().optional().nullable(),
-    temperature: z.number().optional(),
-    maxTokens: z.number().optional(),
-    capabilities: z.array(z.any()).optional(),
-    nodeId: z.string(),
-    position: z.object({ x: z.number(), y: z.number() }),
-  })).optional(),
+  agents: z
+    .array(
+      z.object({
+        name: z.string(),
+        role: z.string(),
+        description: z.string().optional(),
+        provider: z.string(),
+        model: z.string(),
+        systemPrompt: z.string().optional().nullable(),
+        temperature: z.number().optional(),
+        maxTokens: z.number().optional(),
+        capabilities: z.array(z.any()).optional(),
+        nodeId: z.string(),
+        position: z.object({ x: z.number(), y: z.number() }),
+      })
+    )
+    .optional(),
   inputSchema: z.record(z.string(), z.any()).optional(),
   outputSchema: z.record(z.string(), z.any()).optional(),
   includeHistory: z.boolean().optional(),
@@ -78,7 +82,7 @@ export class WorkflowValidator {
       return { valid: true, data: validated };
     } catch (error: unknown) {
       if (error instanceof z.ZodError) {
-        const errors = error.issues.map((issue) => `${issue.path.join('.')}: ${issue.message}`);
+        const errors = error.issues.map((issue) => `${issue.path.join(".")}: ${issue.message}`);
         return { valid: false, errors };
       }
       return {
@@ -113,22 +117,24 @@ export class WorkflowValidator {
 
     // Check for orphaned nodes (nodes with no connections)
     const connectedNodes = new Set<string>();
-    edges.forEach(edge => {
+    edges.forEach((edge) => {
       connectedNodes.add(edge.source);
       connectedNodes.add(edge.target);
     });
 
-    const orphanedNodes = nodes.filter(node => 
-      node.type === 'agent' && !connectedNodes.has(node.id)
+    const orphanedNodes = nodes.filter(
+      (node) => node.type === "agent" && !connectedNodes.has(node.id)
     );
 
     if (orphanedNodes.length > 0) {
-      errors.push(`Found ${orphanedNodes.length} orphaned node(s): ${orphanedNodes.map(n => n.id).join(', ')}`);
+      errors.push(
+        `Found ${orphanedNodes.length} orphaned node(s): ${orphanedNodes.map((n) => n.id).join(", ")}`
+      );
     }
 
     // Check for invalid edge references
-    const nodeIds = new Set(nodes.map(n => n.id));
-    edges.forEach(edge => {
+    const nodeIds = new Set(nodes.map((n) => n.id));
+    edges.forEach((edge) => {
       if (!nodeIds.has(edge.source)) {
         errors.push(`Edge ${edge.id} references non-existent source node: ${edge.source}`);
       }
@@ -140,7 +146,7 @@ export class WorkflowValidator {
     // Check for cycles (simple detection)
     const hasCycle = this.detectCycle(nodes, edges);
     if (hasCycle) {
-      errors.push('Workflow contains a cycle - this may cause infinite loops');
+      errors.push("Workflow contains a cycle - this may cause infinite loops");
     }
 
     return {
@@ -154,10 +160,10 @@ export class WorkflowValidator {
    */
   private detectCycle(nodes: any[], edges: any[]): boolean {
     const graph = new Map<string, string[]>();
-    
+
     // Build adjacency list
-    nodes.forEach(node => graph.set(node.id, []));
-    edges.forEach(edge => {
+    nodes.forEach((node) => graph.set(node.id, []));
+    edges.forEach((edge) => {
       const neighbors = graph.get(edge.source) || [];
       neighbors.push(edge.target);
       graph.set(edge.source, neighbors);
@@ -199,14 +205,14 @@ export class WorkflowValidator {
     const idMap = new Map<string, string>();
 
     // Generate new IDs for all nodes
-    const newNodes = nodes.map(node => {
+    const newNodes = nodes.map((node) => {
       const newId = `${node.id}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
       idMap.set(node.id, newId);
       return { ...node, id: newId };
     });
 
     // Update edge references
-    const newEdges = edges.map(edge => ({
+    const newEdges = edges.map((edge) => ({
       ...edge,
       id: `${edge.id}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       source: idMap.get(edge.source) || edge.source,
@@ -219,7 +225,10 @@ export class WorkflowValidator {
   /**
    * Validates a workflow for common issues
    */
-  validate(workflow: Workflow): { valid: boolean; errors: ValidationError[] } {
+  validate(
+    workflow: Workflow,
+    agents: Agent[] = []
+  ): { valid: boolean; errors: ValidationError[] } {
     const errors: ValidationError[] = [];
     const nodes = workflow.nodes as WorkflowNode[];
     const edges = workflow.edges as WorkflowEdge[];
@@ -227,9 +236,9 @@ export class WorkflowValidator {
     // Check if workflow has nodes
     if (!nodes || nodes.length === 0) {
       errors.push({
-        field: 'nodes',
-        message: 'Workflow must have at least one node',
-        code: 'EMPTY_WORKFLOW',
+        field: "nodes",
+        message: "Workflow must have at least one node",
+        code: "EMPTY_WORKFLOW",
       });
       return { valid: false, errors };
     }
@@ -254,6 +263,10 @@ export class WorkflowValidator {
     const edgeErrors = this.validateEdges(nodes, edges);
     errors.push(...edgeErrors);
 
+    // Validate agent configurations when available
+    const agentConfigErrors = this.validateAgentConfigurations(nodes, agents);
+    errors.push(...agentConfigErrors);
+
     return {
       valid: errors.length === 0,
       errors,
@@ -270,8 +283,8 @@ export class WorkflowValidator {
       if (!node.id) {
         errors.push({
           field: `nodes`,
-          message: 'Node is missing required field: id',
-          code: 'MISSING_NODE_ID',
+          message: "Node is missing required field: id",
+          code: "MISSING_NODE_ID",
         });
       }
 
@@ -279,24 +292,24 @@ export class WorkflowValidator {
         errors.push({
           field: `nodes[${node.id}].type`,
           message: `Node "${node.id}" is missing required field: type`,
-          code: 'MISSING_NODE_TYPE',
+          code: "MISSING_NODE_TYPE",
         });
       }
 
       // For agent nodes, validate essential data fields
-      if (node.type === 'agent') {
+      if (node.type === "agent") {
         if (!node.data) {
           errors.push({
             field: `nodes[${node.id}].data`,
             message: `Agent node "${node.id}" is missing data`,
-            code: 'MISSING_NODE_DATA',
+            code: "MISSING_NODE_DATA",
           });
         } else {
           if (!node.data.role) {
             errors.push({
               field: `nodes[${node.id}].data.role`,
               message: `Agent node "${node.id}" is missing role`,
-              code: 'MISSING_AGENT_ROLE',
+              code: "MISSING_AGENT_ROLE",
             });
           }
 
@@ -304,7 +317,7 @@ export class WorkflowValidator {
             errors.push({
               field: `nodes[${node.id}].data.provider`,
               message: `Agent node "${node.id}" is missing provider`,
-              code: 'MISSING_AGENT_PROVIDER',
+              code: "MISSING_AGENT_PROVIDER",
             });
           }
 
@@ -312,17 +325,21 @@ export class WorkflowValidator {
             errors.push({
               field: `nodes[${node.id}].data.model`,
               message: `Agent node "${node.id}" is missing model`,
-              code: 'MISSING_AGENT_MODEL',
+              code: "MISSING_AGENT_MODEL",
             });
           }
         }
       }
 
-      if (!node.position || typeof node.position.x !== 'number' || typeof node.position.y !== 'number') {
+      if (
+        !node.position ||
+        typeof node.position.x !== "number" ||
+        typeof node.position.y !== "number"
+      ) {
         errors.push({
           field: `nodes[${node.id}].position`,
           message: `Node "${node.id}" has invalid position`,
-          code: 'INVALID_NODE_POSITION',
+          code: "INVALID_NODE_POSITION",
         });
       }
     }
@@ -340,8 +357,8 @@ export class WorkflowValidator {
     const recStack = new Set<string>();
 
     // Build adjacency list
-    nodes.forEach(node => adjList.set(node.id, []));
-    edges.forEach(edge => {
+    nodes.forEach((node) => adjList.set(node.id, []));
+    edges.forEach((edge) => {
       const neighbors = adjList.get(edge.source) || [];
       neighbors.push(edge.target);
       adjList.set(edge.source, neighbors);
@@ -364,9 +381,9 @@ export class WorkflowValidator {
           const cycleStartIndex = path.indexOf(neighbor);
           const cycle = [...path.slice(cycleStartIndex), neighbor];
           errors.push({
-            field: 'edges',
-            message: `Circular dependency detected: ${cycle.join(' → ')}`,
-            code: 'CIRCULAR_DEPENDENCY',
+            field: "edges",
+            message: `Circular dependency detected: ${cycle.join(" → ")}`,
+            code: "CIRCULAR_DEPENDENCY",
           });
           return true;
         }
@@ -398,7 +415,7 @@ export class WorkflowValidator {
     }
 
     const connectedNodes = new Set<string>();
-    edges.forEach(edge => {
+    edges.forEach((edge) => {
       connectedNodes.add(edge.source);
       connectedNodes.add(edge.target);
     });
@@ -408,7 +425,7 @@ export class WorkflowValidator {
         errors.push({
           field: `nodes[${node.id}]`,
           message: `Node "${node.id}" (${node.data?.label || node.type}) has no connections`,
-          code: 'ORPHAN_NODE',
+          code: "ORPHAN_NODE",
         });
       }
     }
@@ -419,7 +436,10 @@ export class WorkflowValidator {
   /**
    * Detects disconnected segments in the workflow
    */
-  private detectDisconnectedSegments(nodes: WorkflowNode[], edges: WorkflowEdge[]): ValidationError[] {
+  private detectDisconnectedSegments(
+    nodes: WorkflowNode[],
+    edges: WorkflowEdge[]
+  ): ValidationError[] {
     const errors: ValidationError[] = [];
 
     // Skip if only one node or no nodes
@@ -429,8 +449,8 @@ export class WorkflowValidator {
 
     // Build adjacency list (undirected for connectivity check)
     const adjList = new Map<string, Set<string>>();
-    nodes.forEach(node => adjList.set(node.id, new Set()));
-    edges.forEach(edge => {
+    nodes.forEach((node) => adjList.set(node.id, new Set()));
+    edges.forEach((edge) => {
       adjList.get(edge.source)?.add(edge.target);
       adjList.get(edge.target)?.add(edge.source);
     });
@@ -471,9 +491,9 @@ export class WorkflowValidator {
     // If there's more than one component, workflow is disconnected
     if (components.length > 1) {
       errors.push({
-        field: 'workflow',
+        field: "workflow",
         message: `Workflow has ${components.length} disconnected segments. All nodes must be connected.`,
-        code: 'DISCONNECTED_WORKFLOW',
+        code: "DISCONNECTED_WORKFLOW",
       });
     }
 
@@ -485,14 +505,14 @@ export class WorkflowValidator {
    */
   private validateEdges(nodes: WorkflowNode[], edges: WorkflowEdge[]): ValidationError[] {
     const errors: ValidationError[] = [];
-    const nodeIds = new Set(nodes.map(n => n.id));
+    const nodeIds = new Set(nodes.map((n) => n.id));
 
     for (const edge of edges) {
       if (!edge.id) {
         errors.push({
-          field: 'edges',
-          message: 'Edge is missing required field: id',
-          code: 'MISSING_EDGE_ID',
+          field: "edges",
+          message: "Edge is missing required field: id",
+          code: "MISSING_EDGE_ID",
         });
       }
 
@@ -500,13 +520,13 @@ export class WorkflowValidator {
         errors.push({
           field: `edges[${edge.id}].source`,
           message: `Edge "${edge.id}" is missing source`,
-          code: 'MISSING_EDGE_SOURCE',
+          code: "MISSING_EDGE_SOURCE",
         });
       } else if (!nodeIds.has(edge.source)) {
         errors.push({
           field: `edges[${edge.id}].source`,
           message: `Edge "${edge.id}" references non-existent source node "${edge.source}"`,
-          code: 'INVALID_EDGE_SOURCE',
+          code: "INVALID_EDGE_SOURCE",
         });
       }
 
@@ -514,13 +534,72 @@ export class WorkflowValidator {
         errors.push({
           field: `edges[${edge.id}].target`,
           message: `Edge "${edge.id}" is missing target`,
-          code: 'MISSING_EDGE_TARGET',
+          code: "MISSING_EDGE_TARGET",
         });
       } else if (!nodeIds.has(edge.target)) {
         errors.push({
           field: `edges[${edge.id}].target`,
           message: `Edge "${edge.id}" references non-existent target node "${edge.target}"`,
-          code: 'INVALID_EDGE_TARGET',
+          code: "INVALID_EDGE_TARGET",
+        });
+      }
+    }
+
+    return errors;
+  }
+
+  /**
+   * Validates that agent nodes are backed by valid agent configurations
+   */
+  private validateAgentConfigurations(nodes: WorkflowNode[], agents: Agent[]): ValidationError[] {
+    const errors: ValidationError[] = [];
+    const agentNodes = nodes.filter((node) => node.type === "agent");
+
+    const agentByNodeId = new Map<string, Agent>();
+    for (const agent of agents) {
+      agentByNodeId.set(agent.nodeId, agent);
+    }
+
+    for (const node of agentNodes) {
+      const agent = agentByNodeId.get(node.id);
+      if (!agent) {
+        errors.push({
+          field: `agents[${node.id}]`,
+          message: `Agent node "${node.id}" is missing an agent configuration`,
+          code: "MISSING_AGENT_CONFIGURATION",
+        });
+        continue;
+      }
+
+      if (!agent.name?.trim()) {
+        errors.push({
+          field: `agents[${agent.id}].name`,
+          message: `Agent configuration for node "${node.id}" is missing a name`,
+          code: "MISSING_AGENT_NAME",
+        });
+      }
+
+      if (!agent.role?.trim()) {
+        errors.push({
+          field: `agents[${agent.id}].role`,
+          message: `Agent configuration for node "${node.id}" is missing a role`,
+          code: "MISSING_AGENT_ROLE",
+        });
+      }
+
+      if (!agent.provider?.trim()) {
+        errors.push({
+          field: `agents[${agent.id}].provider`,
+          message: `Agent configuration for node "${node.id}" is missing a provider`,
+          code: "MISSING_AGENT_PROVIDER",
+        });
+      }
+
+      if (!agent.model?.trim()) {
+        errors.push({
+          field: `agents[${agent.id}].model`,
+          message: `Agent configuration for node "${node.id}" is missing a model`,
+          code: "MISSING_AGENT_MODEL",
         });
       }
     }
@@ -531,8 +610,8 @@ export class WorkflowValidator {
   /**
    * Throws a WorkflowValidationError if validation fails
    */
-  validateOrThrow(workflow: Workflow): void {
-    const result = this.validate(workflow);
+  validateOrThrow(workflow: Workflow, agents: Agent[] = []): void {
+    const result = this.validate(workflow, agents);
     if (!result.valid) {
       throw new WorkflowValidationError(result.errors);
     }
