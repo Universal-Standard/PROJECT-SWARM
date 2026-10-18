@@ -22,7 +22,7 @@ jobs:
     steps:
       - name: Add to project
         if: vars.PROJECT_BOARD_URL != null && vars.PROJECT_BOARD_URL != ''
-        uses: actions/add-to-project@v1.0.2
+        uses: actions/add-to-project@v2.0.0
         continue-on-error: true
         with:
           # Update this URL with your actual project URL after creating the project board
