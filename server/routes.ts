@@ -7,9 +7,9 @@ import {
   insertTemplateSchema,
 } from "@shared/schema";
 import { orchestrator } from "./ai/orchestrator";
-import { z } from "zod/v4";
+import { z, type ZodError } from "zod/v4";
 import { setupAuth, isAuthenticated } from "./replitAuth";
-import type { Request } from "express";
+import type { Response } from "express";
 import { workflowValidator, workflowExportSchema } from "./lib/workflow-validator";
 import { webhookHandler } from "./webhooks";
 import crypto from "crypto";
@@ -74,6 +74,21 @@ async function syncAgentsFromNodes(workflowId: string, nodes: WorkflowNode[]) {
 // Helper to get current authenticated user ID
 function getUserId(req: any): string {
   return req.user.claims.sub;
+}
+
+function getFieldValidationDetails(error: ZodError) {
+  return error.issues.map((issue) => ({
+    field: issue.path.join(".") || "root",
+    message: issue.message,
+    code: issue.code,
+  }));
+}
+
+function sendValidationError(res: Response, error: ZodError) {
+  return res.status(400).json({
+    error: "Validation failed",
+    details: getFieldValidationDetails(error),
+  });
 }
 
 export async function registerRoutes(app: Express) {
@@ -219,6 +234,9 @@ export async function registerRoutes(app: Express) {
 
       res.json(workflow);
     } catch (error: any) {
+      if (error instanceof z.ZodError) {
+        return sendValidationError(res, error);
+      }
       res.status(400).json({ error: getErrorMessage(error) });
     }
   });
@@ -280,8 +298,8 @@ export async function registerRoutes(app: Express) {
 
       res.json(workflow);
     } catch (error: any) {
-      if (error.name === "ZodError") {
-        return res.status(400).json({ error: "Invalid input", details: error.issues });
+      if (error instanceof z.ZodError) {
+        return sendValidationError(res, error);
       }
       res.status(500).json({ error: getErrorMessage(error) });
     }
@@ -367,6 +385,9 @@ export async function registerRoutes(app: Express) {
       const agent = await storage.createAgent(data);
       res.json(agent);
     } catch (error: any) {
+      if (error instanceof z.ZodError) {
+        return sendValidationError(res, error);
+      }
       res.status(400).json({ error: getErrorMessage(error) });
     }
   });
@@ -449,8 +470,8 @@ export async function registerRoutes(app: Express) {
 
       res.json(updatedAgent);
     } catch (error: any) {
-      if (error.name === "ZodError") {
-        return res.status(400).json({ error: "Invalid input", details: error.issues });
+      if (error instanceof z.ZodError) {
+        return sendValidationError(res, error);
       }
       res.status(500).json({ error: getErrorMessage(error) });
     }
@@ -524,8 +545,8 @@ export async function registerRoutes(app: Express) {
       const execution = await orchestrator.executeWorkflow(workflowId, input);
       res.json(execution);
     } catch (error: any) {
-      if (error.name === "ZodError") {
-        return res.status(400).json({ error: "Invalid input", details: error.issues });
+      if (error instanceof z.ZodError) {
+        return sendValidationError(res, error);
       }
       res.status(500).json({ error: getErrorMessage(error) });
     }
@@ -567,8 +588,8 @@ export async function registerRoutes(app: Express) {
       }
       res.json(updatedExecution);
     } catch (error: any) {
-      if (error.name === "ZodError") {
-        return res.status(400).json({ error: "Invalid input", details: error.issues });
+      if (error instanceof z.ZodError) {
+        return sendValidationError(res, error);
       }
       res.status(500).json({ error: getErrorMessage(error) });
     }
@@ -819,6 +840,9 @@ export async function registerRoutes(app: Express) {
       const template = await storage.createTemplate(data);
       res.json(template);
     } catch (error: any) {
+      if (error instanceof z.ZodError) {
+        return sendValidationError(res, error);
+      }
       res.status(400).json({ error: getErrorMessage(error) });
     }
   });
@@ -853,8 +877,8 @@ export async function registerRoutes(app: Express) {
       const updated = await storage.updateTemplate(req.params.id, validated);
       res.json(updated);
     } catch (error: any) {
-      if (error.name === "ZodError") {
-        return res.status(400).json({ error: "Invalid input", details: error.issues });
+      if (error instanceof z.ZodError) {
+        return sendValidationError(res, error);
       }
       res.status(500).json({ error: getErrorMessage(error) });
     }
@@ -1266,8 +1290,8 @@ Be concise, practical, and provide actionable guidance. When relevant, suggest s
 
       res.json({ success: true });
     } catch (error: any) {
-      if (error.name === "ZodError") {
-        return res.status(400).json({ error: "Invalid input", details: error.issues });
+      if (error instanceof z.ZodError) {
+        return sendValidationError(res, error);
       }
       res.status(500).json({ error: getErrorMessage(error) });
     }
@@ -1362,8 +1386,8 @@ Be concise, practical, and provide actionable guidance. When relevant, suggest s
 
       res.json({ success: true });
     } catch (error: any) {
-      if (error.name === "ZodError") {
-        return res.status(400).json({ error: "Invalid input", details: error.issues });
+      if (error instanceof z.ZodError) {
+        return sendValidationError(res, error);
       }
       res.status(500).json({ error: getErrorMessage(error) });
     }
@@ -1814,6 +1838,9 @@ Be concise, practical, and provide actionable guidance. When relevant, suggest s
 
       res.json({ success: true, valid: true });
     } catch (error: any) {
+      if (error instanceof z.ZodError) {
+        return sendValidationError(res, error);
+      }
       res.status(400).json({
         success: false,
         valid: false,
