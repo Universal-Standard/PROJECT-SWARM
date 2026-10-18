@@ -57,7 +57,7 @@ jobs:
             cp client/404.html platforms/github/dist/404.html
           fi
 
-      - uses: actions/configure-pages@v5
+      - uses: actions/configure-pages@v6
 
       - uses: actions/upload-pages-artifact@v4
         with:
