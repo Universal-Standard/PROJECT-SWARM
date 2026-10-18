@@ -15,6 +15,11 @@ export interface ExecutionEventData {
   message?: string;
   role?: string;
   content?: string;
+  messageId?: string;
+  tokenCount?: number;
+  fromAgentId?: string;
+  toAgentId?: string;
+  messageTimestamp?: string;
 }
 
 export interface ExecutionEvent {
@@ -247,13 +252,20 @@ class WebSocketManager {
     agentId: string,
     agentName: string,
     role: string,
-    content: string
+    content: string,
+    options?: {
+      messageId?: string;
+      tokenCount?: number;
+      fromAgentId?: string;
+      toAgentId?: string;
+      messageTimestamp?: string;
+    }
   ) {
     this.broadcast(executionId, {
       type: "message",
       agentId,
       agentName,
-      data: { role, content },
+      data: { role, content, ...options },
     });
   }
 

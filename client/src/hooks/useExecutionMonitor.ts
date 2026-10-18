@@ -1,19 +1,54 @@
-import { useEffect, useRef, useState, useCallback } from 'react';
+import { useEffect, useRef, useState, useCallback } from "react";
+
+interface ExecutionEventData {
+  level?: string;
+  message?: string;
+  role?: string;
+  content?: string;
+  messageId?: string;
+  tokenCount?: number;
+  fromAgentId?: string;
+  toAgentId?: string;
+  messageTimestamp?: string;
+}
 
 export interface ExecutionEvent {
-  type: 'execution_started' | 'agent_started' | 'agent_completed' | 'execution_completed' | 'execution_failed' | 'log' | 'message';
+  type:
+    | "execution_started"
+    | "agent_started"
+    | "agent_completed"
+    | "execution_completed"
+    | "execution_failed"
+    | "log"
+    | "message";
   executionId: string;
   agentId?: string;
   agentName?: string;
-  data?: any;
+  data?: ExecutionEventData;
   timestamp: string;
 }
 
 export interface ExecutionStatus {
-  status: 'idle' | 'connecting' | 'connected' | 'disconnected' | 'error';
+  status: "idle" | "connecting" | "connected" | "disconnected" | "error";
   events: ExecutionEvent[];
-  logs: Array<{ level: string; message: string; agentId?: string; agentName?: string; timestamp: string }>;
-  messages: Array<{ agentId: string; agentName: string; role: string; content: string; timestamp: string }>;
+  logs: Array<{
+    level: string;
+    message: string;
+    agentId?: string;
+    agentName?: string;
+    timestamp: string;
+  }>;
+  messages: Array<{
+    id?: string;
+    agentId: string;
+    agentName: string;
+    role: string;
+    content: string;
+    tokenCount?: number;
+    fromAgentId?: string;
+    toAgentId?: string;
+    timestamp: string;
+  }>;
   currentAgent?: { id: string; name: string };
   error?: string;
 }
@@ -32,14 +67,10 @@ export function useExecutionMonitor(
   userId: string | null,
   options: UseExecutionMonitorOptions = {}
 ) {
-  const {
-    autoConnect = true,
-    reconnectInterval = 3000,
-    maxReconnectAttempts = 5,
-  } = options;
+  const { autoConnect = true, reconnectInterval = 3000, maxReconnectAttempts = 5 } = options;
 
   const [status, setStatus] = useState<ExecutionStatus>({
-    status: 'idle',
+    status: "idle",
     events: [],
     logs: [],
     messages: [],
@@ -51,50 +82,51 @@ export function useExecutionMonitor(
 
   const connect = useCallback(() => {
     if (!executionId || !userId) {
-      console.warn('[useExecutionMonitor] Missing executionId or userId');
+      console.warn("[useExecutionMonitor] Missing executionId or userId");
       return;
     }
 
     if (wsRef.current?.readyState === WebSocket.OPEN) {
-      console.log('[useExecutionMonitor] Already connected');
+      console.log("[useExecutionMonitor] Already connected");
       return;
     }
 
-    setStatus(prev => ({ ...prev, status: 'connecting' }));
+    setStatus((prev) => ({ ...prev, status: "connecting" }));
 
     // Determine WebSocket URL based on current location
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
     const host = window.location.host;
-    const wsUrl = `${protocol}//${host}/ws?executionId=${executionId}&userId=${userId}`;
+    const params = new URLSearchParams({ executionId, userId });
+    const wsUrl = `${protocol}//${host}/ws?${params.toString()}`;
 
-    console.log('[useExecutionMonitor] Connecting to:', wsUrl);
+    console.log("[useExecutionMonitor] Connecting to:", wsUrl);
 
     try {
       const ws = new WebSocket(wsUrl);
 
       ws.onopen = () => {
-        console.log('[useExecutionMonitor] Connected');
-        setStatus(prev => ({ ...prev, status: 'connected', error: undefined }));
+        console.log("[useExecutionMonitor] Connected");
+        setStatus((prev) => ({ ...prev, status: "connected", error: undefined }));
         reconnectAttemptsRef.current = 0;
       };
 
       ws.onmessage = (event) => {
         try {
           const executionEvent: ExecutionEvent = JSON.parse(event.data);
-          console.log('[useExecutionMonitor] Event received:', executionEvent.type);
+          console.log("[useExecutionMonitor] Event received:", executionEvent.type);
 
-          setStatus(prev => {
+          setStatus((prev) => {
             const newEvents = [...prev.events, executionEvent];
             const updates: Partial<ExecutionStatus> = { events: newEvents };
 
             // Handle different event types
             switch (executionEvent.type) {
-              case 'log':
+              case "log":
                 updates.logs = [
                   ...prev.logs,
                   {
-                    level: executionEvent.data?.level || 'info',
-                    message: executionEvent.data?.message || '',
+                    level: executionEvent.data?.level || "info",
+                    message: executionEvent.data?.message || "",
                     agentId: executionEvent.agentId,
                     agentName: executionEvent.agentName,
                     timestamp: executionEvent.timestamp,
@@ -102,32 +134,37 @@ export function useExecutionMonitor(
                 ];
                 break;
 
-              case 'message':
+              case "message":
                 updates.messages = [
                   ...prev.messages,
                   {
-                    agentId: executionEvent.agentId!,
-                    agentName: executionEvent.agentName!,
-                    role: executionEvent.data?.role || 'assistant',
-                    content: executionEvent.data?.content || '',
-                    timestamp: executionEvent.timestamp,
+                    id: executionEvent.data?.messageId,
+                    agentId: executionEvent.agentId || "",
+                    agentName:
+                      executionEvent.agentName || executionEvent.agentId || "Unknown agent",
+                    role: executionEvent.data?.role || "assistant",
+                    content: executionEvent.data?.content || "",
+                    tokenCount: executionEvent.data?.tokenCount,
+                    fromAgentId: executionEvent.data?.fromAgentId,
+                    toAgentId: executionEvent.data?.toAgentId,
+                    timestamp: executionEvent.data?.messageTimestamp || executionEvent.timestamp,
                   },
                 ];
                 break;
 
-              case 'agent_started':
+              case "agent_started":
                 updates.currentAgent = {
                   id: executionEvent.agentId!,
                   name: executionEvent.agentName!,
                 };
                 break;
 
-              case 'agent_completed':
+              case "agent_completed":
                 updates.currentAgent = undefined;
                 break;
 
-              case 'execution_completed':
-              case 'execution_failed':
+              case "execution_completed":
+              case "execution_failed":
                 updates.currentAgent = undefined;
                 break;
             }
@@ -135,22 +172,27 @@ export function useExecutionMonitor(
             return { ...prev, ...updates };
           });
         } catch (error) {
-          console.error('[useExecutionMonitor] Failed to parse event:', error);
+          console.error("[useExecutionMonitor] Failed to parse event:", error);
         }
       };
 
       ws.onerror = (error) => {
-        console.error('[useExecutionMonitor] WebSocket error:', error);
-        setStatus(prev => ({
+        console.error("[useExecutionMonitor] WebSocket error:", error);
+        setStatus((prev) => ({
           ...prev,
-          status: 'error',
-          error: 'WebSocket connection error',
+          status: "error",
+          error: "WebSocket connection error",
         }));
       };
 
       ws.onclose = () => {
-        console.log('[useExecutionMonitor] Disconnected');
-        setStatus(prev => ({ ...prev, status: 'disconnected' }));
+        console.log("[useExecutionMonitor] Disconnected");
+        setStatus((prev) => {
+          if (prev.status === "error") {
+            return prev;
+          }
+          return { ...prev, status: "disconnected" };
+        });
         wsRef.current = null;
 
         // Attempt to reconnect
@@ -163,22 +205,22 @@ export function useExecutionMonitor(
             connect();
           }, reconnectInterval);
         } else {
-          console.log('[useExecutionMonitor] Max reconnection attempts reached');
-          setStatus(prev => ({
+          console.log("[useExecutionMonitor] Max reconnection attempts reached");
+          setStatus((prev) => ({
             ...prev,
-            status: 'error',
-            error: 'Max reconnection attempts reached',
+            status: "error",
+            error: "Max reconnection attempts reached",
           }));
         }
       };
 
       wsRef.current = ws;
     } catch (error) {
-      console.error('[useExecutionMonitor] Failed to create WebSocket:', error);
-      setStatus(prev => ({
+      console.error("[useExecutionMonitor] Failed to create WebSocket:", error);
+      setStatus((prev) => ({
         ...prev,
-        status: 'error',
-        error: 'Failed to create WebSocket connection',
+        status: "error",
+        error: "Failed to create WebSocket connection",
       }));
     }
   }, [executionId, userId, reconnectInterval, maxReconnectAttempts]);
@@ -194,7 +236,7 @@ export function useExecutionMonitor(
       wsRef.current = null;
     }
 
-    setStatus(prev => ({ ...prev, status: 'disconnected' }));
+    setStatus((prev) => ({ ...prev, status: "disconnected" }));
   }, []);
 
   // Auto-connect when executionId and userId are available
@@ -212,9 +254,9 @@ export function useExecutionMonitor(
     status,
     connect,
     disconnect,
-    isConnected: status.status === 'connected',
-    isConnecting: status.status === 'connecting',
-    isDisconnected: status.status === 'disconnected',
-    hasError: status.status === 'error',
+    isConnected: status.status === "connected",
+    isConnecting: status.status === "connecting",
+    isDisconnected: status.status === "disconnected",
+    hasError: status.status === "error",
   };
 }

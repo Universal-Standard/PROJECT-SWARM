@@ -1,48 +1,108 @@
-import { useMemo } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { ArrowRight } from 'lucide-react';
-import type { AgentMessage, Agent } from '@shared/schema';
+import { useMemo } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import type { AgentMessage, Agent } from "@shared/schema";
 
 interface AgentCommunicationGraphProps {
   messages: AgentMessage[];
   agents: Agent[];
 }
 
+interface ConnectionEdge {
+  key: string;
+  fromId: string;
+  toId: string;
+  count: number;
+}
+
 export function AgentCommunicationGraph({ messages, agents }: AgentCommunicationGraphProps) {
-  // Create agent lookup map
   const agentMap = useMemo(() => {
     const map = new Map<string, Agent>();
-    agents.forEach(agent => map.set(agent.id, agent));
+    agents.forEach((agent) => map.set(agent.id, agent));
     return map;
   }, [agents]);
 
-  // Calculate communication metrics
   const metrics = useMemo(() => {
     const agentMessages = new Map<string, number>();
     const agentTokens = new Map<string, number>();
-    const connections = new Map<string, Set<string>>();
+    const connections = new Map<string, number>();
 
-    messages.forEach(message => {
-      // Count messages per agent
+    messages.forEach((message) => {
       const count = agentMessages.get(message.agentId) || 0;
       agentMessages.set(message.agentId, count + 1);
 
-      // Count tokens per agent
       const tokens = agentTokens.get(message.agentId) || 0;
       agentTokens.set(message.agentId, tokens + (message.tokenCount || 0));
 
-      // Track connections
       if (message.fromAgentId && message.toAgentId) {
         const key = `${message.fromAgentId}-${message.toAgentId}`;
-        if (!connections.has(key)) {
-          connections.set(key, new Set());
-        }
+        connections.set(key, (connections.get(key) || 0) + 1);
       }
     });
 
-    return { agentMessages, agentTokens, connections };
-  }, [messages]);
+    const connectionEdges: ConnectionEdge[] = Array.from(connections.entries())
+      .map(([key, count]) => {
+        const [fromId, toId] = key.split("-");
+        return { key, fromId, toId, count };
+      })
+      .filter((edge) => agentMap.has(edge.fromId) && agentMap.has(edge.toId));
+
+    return { agentMessages, agentTokens, connectionEdges };
+  }, [messages, agentMap]);
+
+  const graphLayout = useMemo(() => {
+    const width = 900;
+    const height = 340;
+    const centerX = width / 2;
+    const centerY = height / 2;
+    const radius = Math.max(90, Math.min(130, Math.min(width, height) / 2 - 55));
+    const nodeRadius = 24;
+
+    const nodes = agents.map((agent, index) => {
+      const angle = (index / Math.max(agents.length, 1)) * Math.PI * 2 - Math.PI / 2;
+      return {
+        agent,
+        x: centerX + radius * Math.cos(angle),
+        y: centerY + radius * Math.sin(angle),
+      };
+    });
+
+    const nodePositionMap = new Map(nodes.map((node) => [node.agent.id, node]));
+    const maxEdgeCount = metrics.connectionEdges.reduce(
+      (max, edge) => Math.max(max, edge.count),
+      1
+    );
+
+    const edges = metrics.connectionEdges
+      .map((edge) => {
+        const fromNode = nodePositionMap.get(edge.fromId);
+        const toNode = nodePositionMap.get(edge.toId);
+        if (!fromNode || !toNode) {
+          return null;
+        }
+
+        const dx = toNode.x - fromNode.x;
+        const dy = toNode.y - fromNode.y;
+        const length = Math.sqrt(dx * dx + dy * dy) || 1;
+        const unitX = dx / length;
+        const unitY = dy / length;
+
+        const x1 = fromNode.x + unitX * nodeRadius;
+        const y1 = fromNode.y + unitY * nodeRadius;
+        const x2 = toNode.x - unitX * nodeRadius;
+        const y2 = toNode.y - unitY * nodeRadius;
+        const strokeWidth = 1.5 + (edge.count / maxEdgeCount) * 3;
+
+        return { ...edge, x1, y1, x2, y2, strokeWidth };
+      })
+      .filter((edge): edge is NonNullable<typeof edge> => edge !== null);
+
+    return { width, height, nodes, edges };
+  }, [agents, metrics.connectionEdges]);
+
+  const topConnections = useMemo(() => {
+    return [...metrics.connectionEdges].sort((a, b) => b.count - a.count).slice(0, 5);
+  }, [metrics.connectionEdges]);
 
   return (
     <Card className="h-full">
@@ -56,12 +116,11 @@ export function AgentCommunicationGraph({ messages, agents }: AgentCommunication
           </div>
         ) : (
           <div className="space-y-4">
-            {/* Agent Activity Grid */}
             <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
-              {agents.map(agent => {
+              {agents.map((agent) => {
                 const messageCount = metrics.agentMessages.get(agent.id) || 0;
                 const tokenCount = metrics.agentTokens.get(agent.id) || 0;
-                
+
                 return (
                   <div
                     key={agent.id}
@@ -91,26 +150,104 @@ export function AgentCommunicationGraph({ messages, agents }: AgentCommunication
               })}
             </div>
 
-            {/* Communication Flow */}
-            {messages.some(m => m.fromAgentId && m.toAgentId) && (
+            {graphLayout.edges.length > 0 ? (
+              <div className="border-t pt-4 space-y-4">
+                <h4 className="text-sm font-medium">Communication Graph</h4>
+                <div className="rounded-lg border bg-muted/20 p-2">
+                  <svg
+                    viewBox={`0 0 ${graphLayout.width} ${graphLayout.height}`}
+                    className="w-full h-[320px]"
+                  >
+                    <defs>
+                      <marker
+                        id="graph-arrowhead"
+                        markerWidth="8"
+                        markerHeight="6"
+                        refX="7"
+                        refY="3"
+                        orient="auto"
+                      >
+                        <polygon points="0 0, 8 3, 0 6" className="fill-muted-foreground/70" />
+                      </marker>
+                    </defs>
+
+                    {graphLayout.edges.map((edge) => (
+                      <g key={edge.key}>
+                        <line
+                          x1={edge.x1}
+                          y1={edge.y1}
+                          x2={edge.x2}
+                          y2={edge.y2}
+                          stroke="currentColor"
+                          className="text-muted-foreground/70"
+                          strokeWidth={edge.strokeWidth}
+                          markerEnd="url(#graph-arrowhead)"
+                        />
+                        <text
+                          x={(edge.x1 + edge.x2) / 2}
+                          y={(edge.y1 + edge.y2) / 2 - 5}
+                          textAnchor="middle"
+                          className="fill-foreground text-[11px] font-medium"
+                        >
+                          {edge.count}
+                        </text>
+                      </g>
+                    ))}
+
+                    {graphLayout.nodes.map((node) => (
+                      <g key={node.agent.id}>
+                        <circle
+                          cx={node.x}
+                          cy={node.y}
+                          r="24"
+                          className="stroke-primary"
+                          strokeWidth="1.5"
+                          fill="hsl(var(--primary) / 0.12)"
+                        />
+                        <text
+                          x={node.x}
+                          y={node.y + 4}
+                          textAnchor="middle"
+                          className="fill-foreground text-xs font-semibold"
+                        >
+                          {node.agent.name.slice(0, 10)}
+                        </text>
+                      </g>
+                    ))}
+                  </svg>
+                </div>
+
+                <div className="text-xs text-muted-foreground">
+                  Line thickness and labels represent message volume between agents.
+                </div>
+              </div>
+            ) : (
+              <div className="border-t pt-4 text-sm text-muted-foreground">
+                No direct agent-to-agent links detected yet. Run a workflow with chained handoffs to
+                visualize edges.
+              </div>
+            )}
+
+            {topConnections.length > 0 && (
               <div className="border-t pt-4">
-                <h4 className="text-sm font-medium mb-3">Communication Flow</h4>
+                <h4 className="text-sm font-medium mb-3">Top Connections</h4>
                 <div className="space-y-2">
-                  {Array.from(metrics.connections.keys()).map(key => {
-                    const [fromId, toId] = key.split('-');
-                    const fromAgent = agentMap.get(fromId);
-                    const toAgent = agentMap.get(toId);
-                    
-                    if (!fromAgent || !toAgent) return null;
-                    
+                  {topConnections.map((edge) => {
+                    const fromAgent = agentMap.get(edge.fromId);
+                    const toAgent = agentMap.get(edge.toId);
+                    if (!fromAgent || !toAgent) {
+                      return null;
+                    }
+
                     return (
                       <div
-                        key={key}
-                        className="flex items-center gap-2 p-2 bg-muted rounded-lg text-sm"
+                        key={edge.key}
+                        className="flex items-center justify-between p-2 bg-muted rounded-lg text-sm"
                       >
-                        <span className="font-medium">{fromAgent.name}</span>
-                        <ArrowRight className="w-4 h-4 text-muted-foreground" />
-                        <span className="font-medium">{toAgent.name}</span>
+                        <span className="font-medium">
+                          {fromAgent.name} → {toAgent.name}
+                        </span>
+                        <Badge variant="outline">{edge.count} msgs</Badge>
                       </div>
                     );
                   })}
@@ -118,7 +255,6 @@ export function AgentCommunicationGraph({ messages, agents }: AgentCommunication
               </div>
             )}
 
-            {/* Summary Stats */}
             <div className="border-t pt-4">
               <div className="grid grid-cols-3 gap-4 text-center">
                 <div>
