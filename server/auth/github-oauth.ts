@@ -12,6 +12,14 @@ const GITHUB_CLIENT_SECRET = process.env.GITHUB_CLIENT_SECRET;
 const GITHUB_REDIRECT_URI =
   process.env.GITHUB_REDIRECT_URI || "http://localhost:5000/api/auth/github/callback";
 
+function getGitHubClientId(): string | undefined {
+  return process.env.GITHUB_CLIENT_ID || GITHUB_CLIENT_ID;
+}
+
+function getGitHubClientSecret(): string | undefined {
+  return process.env.GITHUB_CLIENT_SECRET || GITHUB_CLIENT_SECRET;
+}
+
 /**
  * Generate GitHub OAuth authorization URL
  * @param state CSRF protection state token
@@ -19,7 +27,7 @@ const GITHUB_REDIRECT_URI =
  */
 export function getGitHubAuthUrl(state: string): string {
   const params = new URLSearchParams({
-    client_id: GITHUB_CLIENT_ID || "",
+    client_id: getGitHubClientId() || "",
     redirect_uri: GITHUB_REDIRECT_URI,
     scope: "repo,user:email,read:org",
     state,
@@ -45,8 +53,8 @@ export async function exchangeCodeForToken(code: string): Promise<{
       Accept: "application/json",
     },
     body: JSON.stringify({
-      client_id: GITHUB_CLIENT_ID,
-      client_secret: GITHUB_CLIENT_SECRET,
+      client_id: getGitHubClientId(),
+      client_secret: getGitHubClientSecret(),
       code,
       redirect_uri: GITHUB_REDIRECT_URI,
     }),
@@ -58,9 +66,10 @@ export async function exchangeCodeForToken(code: string): Promise<{
     throw new Error(`GitHub OAuth error: ${data.error_description || data.error}`);
   }
 
-  // GitHub tokens don't expire by default, but we track when they were issued
-  const expiresAt = new Date();
-  expiresAt.setFullYear(expiresAt.getFullYear() + 1); // Set expiry to 1 year for tracking
+  const expiresAt =
+    typeof data.expires_in === "number" && data.expires_in > 0
+      ? new Date(Date.now() + data.expires_in * 1000)
+      : undefined;
 
   return {
     accessToken: data.access_token,
@@ -116,8 +125,13 @@ export function getGitHubToken(user: User): string | null {
  * @returns true if expired or no token
  */
 export function isGitHubTokenExpired(user: User): boolean {
-  if (!user.githubAccessToken || !user.githubTokenExpiry) {
+  if (!user.githubAccessToken) {
     return true;
+  }
+
+  // Non-expiring tokens are considered valid when present.
+  if (!user.githubTokenExpiry) {
+    return false;
   }
 
   return new Date(user.githubTokenExpiry) <= new Date();
@@ -128,11 +142,108 @@ export function isGitHubTokenExpired(user: User): boolean {
  * @param userId User ID
  */
 export async function revokeGitHubToken(userId: string): Promise<void> {
+  const user = await storage.getUser(userId);
+  const accessToken = user ? getGitHubToken(user) : null;
+  const clientId = getGitHubClientId();
+  const clientSecret = getGitHubClientSecret();
+
+  if (accessToken && clientId && clientSecret) {
+    try {
+      const basicAuth = Buffer.from(`${clientId}:${clientSecret}`).toString("base64");
+      await fetch(`https://api.github.com/applications/${clientId}/token`, {
+        method: "DELETE",
+        headers: {
+          Accept: "application/vnd.github+json",
+          Authorization: `Basic ${basicAuth}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          access_token: accessToken,
+        }),
+      });
+    } catch (error) {
+      logger.warn("Failed to revoke GitHub token at provider", {
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
+
   await storage.updateUser(userId, {
     githubAccessToken: null,
     githubRefreshToken: null,
     githubTokenExpiry: null,
   });
+}
+
+/**
+ * Refresh an expired GitHub OAuth token for a user.
+ * Returns null when refresh cannot be performed.
+ */
+export async function refreshGitHubToken(user: User): Promise<{
+  accessToken: string;
+  refreshToken?: string;
+  expiresAt?: Date;
+} | null> {
+  if (!user.githubRefreshToken) {
+    return null;
+  }
+
+  let decryptedRefreshToken: string;
+  try {
+    decryptedRefreshToken = decrypt(user.githubRefreshToken);
+  } catch (error) {
+    logger.error("Error decrypting GitHub refresh token", error);
+    return null;
+  }
+
+  if (!decryptedRefreshToken) {
+    return null;
+  }
+
+  const clientId = getGitHubClientId();
+  const clientSecret = getGitHubClientSecret();
+  if (!clientId || !clientSecret) {
+    logger.warn("GitHub OAuth client credentials are not configured; cannot refresh token");
+    return null;
+  }
+
+  const response = await fetch("https://github.com/login/oauth/access_token", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/json",
+    },
+    body: JSON.stringify({
+      client_id: clientId,
+      client_secret: clientSecret,
+      grant_type: "refresh_token",
+      refresh_token: decryptedRefreshToken,
+    }),
+  });
+
+  let data: Record<string, unknown>;
+  try {
+    data = await response.json();
+  } catch {
+    logger.warn("GitHub token refresh returned non-JSON response");
+    return null;
+  }
+
+  if (!response.ok || data.error || !data.access_token) {
+    logger.warn("GitHub token refresh failed", data.error || "missing_access_token");
+    return null;
+  }
+
+  const expiresAt =
+    typeof data.expires_in === "number" && data.expires_in > 0
+      ? new Date(Date.now() + data.expires_in * 1000)
+      : undefined;
+
+  return {
+    accessToken: String(data.access_token),
+    refreshToken: data.refresh_token ? String(data.refresh_token) : decryptedRefreshToken,
+    expiresAt,
+  };
 }
 
 /**
