@@ -25,6 +25,7 @@ import AppWorkflows from "@/pages/app-workflows";
 import AppExecutions from "@/pages/app-executions";
 import AppTemplates from "@/pages/app-templates";
 import AppAssistant from "@/pages/app-assistant";
+import AppRepositories from "@/pages/app-repositories";
 import AppSettings from "@/pages/app-settings";
 import WorkflowBuilder from "@/pages/workflow-builder";
 import ExecutionMonitor from "@/pages/execution-monitor";
@@ -70,6 +71,7 @@ function AppRouter() {
       <Route path="/app/executions/:id/detail" component={AppExecutionDetail} />
       <Route path="/app/executions/:id" component={ExecutionMonitor} />
       <Route path="/app/templates" component={AppTemplates} />
+      <Route path="/app/repositories" component={AppRepositories} />
       <Route path="/app/assistant" component={AppAssistant} />
       <Route path="/app/settings" component={AppSettings} />
       <Route path="/app/analytics" component={AppAnalytics} />
