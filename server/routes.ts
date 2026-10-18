@@ -1237,6 +1237,9 @@ Be concise, practical, and provide actionable guidance. When relevant, suggest s
       if (!version) {
         return res.status(404).json({ error: "Version not found" });
       }
+      if (version.workflowId !== req.params.id) {
+        return res.status(404).json({ error: "Version not found for workflow" });
+      }
 
       res.json(version);
     } catch (error: any) {
@@ -1305,6 +1308,41 @@ Be concise, practical, and provide actionable guidance. When relevant, suggest s
         await versionManager.restoreVersion(req.params.id, req.params.versionId, userId);
         res.json({ success: true });
       } catch (error: any) {
+        res.status(500).json({ error: getErrorMessage(error) });
+      }
+    }
+  );
+
+  app.post(
+    "/api/workflows/:id/versions/:versionId/branch",
+    isAuthenticated,
+    async (req: any, res) => {
+      try {
+        const userId = getUserId(req);
+        const workflow = await storage.getWorkflowById(req.params.id);
+
+        if (!workflow || workflow.userId !== userId) {
+          return res.status(403).json({ error: "Forbidden" });
+        }
+
+        const branchSchema = z.object({
+          branchName: z.string().trim().min(1).max(80),
+          commitMessage: z.string().trim().max(500).optional(),
+        });
+
+        const { branchName, commitMessage } = branchSchema.parse(req.body);
+        const version = await versionManager.createBranch(
+          req.params.id,
+          req.params.versionId,
+          userId,
+          branchName,
+          commitMessage
+        );
+        res.json(version);
+      } catch (error: any) {
+        if (error.name === "ZodError") {
+          return res.status(400).json({ error: "Invalid input", details: error.issues });
+        }
         res.status(500).json({ error: getErrorMessage(error) });
       }
     }
@@ -1387,10 +1425,48 @@ Be concise, practical, and provide actionable guidance. When relevant, suggest s
 
   app.put("/api/versions/:versionId/tag", isAuthenticated, async (req: any, res) => {
     try {
-      const { tag } = req.body;
+      const userId = getUserId(req);
+      const version = await versionManager.getVersion(req.params.versionId);
+      if (!version) {
+        return res.status(404).json({ error: "Version not found" });
+      }
+      const workflow = await storage.getWorkflowById(version.workflowId);
+      if (!workflow || workflow.userId !== userId) {
+        return res.status(403).json({ error: "Forbidden" });
+      }
+
+      const tagSchema = z.object({ tag: z.string().trim().max(80).nullable() });
+      const { tag } = tagSchema.parse(req.body);
       await versionManager.tagVersion(req.params.versionId, tag);
       res.json({ success: true });
     } catch (error: any) {
+      if (error.name === "ZodError") {
+        return res.status(400).json({ error: "Invalid input", details: error.issues });
+      }
+      res.status(500).json({ error: getErrorMessage(error) });
+    }
+  });
+
+  app.put("/api/versions/:versionId/name", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserId(req);
+      const version = await versionManager.getVersion(req.params.versionId);
+      if (!version) {
+        return res.status(404).json({ error: "Version not found" });
+      }
+      const workflow = await storage.getWorkflowById(version.workflowId);
+      if (!workflow || workflow.userId !== userId) {
+        return res.status(403).json({ error: "Forbidden" });
+      }
+
+      const nameSchema = z.object({ name: z.string().trim().min(1).max(120) });
+      const { name } = nameSchema.parse(req.body);
+      await versionManager.nameVersion(req.params.versionId, name);
+      res.json({ success: true });
+    } catch (error: any) {
+      if (error.name === "ZodError") {
+        return res.status(400).json({ error: "Invalid input", details: error.issues });
+      }
       res.status(500).json({ error: getErrorMessage(error) });
     }
   });

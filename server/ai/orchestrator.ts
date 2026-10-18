@@ -36,11 +36,28 @@ export class WorkflowOrchestrator {
 
     const agents = await storage.getAgentsByWorkflowId(workflowId);
 
+    const requestedVersionId =
+      input && typeof input === "object" && "workflowVersionId" in input
+        ? String((input as { workflowVersionId?: unknown }).workflowVersionId || "")
+        : "";
+    let executionVersionId: string | null = null;
+    if (requestedVersionId) {
+      const requestedVersion = await versionManager.getVersion(requestedVersionId);
+      if (requestedVersion && requestedVersion.workflowId === workflowId) {
+        executionVersionId = requestedVersion.id;
+      }
+    }
+    if (!executionVersionId) {
+      const activeVersion = await versionManager.getActiveVersion(workflowId);
+      executionVersionId = activeVersion?.id ?? null;
+    }
+
     const execution = await storage.createExecution({
       workflowId,
       userId: workflow.userId,
       status: "running",
       input,
+      workflowVersionId: executionVersionId,
     });
 
     try {
@@ -234,7 +251,9 @@ export class WorkflowOrchestrator {
 
       // Update version statistics
       try {
-        await versionManager.updateVersionStats(workflowId, true, duration);
+        if (executionVersionId) {
+          await versionManager.updateVersionStats(executionVersionId, true, duration);
+        }
       } catch (versionError: any) {
         logger.error("Error updating version stats", versionError);
       }
@@ -256,7 +275,9 @@ export class WorkflowOrchestrator {
 
         // Update version statistics with failure
         try {
-          await versionManager.updateVersionStats(workflowId, false, duration);
+          if (executionVersionId) {
+            await versionManager.updateVersionStats(executionVersionId, false, duration);
+          }
         } catch (versionError: any) {
           logger.error("Error updating version stats", versionError);
         }

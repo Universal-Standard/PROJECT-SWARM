@@ -194,8 +194,22 @@ export default function AppSettings() {
     }
   }, [isAuthenticated, authLoading, toast]);
 
-  const handleLogout = () => {
-    window.location.href = "/api/logout";
+  const handleLogout = async () => {
+    try {
+      const res = await apiRequest("POST", "/api/logout");
+      const data = await res.json();
+      if (data?.logoutUrl) {
+        window.location.href = data.logoutUrl;
+      } else {
+        window.location.href = "/";
+      }
+    } catch {
+      toast({
+        title: "Logout failed",
+        description: "Please try again.",
+        variant: "destructive",
+      });
+    }
   };
 
   if (authLoading || !isAuthenticated) {
